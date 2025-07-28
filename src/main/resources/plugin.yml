@@ -1,0 +1,4 @@
+name: ChessWar
+version: ${version}
+main: dev.tecte.chessWar.ChessWar
+api-version: '1.21'
