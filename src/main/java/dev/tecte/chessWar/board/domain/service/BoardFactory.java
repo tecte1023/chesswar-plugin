@@ -1,9 +1,10 @@
 package dev.tecte.chessWar.board.domain.service;
 
+import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.domain.model.*;
 import dev.tecte.chessWar.board.domain.repository.BoardConfigRepository;
 import lombok.RequiredArgsConstructor;
-import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.bukkit.util.BoundingBox;
 
 @RequiredArgsConstructor
@@ -12,10 +13,10 @@ public class BoardFactory {
     private final OrientationCalculator orientationCalculator;
     private final SquareGridFactory squareGridFactory;
 
-    public Board createBoard(Location location) {
+    public Board createBoard(Player player) {
         BoardConfig boardConfig = boardConfigRepository.getBoardConfig();
-        Orientation orientation = orientationCalculator.createOrientation(location.getYaw());
-        Square[][] squares = squareGridFactory.createSquares(boardConfig.squareConfig(), orientation, BoundingBox.of(location.getBlock()));
+        Orientation orientation = orientationCalculator.createOrientation(player.getFacing());
+        Square[][] squares = squareGridFactory.createSquares(boardConfig, orientation, BoundingBox.of(player.getLocation().getBlock()));
         Border innerBorder = createBorder(calculateBoundingBox(squares), boardConfig.innerBorderConfig().thickness());
         Border frame = createBorder(innerBorder.boundingBox(), boardConfig.frameConfig().thickness());
 
