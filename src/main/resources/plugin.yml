@@ -2,3 +2,7 @@ name: ChessWar
 version: ${version}
 main: dev.tecte.chessWar.ChessWar
 api-version: '1.21'
+commands:
+  board:
+    description: 보드판 관련 명령어를 처리합니다.
+    usage: /<command> [create]
