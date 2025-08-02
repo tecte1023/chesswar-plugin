@@ -1,28 +1,24 @@
-package dev.tecte.chessWar.board.domain.service;
+package dev.tecte.chessWar.board.domain.model;
 
-import dev.tecte.chessWar.board.domain.model.*;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
-public class SquareGridFactory {
-    public Square[][] createSquares(BoardConfig config, Orientation orientation, BoundingBox boundingBox) {
-        SquareConfig squareConfig = config.squareConfig();
-        int innerBorderThickness = config.innerBorderConfig().thickness();
-        int frameThickness = config.frameConfig().thickness();
+public record SquareGrid(
+        Square[][] squares
+) {
+    @Contract("_, _, _ -> new")
+    public static @NotNull SquareGrid from(@NotNull SquareConfig squareConfig, @NotNull Orientation orientation, @NotNull BoundingBox boundingBox) {
         int rowCount = squareConfig.rowCount();
         int columnCount = squareConfig.columnCount();
         int width = squareConfig.width();
         int height = squareConfig.height();
-        Square[][] squares = new Square[rowCount][columnCount];
 
         Vector forward = orientation.forward();
-        Vector left = orientation.left();
         Vector right = orientation.right();
 
-        boundingBox.shift(forward.clone().multiply(innerBorderThickness + frameThickness + 1))
-                .shift(left.clone().multiply(width * columnCount / 2))
-                .expand(right, width - 1)
-                .expand(forward, height - 1);
+        Square[][] squares = new Square[rowCount][columnCount];
 
         for (int row = 0; row < rowCount; row++) {
             for (int col = 0; col < columnCount; col++) {
@@ -39,6 +35,24 @@ public class SquareGridFactory {
             }
         }
 
-        return squares;
+        return new SquareGrid(squares);
+    }
+
+    @Contract("-> !null")
+    public @NotNull BoundingBox getBoundingBox() {
+        BoundingBox boundingBox = squares[0][0].boundingBox().clone();
+
+        for (Square[] row : squares) {
+            for (Square square : row) {
+                boundingBox.union(square.boundingBox());
+            }
+        }
+
+        return boundingBox;
+    }
+
+    @Contract("_, _ -> !null")
+    public Square getSquareAt(int row, int col) {
+        return squares[row][col];
     }
 }

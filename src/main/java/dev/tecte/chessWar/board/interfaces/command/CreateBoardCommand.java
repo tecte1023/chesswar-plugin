@@ -20,7 +20,7 @@ public class CreateBoardCommand implements CommandExecutor {
         }
 
         if (args.length == 1 && args[0].equalsIgnoreCase("create")) {
-            boardService.createAndRenderBoard(player);
+            boardService.createBoard(player);
             player.sendMessage("체스판이 생성되었습니다.");
             return true;
         }

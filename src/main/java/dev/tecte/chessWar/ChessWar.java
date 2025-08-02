@@ -12,9 +12,7 @@ import dev.tecte.chessWar.board.interfaces.command.BoardTabCompleter;
 import dev.tecte.chessWar.board.interfaces.command.CreateBoardCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import javax.swing.*;
 import java.util.Objects;
-import java.util.logging.Level;
 
 public final class ChessWar extends JavaPlugin {
 
