@@ -17,11 +17,11 @@ import java.util.logging.Logger;
 public class YmlBoardConfigAdapter implements BoardConfigRepository {
     private static final String PREFIX = "board.config.";
 
-    private static final int DEFAULT_ROW_COUNT = 3;
+    private static final int DEFAULT_ROW_COUNT = 8;
     private static final int MIN_ROW_COUNT = 1;
     private static final int MAX_ROW_COUNT = 16;
 
-    private static final int DEFAULT_COLUMN_COUNT = 3;
+    private static final int DEFAULT_COLUMN_COUNT = 8;
     private static final int MIN_COLUMN_COUNT = 1;
     private static final int MAX_COLUMN_COUNT = 16;
 
