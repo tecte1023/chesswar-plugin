@@ -11,23 +11,32 @@ import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.util.BoundingBox;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor
 public class BukkitBoardRenderer implements BoardRenderer {
     private final BoardConfigRepository boardConfigRepository;
 
     @Override
-    public void render(Board board, World world) {
+    public void render(@NotNull Board board, @NotNull World world) {
         BoardConfig config = boardConfigRepository.getBoardConfig();
-        SquareConfig squareConfig = config.squareConfig();
+
+        renderSquares(board, world, config.squareConfig());
+        renderBorder(board.innerBorder(), world, config.innerBorderConfig().block());
+        renderBorder(board.frame(), world, config.frameConfig().block());
+    }
+
+    private void renderSquares(@NotNull Board board, @NotNull World world, @NotNull SquareConfig squareConfig) {
         int rowCount = squareConfig.rowCount();
         int columnCount = squareConfig.columnCount();
-        Square[][] squares = board.squares();
+        SquareGrid squareGrid = board.squares();
 
         for (int row = 0; row < rowCount; row++) {
             for (int col = 0; col < columnCount; col++) {
-                BoundingBox boundingBox = squares[row][col].boundingBox();
-                Material material = squares[row][col].color() == SquareColor.BLACK ? squareConfig.blackBlock() : squareConfig.whiteBlock();
+                Square square = squareGrid.getSquareAt(row, col);
+                BoundingBox boundingBox = square.boundingBox();
+                Material material = square.color() == SquareColor.BLACK ? squareConfig.blackBlock() : squareConfig.whiteBlock();
 
                 for (int x = (int) boundingBox.getMinX(); x < boundingBox.getMaxX(); x++) {
                     for (int z = (int) boundingBox.getMinZ(); z < boundingBox.getMaxZ(); z++) {
@@ -36,59 +45,40 @@ public class BukkitBoardRenderer implements BoardRenderer {
                 }
             }
         }
+    }
 
-        Border innerBorder = board.innerBorder();
-        BoundingBox innerBoundingBox = innerBorder.boundingBox();
-        int thickness = innerBorder.thickness();
-        Material innerBorderMaterial = config.innerBorderConfig().block();
-        BlockData innerBorderBlockDataX = Bukkit.createBlockData(innerBorderMaterial, data -> {
-            if (data instanceof Orientable orientable) {
-                orientable.setAxis(Axis.X);
-            }
-        });
-        BlockData innerBorderBlockDataZ = Bukkit.createBlockData(innerBorderMaterial, data -> {
-            if (data instanceof Orientable orientable) {
-                orientable.setAxis(Axis.Z);
-            }
-        });
+    private void renderBorder(@NotNull Border border, @NotNull World world, @NotNull Material material) {
+        BlockData blockDataX = createOrientableBlockData(material, Axis.X);
+        BlockData blockDataZ = createOrientableBlockData(material, Axis.Z);
+
+        BoundingBox boundingBox = border.boundingBox();
+        int thickness = border.thickness();
+
+        int minY = (int) boundingBox.getMinY();
+        int minX = (int) boundingBox.getMinX();
+        int minZ = (int) boundingBox.getMinZ();
+        int maxX = (int) boundingBox.getMaxX();
+        int maxZ = (int) boundingBox.getMaxZ();
 
         for (int i = 0; i < thickness; i++) {
-            for (int x = (int) innerBoundingBox.getMinX() + i; x < innerBoundingBox.getMaxX() - i; x++) {
-                world.getBlockAt(x, (int) innerBoundingBox.getMinY(), (int) (innerBoundingBox.getMaxZ() - 1 - i)).setBlockData(innerBorderBlockDataX, false);
-                world.getBlockAt(x, (int) innerBoundingBox.getMinY(), (int) (innerBoundingBox.getMinZ() + i)).setBlockData(innerBorderBlockDataX, false);
+            for (int x = minX + i; x < maxX - i; x++) {
+                world.getBlockAt(x, minY, maxZ - 1 - i).setBlockData(blockDataX, false);
+                world.getBlockAt(x, minY, minZ + i).setBlockData(blockDataX, false);
             }
 
-            for (int z = (int) innerBoundingBox.getMinZ() + (i + 1); z < innerBoundingBox.getMaxZ() - (i + 1); z++) {
-                world.getBlockAt((int) (innerBoundingBox.getMaxX() - 1 - i), (int) innerBoundingBox.getMinY(), z).setBlockData(innerBorderBlockDataZ, false);
-                world.getBlockAt((int) (innerBoundingBox.getMinX() + i), (int) innerBoundingBox.getMinY(), z).setBlockData(innerBorderBlockDataZ, false);
+            for (int z = minZ + i + 1; z < maxZ - i - 1; z++) {
+                world.getBlockAt(maxX - 1 - i, minY, z).setBlockData(blockDataZ, false);
+                world.getBlockAt(minX + i, minY, z).setBlockData(blockDataZ, false);
             }
         }
+    }
 
-        Border frame = board.frame();
-        BoundingBox frameBoundingBox = frame.boundingBox();
-        int frameThickness = frame.thickness();
-        Material frameMaterial = config.frameConfig().block();
-        BlockData frameBlockDataX = Bukkit.createBlockData(frameMaterial, data -> {
+    @Contract(value = "_, _ -> new", pure = true)
+    private @NotNull BlockData createOrientableBlockData(@NotNull Material material, @NotNull Axis axis) {
+        return Bukkit.createBlockData(material, data -> {
             if (data instanceof Orientable orientable) {
-                orientable.setAxis(Axis.X);
+                orientable.setAxis(axis);
             }
         });
-        BlockData frameBlockDataZ = Bukkit.createBlockData(frameMaterial, data -> {
-            if (data instanceof Orientable orientable) {
-                orientable.setAxis(Axis.Z);
-            }
-        });
-
-        for (int i = 0; i < frameThickness; i++) {
-            for (int x = (int) frameBoundingBox.getMinX() + i; x < frameBoundingBox.getMaxX() - i; x++) {
-                world.getBlockAt(x, (int) frameBoundingBox.getMinY(), (int) (frameBoundingBox.getMaxZ() - 1 - i)).setBlockData(frameBlockDataX, false);
-                world.getBlockAt(x, (int) frameBoundingBox.getMinY(), (int) (frameBoundingBox.getMinZ() + i)).setBlockData(frameBlockDataX, false);
-            }
-
-            for (int z = (int) frameBoundingBox.getMinZ() + (i + 1); z < frameBoundingBox.getMaxZ() - (i + 1); z++) {
-                world.getBlockAt((int) (frameBoundingBox.getMaxX() - 1 - i), (int) frameBoundingBox.getMinY(), z).setBlockData(frameBlockDataZ, false);
-                world.getBlockAt((int) (frameBoundingBox.getMinX() + i), (int) frameBoundingBox.getMinY(), z).setBlockData(frameBlockDataZ, false);
-            }
-        }
     }
 }
