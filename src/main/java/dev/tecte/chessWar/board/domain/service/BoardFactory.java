@@ -17,12 +17,12 @@ public class BoardFactory {
         BoardConfig boardConfig = boardConfigRepository.getBoardConfig();
         Orientation orientation = Orientation.from(player.getFacing());
 
-        SquareGrid squareGrid = SquareGrid.from(boardConfig.squareConfig(), orientation, createGridBoundingBox(player, boardConfig, orientation));
-        Border innerBorder = Border.from(squareGrid.getBoundingBox(), boardConfig.innerBorderConfig().thickness());
+        SquareGrid squares = SquareGrid.from(boardConfig.squareConfig(), orientation, createGridBoundingBox(player, boardConfig, orientation));
+        Border innerBorder = Border.from(squares.getBoundingBox(), boardConfig.innerBorderConfig().thickness());
         Border frame = Border.from(innerBorder.boundingBox(), boardConfig.frameConfig().thickness());
 
         return Board.builder()
-                .squares(squareGrid.squares())
+                .squares(squares)
                 .innerBorder(innerBorder)
                 .frame(frame)
                 .build();

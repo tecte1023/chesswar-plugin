@@ -4,8 +4,6 @@ import dev.tecte.chessWar.board.application.BoardRenderer;
 import dev.tecte.chessWar.board.application.BoardService;
 import dev.tecte.chessWar.board.domain.repository.BoardConfigRepository;
 import dev.tecte.chessWar.board.domain.service.BoardFactory;
-import dev.tecte.chessWar.board.domain.service.OrientationCalculator;
-import dev.tecte.chessWar.board.domain.service.SquareGridFactory;
 import dev.tecte.chessWar.board.infrastructure.bukkit.BukkitBoardRenderer;
 import dev.tecte.chessWar.board.infrastructure.config.YmlBoardConfigAdapter;
 import dev.tecte.chessWar.board.interfaces.command.BoardTabCompleter;
@@ -15,14 +13,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Objects;
 
 public final class ChessWar extends JavaPlugin {
-
     @Override
     public void onEnable() {
         BoardConfigRepository boardConfigRepository = new YmlBoardConfigAdapter(getConfig(), getLogger());
-        OrientationCalculator orientationCalculator = new OrientationCalculator();
-        SquareGridFactory squareGridFactory = new SquareGridFactory();
-
-        BoardFactory boardFactory = new BoardFactory(boardConfigRepository, orientationCalculator, squareGridFactory);
+        BoardFactory boardFactory = new BoardFactory(boardConfigRepository);
         BoardRenderer boardRenderer = new BukkitBoardRenderer(boardConfigRepository);
         BoardService boardService = new BoardService(boardFactory, boardRenderer);
 
