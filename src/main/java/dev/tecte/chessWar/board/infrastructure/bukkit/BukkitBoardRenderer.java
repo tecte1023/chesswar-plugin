@@ -1,8 +1,16 @@
 package dev.tecte.chessWar.board.infrastructure.bukkit;
 
-import dev.tecte.chessWar.board.application.BoardRenderer;
-import dev.tecte.chessWar.board.domain.model.*;
-import dev.tecte.chessWar.board.domain.repository.BoardConfigRepository;
+import dev.tecte.chessWar.config.ConfigManager;
+import dev.tecte.chessWar.board.domain.model.Board;
+import dev.tecte.chessWar.board.domain.model.BoardConfig;
+import dev.tecte.chessWar.board.domain.model.Border;
+import dev.tecte.chessWar.board.domain.model.Square;
+import dev.tecte.chessWar.board.domain.model.SquareColor;
+import dev.tecte.chessWar.board.domain.model.SquareConfig;
+import dev.tecte.chessWar.board.domain.model.SquareGrid;
+import dev.tecte.chessWar.board.application.port.BoardRenderer;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Axis;
 import org.bukkit.Bukkit;
@@ -11,16 +19,16 @@ import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.util.BoundingBox;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-@RequiredArgsConstructor
+@Singleton
+@RequiredArgsConstructor(onConstructor_ = @__({@Inject}))
 public class BukkitBoardRenderer implements BoardRenderer {
-    private final BoardConfigRepository boardConfigRepository;
+    private final ConfigManager configManager;
 
     @Override
     public void render(@NotNull Board board, @NotNull World world) {
-        BoardConfig config = boardConfigRepository.getBoardConfig();
+        BoardConfig config = configManager.getPluginConfig().boardConfig();
 
         renderSquares(board, world, config.squareConfig());
         renderBorder(board.innerBorder(), world, config.innerBorderConfig().block());
@@ -30,7 +38,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
     private void renderSquares(@NotNull Board board, @NotNull World world, @NotNull SquareConfig squareConfig) {
         int rowCount = squareConfig.rowCount();
         int columnCount = squareConfig.columnCount();
-        SquareGrid squareGrid = board.squares();
+        SquareGrid squareGrid = board.squareGrid();
 
         for (int row = 0; row < rowCount; row++) {
             for (int col = 0; col < columnCount; col++) {
@@ -73,8 +81,8 @@ public class BukkitBoardRenderer implements BoardRenderer {
         }
     }
 
-    @Contract(value = "_, _ -> new", pure = true)
-    private @NotNull BlockData createOrientableBlockData(@NotNull Material material, @NotNull Axis axis) {
+    @NotNull
+    private BlockData createOrientableBlockData(@NotNull Material material, @NotNull Axis axis) {
         return Bukkit.createBlockData(material, data -> {
             if (data instanceof Orientable orientable) {
                 orientable.setAxis(axis);

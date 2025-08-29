@@ -4,7 +4,7 @@ import lombok.Builder;
 
 @Builder
 public record Board(
-        SquareGrid squares,
+        SquareGrid squareGrid,
         Border innerBorder,
         Border frame
 ) {
