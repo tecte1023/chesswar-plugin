@@ -5,15 +5,13 @@ import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import dev.tecte.chessWar.bootstrap.PluginModule;
-import dev.tecte.chessWar.team.infrastructure.scheduling.TeamPersistenceScheduler;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @SuppressWarnings("FieldMayBeFinal")
 public final class ChessWar extends JavaPlugin {
-    @Inject
     private PaperCommandManager commandManager = null;
-    @Inject
-    private TeamPersistenceScheduler teamPersistenceScheduler = null;
+//    @Inject
+//    private TeamPersistenceScheduler teamPersistenceScheduler = null;
 
     @Override
     public void onEnable() {
@@ -21,18 +19,20 @@ public final class ChessWar extends JavaPlugin {
 
         Injector injector = Guice.createInjector(new PluginModule(this));
 
-        injector.injectMembers(this);
+        commandManager = injector.getInstance(PaperCommandManager.class);
         getLogger().info("ChessWar plugin has been enabled!");
     }
 
     @Override
     public void onDisable() {
-        if (teamPersistenceScheduler != null) {
-            teamPersistenceScheduler.shutdown();
-        }
+//        if (teamPersistenceScheduler != null) {
+//            teamPersistenceScheduler.shutdown();
+//        }
 
         if (commandManager != null) {
             commandManager.unregisterCommands();
         }
+
+        getLogger().info("ChessWar plugin has been disabled!");
     }
 }

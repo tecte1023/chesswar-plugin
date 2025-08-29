@@ -1,14 +1,13 @@
 package dev.tecte.chessWar.board.domain.model;
 
 import lombok.Getter;
-import org.bukkit.util.BlockVector;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
 
 @Getter
 public final class SquareGrid {
-    private final BlockVector anchor;
+    private final Vector anchor;
     private final Orientation orientation;
     private final int rowCount;
     private final int colCount;
@@ -18,7 +17,7 @@ public final class SquareGrid {
     private final Vector rowStep;
 
     private SquareGrid(
-            @NotNull BlockVector anchor,
+            @NotNull Vector anchor,
             @NotNull Orientation orientation,
             int rowCount,
             int colCount,
@@ -32,12 +31,12 @@ public final class SquareGrid {
         this.squareWidth = squareWidth;
         this.squareHeight = squareHeight;
         colStep = orientation.getRight().clone().multiply(squareWidth);
-        rowStep = orientation.getBackward().clone().multiply(squareHeight);
+        rowStep = orientation.getForward().clone().multiply(squareHeight);
     }
 
     @NotNull
     public static SquareGrid create(
-            @NotNull BlockVector anchor,
+            @NotNull Vector anchor,
             @NotNull Orientation orientation,
             int rowCount,
             int colCount,

@@ -4,11 +4,11 @@ import dev.tecte.chessWar.board.domain.model.BorderConfig;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.board.domain.model.SquareConfig;
 import lombok.Builder;
-import org.bukkit.util.BlockVector;
+import org.bukkit.util.Vector;
 
 @Builder
 public record BoardCreationSpec(
-        BlockVector gridAnchor,
+        Vector gridAnchor,
         Orientation orientation,
         SquareConfig squareConfig,
         BorderConfig innerBorderConfig,

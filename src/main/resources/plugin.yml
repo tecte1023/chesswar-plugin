@@ -4,5 +4,6 @@ main: dev.tecte.chessWar.ChessWar
 api-version: '1.21'
 commands:
   chesswar:
+    aliases: [cw]
     description: ChessWar plugin commands
     usage: /chesswar [subcommand]

@@ -15,7 +15,8 @@ public class PluginModule extends AbstractModule {
         bind(ChessWar.class).toInstance(plugin);
         bind(JavaPlugin.class).toInstance(plugin);
 
-        install(new CommandModule());
         install(new BoardModule());
+        install(new CommandModule());
+        install(new ConfigModule(plugin));
     }
 }
