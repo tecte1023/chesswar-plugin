@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
+    id 'com.gradleup.shadow' version '8.3.0'
 }
 
 repositories {
@@ -17,8 +18,20 @@ repositories {
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT")
+    compileOnly 'org.jetbrains:annotations:24.1.0'
     compileOnly 'org.projectlombok:lombok:1.18.38'
     annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    implementation 'net.gmcbm.dependencies:acf-paper:0.5.2'
+    implementation 'com.google.inject:guice:7.0.0'
+}
+
+shadowJar {
+    relocate 'co.aikar.commands', 'dev.tecte.chesswar.libs.acf'
+    relocate 'co.aikar.locales', 'dev.tecte.chesswar.libs.locales'
+    relocate 'com.google.inject', 'dev.tecte.chesswar.libs.guice'
+    relocate 'javax.inject', 'dev.tecte.chesswar.libs.javax.inject'
+    relocate 'jakarta.inject', 'dev.tecte.chesswar.libs.jakarta.inject'
+    relocate 'org.aopalliance', 'dev.tecte.chesswar.libs.aopalliance'
 }
 
 tasks {
@@ -39,13 +52,14 @@ java {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    options.compilerArgs += "-parameters"
 
     if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
         options.release.set(targetJavaVersion)
     }
 }
 
-processResources {
+tasks.named('processResources') {
     def props = [version: version]
     inputs.properties props
     filteringCharset 'UTF-8'
@@ -56,7 +70,7 @@ processResources {
 
 // 빌드된 jar 파일을 mainPluginsDir로 복사하는 작업 (버전 포함)
 tasks.register('copyVersionedJar', Copy) {
-    from jar.archiveFile // 빌드된 jar 파일 (예: ChessWar-1.0.0.jar)
+    from shadowJar.archiveFile // 빌드된 jar 파일 (예: ChessWar-1.0.0.jar)
     def mainPluginsDir = findProperty('mainPluginsDir')
     if (mainPluginsDir && new File(mainPluginsDir as String).exists()) {
         into(mainPluginsDir)
@@ -65,7 +79,7 @@ tasks.register('copyVersionedJar', Copy) {
 
 // 빌드된 jar 파일을 serverPluginsDir로 복사하고 이름을 변경하는 작업 (버전 제외)
 tasks.register('copyUnversionedJar', Copy) {
-    from jar.archiveFile // 빌드된 jar 파일 (예: ChessWar-1.0.0.jar)
+    from shadowJar.archiveFile // 빌드된 jar 파일 (예: ChessWar-1.0.0.jar)
     def serverPluginsDir = findProperty('serverPluginsDir')
     if (serverPluginsDir && new File(serverPluginsDir as String).exists()) {
         into(serverPluginsDir)
@@ -75,5 +89,14 @@ tasks.register('copyUnversionedJar', Copy) {
 
 // build 작업 완료 후 지정된 후속 작업을 실행하도록 설정
 tasks.build.configure {
+    dependsOn(shadowJar)
     finalizedBy 'copyVersionedJar', 'copyUnversionedJar'
+}
+
+// 전이 의존성 버전 관리
+configurations.configureEach {
+    resolutionStrategy {
+        force 'org.apache.commons:commons-lang3:3.18.0' // commons-lang3 라이브러리의 버전을 3.18.0으로 강제하여 보안 취약점 해결
+        force 'com.google.guava:guava:33.2.0-jre' // Guava 버전을 보안 취약점이 해결된 버전으로 강제
+    }
 }
