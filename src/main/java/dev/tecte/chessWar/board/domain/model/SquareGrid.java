@@ -1,58 +1,77 @@
 package dev.tecte.chessWar.board.domain.model;
 
+import lombok.Getter;
+import org.bukkit.util.BlockVector;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-public record SquareGrid(
-        Square[][] squares
-) {
-    @Contract("_, _, _ -> new")
-    public static @NotNull SquareGrid from(@NotNull SquareConfig squareConfig, @NotNull Orientation orientation, @NotNull BoundingBox boundingBox) {
-        int rowCount = squareConfig.rowCount();
-        int columnCount = squareConfig.columnCount();
-        int width = squareConfig.width();
-        int height = squareConfig.height();
+@Getter
+public final class SquareGrid {
+    private final BlockVector anchor;
+    private final Orientation orientation;
+    private final int rowCount;
+    private final int colCount;
+    private final int squareWidth;
+    private final int squareHeight;
+    private final Vector colStep;
+    private final Vector rowStep;
 
-        Vector forward = orientation.forward();
-        Vector right = orientation.right();
-
-        Square[][] squares = new Square[rowCount][columnCount];
-
-        for (int row = 0; row < rowCount; row++) {
-            for (int col = 0; col < columnCount; col++) {
-                Vector squareOffset = forward.clone().multiply(row * height)
-                        .add(right.clone().multiply(col * width));
-                BoundingBox squareBoundingBox = boundingBox.clone().shift(squareOffset);
-
-                squares[row][col] = Square.builder()
-                        .logicalRow(row)
-                        .logicalCol(col)
-                        .boundingBox(squareBoundingBox)
-                        .color((row + col) % 2 == 0 ? SquareColor.BLACK : SquareColor.WHITE)
-                        .build();
-            }
-        }
-
-        return new SquareGrid(squares);
+    private SquareGrid(
+            @NotNull BlockVector anchor,
+            @NotNull Orientation orientation,
+            int rowCount,
+            int colCount,
+            int squareWidth,
+            int squareHeight
+    ) {
+        this.anchor = anchor;
+        this.orientation = orientation;
+        this.rowCount = rowCount;
+        this.colCount = colCount;
+        this.squareWidth = squareWidth;
+        this.squareHeight = squareHeight;
+        colStep = orientation.getRight().clone().multiply(squareWidth);
+        rowStep = orientation.getBackward().clone().multiply(squareHeight);
     }
 
-    @Contract("-> !null")
-    public @NotNull BoundingBox getBoundingBox() {
-        BoundingBox boundingBox = squares[0][0].boundingBox().clone();
-
-        for (Square[] row : squares) {
-            for (Square square : row) {
-                boundingBox.union(square.boundingBox());
-            }
-        }
-
-        return boundingBox;
+    @NotNull
+    public static SquareGrid create(
+            @NotNull BlockVector anchor,
+            @NotNull Orientation orientation,
+            int rowCount,
+            int colCount,
+            int squareWidth,
+            int squareHeight
+    ) {
+        return new SquareGrid(
+                anchor,
+                orientation,
+                rowCount,
+                colCount,
+                squareWidth,
+                squareHeight
+        );
     }
 
-    @Contract("_, _ -> !null")
+    @NotNull
+    public BoundingBox getBoundingBox() {
+        Vector diagonalOffset = colStep.clone().multiply(colCount)
+                .add(rowStep.clone().multiply(rowCount));
+        Vector diagonalCorner = anchor.clone().add(diagonalOffset);
+
+        return BoundingBox.of(anchor, diagonalCorner);
+    }
+
+    @NotNull
     public Square getSquareAt(int row, int col) {
-        return squares[row][col];
+        Vector squareOrigin = anchor.clone()
+                .add(colStep.clone().multiply(col))
+                .add(rowStep.clone().multiply(row));
+        Vector diagonalCorner = squareOrigin.clone().add(colStep).add(rowStep);
+        BoundingBox boundingBox = BoundingBox.of(squareOrigin, diagonalCorner);
+        SquareColor color = (row + col) % 2 == 0 ? SquareColor.BLACK : SquareColor.WHITE;
+
+        return new Square(boundingBox, color);
     }
 }

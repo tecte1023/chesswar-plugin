@@ -1,21 +1,36 @@
 package dev.tecte.chessWar.board.domain.model;
 
+import lombok.Getter;
 import org.bukkit.block.BlockFace;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
-public record Orientation(
-        Vector forward,
-        Vector left,
-        Vector right
-) {
-    @Contract("_ -> new")
-    public static @NotNull Orientation from(@NotNull BlockFace facing) {
-        Vector forward = facing.getDirection();
-        Vector left = BlockFace.UP.getDirection().crossProduct(forward);
-        Vector right = left.clone().multiply(-1);
+@Getter
+public enum Orientation {
+    NORTH(BlockFace.NORTH),
+    EAST(BlockFace.EAST),
+    SOUTH(BlockFace.SOUTH),
+    WEST(BlockFace.WEST);
 
-        return new Orientation(forward, left, right);
+    private final Vector forward;
+    private final Vector backward;
+    private final Vector left;
+    private final Vector right;
+
+    Orientation(@NotNull BlockFace blockFace) {
+        forward = blockFace.getDirection();
+        backward = forward.clone().multiply(-1);
+        left = BlockFace.UP.getDirection().crossProduct(forward);
+        right = left.clone().multiply(-1);
+    }
+
+    @NotNull
+    public static Orientation from(@NotNull BlockFace blockFace) {
+        return switch (blockFace) {
+            case EAST, EAST_NORTH_EAST, EAST_SOUTH_EAST -> EAST;
+            case SOUTH, SOUTH_EAST, SOUTH_WEST -> SOUTH;
+            case WEST, WEST_NORTH_WEST, WEST_SOUTH_WEST -> WEST;
+            default -> NORTH;
+        };
     }
 }
