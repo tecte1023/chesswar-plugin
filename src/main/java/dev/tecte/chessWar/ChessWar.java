@@ -1,31 +1,38 @@
 package dev.tecte.chessWar;
 
-import dev.tecte.chessWar.board.application.BoardRenderer;
-import dev.tecte.chessWar.board.application.BoardService;
-import dev.tecte.chessWar.board.domain.repository.BoardConfigRepository;
-import dev.tecte.chessWar.board.domain.service.BoardFactory;
-import dev.tecte.chessWar.board.infrastructure.bukkit.BukkitBoardRenderer;
-import dev.tecte.chessWar.board.infrastructure.config.YmlBoardConfigAdapter;
-import dev.tecte.chessWar.board.interfaces.command.BoardTabCompleter;
-import dev.tecte.chessWar.board.interfaces.command.CreateBoardCommand;
+import co.aikar.commands.PaperCommandManager;
+import com.google.inject.Guice;
+import com.google.inject.Inject;
+import com.google.inject.Injector;
+import dev.tecte.chessWar.bootstrap.PluginModule;
+import dev.tecte.chessWar.team.infrastructure.scheduling.TeamPersistenceScheduler;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.Objects;
-
+@SuppressWarnings("FieldMayBeFinal")
 public final class ChessWar extends JavaPlugin {
+    @Inject
+    private PaperCommandManager commandManager = null;
+    @Inject
+    private TeamPersistenceScheduler teamPersistenceScheduler = null;
+
     @Override
     public void onEnable() {
-        BoardConfigRepository boardConfigRepository = new YmlBoardConfigAdapter(getConfig(), getLogger());
-        BoardFactory boardFactory = new BoardFactory(boardConfigRepository);
-        BoardRenderer boardRenderer = new BukkitBoardRenderer(boardConfigRepository);
-        BoardService boardService = new BoardService(boardFactory, boardRenderer);
+        saveDefaultConfig();
 
-        Objects.requireNonNull(getCommand("board")).setExecutor(new CreateBoardCommand(boardService));
-        Objects.requireNonNull(getCommand("board")).setTabCompleter(new BoardTabCompleter());
+        Injector injector = Guice.createInjector(new PluginModule(this));
+
+        injector.injectMembers(this);
+        getLogger().info("ChessWar plugin has been enabled!");
     }
 
     @Override
     public void onDisable() {
+        if (teamPersistenceScheduler != null) {
+            teamPersistenceScheduler.shutdown();
+        }
 
+        if (commandManager != null) {
+            commandManager.unregisterCommands();
+        }
     }
 }
