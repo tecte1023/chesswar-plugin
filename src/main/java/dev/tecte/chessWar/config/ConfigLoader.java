@@ -14,7 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Singleton
-@RequiredArgsConstructor(onConstructor_ = @__({@Inject}))
+@RequiredArgsConstructor(onConstructor = @__(@Inject))
 public class ConfigLoader {
     private static final String PREFIX = "board.config.";
 

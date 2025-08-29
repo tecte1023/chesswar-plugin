@@ -22,7 +22,7 @@ import org.bukkit.util.BoundingBox;
 import org.jetbrains.annotations.NotNull;
 
 @Singleton
-@RequiredArgsConstructor(onConstructor_ = @__({@Inject}))
+@RequiredArgsConstructor(onConstructor = @__(@Inject))
 public class BukkitBoardRenderer implements BoardRenderer {
     private final ConfigManager configManager;
 
