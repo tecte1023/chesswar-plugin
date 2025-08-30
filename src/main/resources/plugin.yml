@@ -2,6 +2,8 @@ name: ChessWar
 version: ${version}
 main: dev.tecte.chessWar.ChessWar
 api-version: '1.21'
+logging:
+  prefix: "[ChessWar]"
 commands:
   chesswar:
     aliases: [cw]
