@@ -7,17 +7,15 @@ import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.command.BoardCommand;
 import dev.tecte.chessWar.command.MainCommand;
 import jakarta.inject.Singleton;
-import org.jetbrains.annotations.NotNull;
+import lombok.NonNull;
 
-@SuppressWarnings("unused")
 public class CommandModule extends AbstractModule {
-    @NotNull
     @Provides
     @Singleton
     public PaperCommandManager provideCommandManager(
-            @NotNull ChessWar plugin,
-            @NotNull MainCommand mainCommand,
-            @NotNull BoardCommand boardCommand
+            @NonNull ChessWar plugin,
+            @NonNull MainCommand mainCommand,
+            @NonNull BoardCommand boardCommand
     ) {
         PaperCommandManager commandManager = new PaperCommandManager(plugin);
 

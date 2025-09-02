@@ -5,10 +5,10 @@ import com.google.inject.Singleton;
 import dev.tecte.chessWar.board.domain.model.BoardConfig;
 import dev.tecte.chessWar.board.domain.model.BorderConfig;
 import dev.tecte.chessWar.board.domain.model.SquareConfig;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.jetbrains.annotations.NotNull;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,12 +45,12 @@ public class ConfigLoader {
     private final FileConfiguration fileConfig;
     private final Logger logger;
 
-    @NotNull
+    @NonNull
     public PluginConfig load() {
         return new PluginConfig(getBoardConfig());
     }
 
-    @NotNull
+    @NonNull
     private BoardConfig getBoardConfig() {
         SquareConfig squareConfig = getSquareConfig();
         BorderConfig innerBorderConfig = getInnerBorderConfig();
@@ -63,7 +63,7 @@ public class ConfigLoader {
                 .build();
     }
 
-    @NotNull
+    @NonNull
     private SquareConfig getSquareConfig() {
         final String squarePrefix = PREFIX + "square.";
         int rowCount = getValidatedInt(squarePrefix + "row_count", DEFAULT_ROW_COUNT, MIN_ROW_COUNT, MAX_ROW_COUNT, "row_count");
@@ -83,7 +83,7 @@ public class ConfigLoader {
                 .build();
     }
 
-    @NotNull
+    @NonNull
     private BorderConfig getInnerBorderConfig() {
         final String innerBorderPrefix = PREFIX + "inner_border.";
         int thickness = getValidatedInt(innerBorderPrefix + "thickness", DEFAULT_INNER_BORDER_THICKNESS, MIN_INNER_BORDER_THICKNESS, MAX_INNER_BORDER_THICKNESS, "inner border thickness");
@@ -92,7 +92,7 @@ public class ConfigLoader {
         return new BorderConfig(thickness, block);
     }
 
-    @NotNull
+    @NonNull
     private BorderConfig getFrameConfig() {
         final String framePrefix = PREFIX + "frame.";
         int thickness = getValidatedInt(framePrefix + "thickness", DEFAULT_FRAME_THICKNESS, MIN_FRAME_THICKNESS, MAX_FRAME_THICKNESS, "frame thickness");
@@ -114,7 +114,7 @@ public class ConfigLoader {
         return value;
     }
 
-    @NotNull
+    @NonNull
     private Material getMaterial(String path, Material defaultValue) {
         String materialName = fileConfig.getString(path);
 

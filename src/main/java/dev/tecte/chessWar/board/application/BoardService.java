@@ -16,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.NotNull;
+import lombok.NonNull;
 
 import java.util.logging.Level;
 
@@ -28,7 +28,7 @@ public class BoardService {
     private final ConfigManager configManager;
     private final ChessWar plugin;
 
-    public void createBoard(@NotNull Player player) {
+    public void createBoard(@NonNull Player player) {
         Orientation orientation = Orientation.from(player.getFacing());
         BoardConfig boardConfig = configManager.getPluginConfig().boardConfig();
         SquareConfig squareConfig = boardConfig.squareConfig();

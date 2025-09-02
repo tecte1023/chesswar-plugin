@@ -1,9 +1,9 @@
 package dev.tecte.chessWar.board.domain.model;
 
 import lombok.Getter;
+import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.NotNull;
 
 @Getter
 public final class SquareGrid {
@@ -17,8 +17,8 @@ public final class SquareGrid {
     private final Vector rowStep;
 
     private SquareGrid(
-            @NotNull Vector anchor,
-            @NotNull Orientation orientation,
+            @NonNull Vector anchor,
+            @NonNull Orientation orientation,
             int rowCount,
             int colCount,
             int squareWidth,
@@ -34,10 +34,10 @@ public final class SquareGrid {
         rowStep = orientation.getForward().clone().multiply(squareHeight);
     }
 
-    @NotNull
+    @NonNull
     public static SquareGrid create(
-            @NotNull Vector anchor,
-            @NotNull Orientation orientation,
+            @NonNull Vector anchor,
+            @NonNull Orientation orientation,
             int rowCount,
             int colCount,
             int squareWidth,
@@ -53,7 +53,7 @@ public final class SquareGrid {
         );
     }
 
-    @NotNull
+    @NonNull
     public BoundingBox getBoundingBox() {
         Vector diagonalOffset = colStep.clone().multiply(colCount)
                 .add(rowStep.clone().multiply(rowCount));
@@ -62,7 +62,7 @@ public final class SquareGrid {
         return BoundingBox.of(anchor, diagonalCorner);
     }
 
-    @NotNull
+    @NonNull
     public Square getSquareAt(int row, int col) {
         Vector squareOrigin = anchor.clone()
                 .add(colStep.clone().multiply(col))

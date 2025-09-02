@@ -11,6 +11,7 @@ import dev.tecte.chessWar.board.domain.model.SquareGrid;
 import dev.tecte.chessWar.board.application.port.BoardRenderer;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Axis;
 import org.bukkit.Bukkit;
@@ -19,7 +20,6 @@ import org.bukkit.World;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Orientable;
 import org.bukkit.util.BoundingBox;
-import org.jetbrains.annotations.NotNull;
 
 @Singleton
 @RequiredArgsConstructor(onConstructor = @__(@Inject))
@@ -27,7 +27,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
     private final ConfigManager configManager;
 
     @Override
-    public void render(@NotNull Board board, @NotNull World world) {
+    public void render(@NonNull Board board, @NonNull World world) {
         BoardConfig config = configManager.getPluginConfig().boardConfig();
 
         renderSquares(board, world, config.squareConfig());
@@ -35,7 +35,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
         renderBorder(board.frame(), world, config.frameConfig().block());
     }
 
-    private void renderSquares(@NotNull Board board, @NotNull World world, @NotNull SquareConfig squareConfig) {
+    private void renderSquares(@NonNull Board board, @NonNull World world, @NonNull SquareConfig squareConfig) {
         int rowCount = squareConfig.rowCount();
         int columnCount = squareConfig.columnCount();
         SquareGrid squareGrid = board.squareGrid();
@@ -55,7 +55,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
         }
     }
 
-    private void renderBorder(@NotNull Border border, @NotNull World world, @NotNull Material material) {
+    private void renderBorder(@NonNull Border border, @NonNull World world, @NonNull Material material) {
         BlockData blockDataX = createOrientableBlockData(material, Axis.X);
         BlockData blockDataZ = createOrientableBlockData(material, Axis.Z);
 
@@ -81,8 +81,8 @@ public class BukkitBoardRenderer implements BoardRenderer {
         }
     }
 
-    @NotNull
-    private BlockData createOrientableBlockData(@NotNull Material material, @NotNull Axis axis) {
+    @NonNull
+    private BlockData createOrientableBlockData(@NonNull Material material, @NonNull Axis axis) {
         return Bukkit.createBlockData(material, data -> {
             if (data instanceof Orientable orientable) {
                 orientable.setAxis(axis);
