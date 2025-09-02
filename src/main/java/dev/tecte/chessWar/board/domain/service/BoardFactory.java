@@ -4,12 +4,12 @@ import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Border;
 import dev.tecte.chessWar.board.domain.model.SquareGrid;
 import jakarta.inject.Singleton;
-import org.jetbrains.annotations.NotNull;
+import lombok.NonNull;
 
 @Singleton
 public class BoardFactory {
-    @NotNull
-    public Board createBoard(@NotNull BoardCreationSpec spec) {
+    @NonNull
+    public Board createBoard(@NonNull BoardCreationSpec spec) {
         SquareGrid squareGrid = SquareGrid.create(
                 spec.gridAnchor(),
                 spec.orientation(),

@@ -1,9 +1,9 @@
 package dev.tecte.chessWar.board.domain.model;
 
 import lombok.Getter;
+import lombok.NonNull;
 import org.bukkit.block.BlockFace;
 import org.bukkit.util.Vector;
-import org.jetbrains.annotations.NotNull;
 
 @Getter
 public enum Orientation {
@@ -17,15 +17,15 @@ public enum Orientation {
     private final Vector left;
     private final Vector right;
 
-    Orientation(@NotNull BlockFace blockFace) {
+    Orientation(@NonNull BlockFace blockFace) {
         forward = blockFace.getDirection();
         backward = forward.clone().multiply(-1);
         left = BlockFace.UP.getDirection().crossProduct(forward);
         right = left.clone().multiply(-1);
     }
 
-    @NotNull
-    public static Orientation from(@NotNull BlockFace blockFace) {
+    @NonNull
+    public static Orientation from(@NonNull BlockFace blockFace) {
         return switch (blockFace) {
             case EAST, EAST_NORTH_EAST, EAST_SOUTH_EAST -> EAST;
             case SOUTH, SOUTH_EAST, SOUTH_WEST -> SOUTH;

@@ -6,15 +6,14 @@ import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Default;
 import co.aikar.commands.annotation.HelpCommand;
 import jakarta.inject.Singleton;
-import org.jetbrains.annotations.NotNull;
+import lombok.NonNull;
 
 @Singleton
 @CommandAlias(CommandConstants.ROOT)
-@SuppressWarnings("unused")
 public class MainCommand extends BaseCommand {
     @Default
     @HelpCommand
-    public void onHelp(@NotNull CommandHelp help) {
+    public void onHelp(@NonNull CommandHelp help) {
         help.showHelp();
     }
 }
