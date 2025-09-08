@@ -1,6 +1,6 @@
 package dev.tecte.chessWar.board.infrastructure.bukkit;
 
-import dev.tecte.chessWar.config.ConfigManager;
+import dev.tecte.chessWar.infrastructure.config.ConfigManager;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.BoardConfig;
 import dev.tecte.chessWar.board.domain.model.Border;
@@ -22,7 +22,7 @@ import org.bukkit.block.data.Orientable;
 import org.bukkit.util.BoundingBox;
 
 @Singleton
-@RequiredArgsConstructor(onConstructor = @__(@Inject))
+@RequiredArgsConstructor(onConstructor_ = @Inject)
 public class BukkitBoardRenderer implements BoardRenderer {
     private final ConfigManager configManager;
 
@@ -37,7 +37,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
 
     private void renderSquares(@NonNull Board board, @NonNull World world, @NonNull SquareConfig squareConfig) {
         int rowCount = squareConfig.rowCount();
-        int columnCount = squareConfig.columnCount();
+        int columnCount = squareConfig.colCount();
         SquareGrid squareGrid = board.squareGrid();
 
         for (int row = 0; row < rowCount; row++) {

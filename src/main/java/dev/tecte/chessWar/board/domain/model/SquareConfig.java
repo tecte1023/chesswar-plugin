@@ -6,7 +6,7 @@ import org.bukkit.Material;
 @Builder
 public record SquareConfig(
         int rowCount,
-        int columnCount,
+        int colCount,
         int width,
         int height,
         Material blackBlock,
