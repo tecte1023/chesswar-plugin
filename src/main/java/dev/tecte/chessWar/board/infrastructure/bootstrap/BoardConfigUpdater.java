@@ -1,0 +1,24 @@
+package dev.tecte.chessWar.board.infrastructure.bootstrap;
+
+import dev.tecte.chessWar.board.domain.model.BoardConfig;
+import dev.tecte.chessWar.board.infrastructure.persistence.YmlBoardConfigRepository;
+import dev.tecte.chessWar.infrastructure.config.ConfigUpdater;
+import dev.tecte.chessWar.infrastructure.config.PluginConfig;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+
+@Singleton
+@RequiredArgsConstructor(onConstructor_ = @Inject)
+public class BoardConfigUpdater implements ConfigUpdater {
+    private final YmlBoardConfigRepository repository;
+
+    @NonNull
+    @Override
+    public PluginConfig update(@NonNull PluginConfig pluginConfig) {
+        BoardConfig boardConfig = repository.getBoardConfig();
+
+        return pluginConfig.withBoardConfig(boardConfig);
+    }
+}

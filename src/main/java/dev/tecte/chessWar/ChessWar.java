@@ -4,30 +4,52 @@ import co.aikar.commands.PaperCommandManager;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
-import dev.tecte.chessWar.bootstrap.PluginModule;
+import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
+import dev.tecte.chessWar.infrastructure.config.ConfigManager;
+import dev.tecte.chessWar.infrastructure.persistence.PersistableState;
 import org.bukkit.plugin.java.JavaPlugin;
 
-@SuppressWarnings("FieldMayBeFinal")
+import java.util.Set;
+
+@SuppressWarnings("unused")
 public final class ChessWar extends JavaPlugin {
-    private PaperCommandManager commandManager = null;
-//    @Inject
-//    private TeamPersistenceScheduler teamPersistenceScheduler = null;
+    @Inject
+    private PaperCommandManager commandManager;
+
+    @Inject
+    private ConfigManager configManager;
+
+    @Inject
+    @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+    private Set<PersistableState> persistableStates;
+
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
 
         Injector injector = Guice.createInjector(new PluginModule(this));
+        injector.injectMembers(this);
 
-        commandManager = injector.getInstance(PaperCommandManager.class);
+        if (configManager != null) {
+            getLogger().info("Loading configurations...");
+            configManager.load();
+        }
+
+        if (persistableStates != null) {
+            getLogger().info("Loading all registered state data...");
+            persistableStates.forEach(PersistableState::loadAll);
+        }
+
         getLogger().info("ChessWar plugin has been enabled!");
     }
 
     @Override
     public void onDisable() {
-//        if (teamPersistenceScheduler != null) {
-//            teamPersistenceScheduler.shutdown();
-//        }
+        if (persistableStates != null) {
+            getLogger().info("Saving all registered state data...");
+            persistableStates.forEach(PersistableState::persistCache);
+        }
 
         if (commandManager != null) {
             commandManager.unregisterCommands();
