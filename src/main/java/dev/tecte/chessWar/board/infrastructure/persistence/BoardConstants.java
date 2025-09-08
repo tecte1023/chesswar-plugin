@@ -4,10 +4,17 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import org.bukkit.Material;
 
+/**
+ * 체스판 모듈에서 사용하는 상수들을 정의하는 클래스입니다.
+ * 설정 파일의 경로, 기본값, 유효성 검사 범위 등을 포함합니다.
+ */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class BoardConstants {
     public static final String ROOT = "board";
 
+    /**
+     * 정적 설정과 관련된 상수들입니다.
+     */
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static final class Config {
         public static final String CONFIG_PATH = ROOT + ".config";
@@ -39,6 +46,9 @@ public final class BoardConstants {
         public static final String FRAME_BLOCK_PATH = FRAME_PATH + "." + BLOCK;
     }
 
+    /**
+     * 설정 값이 유효하지 않거나 없을 경우 사용될 기본값들입니다.
+     */
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static final class Defaults {
         public static final int DEFAULT_ROW_COUNT = 8;
@@ -66,6 +76,9 @@ public final class BoardConstants {
         public static final int MAX_FRAME_THICKNESS = 6;
     }
 
+    /**
+     * 동적 상태와 관련된 상수들입니다.
+     */
     @NoArgsConstructor(access = AccessLevel.PRIVATE)
     public static final class State {
         public static final String STATE_PATH = ROOT + ".state";

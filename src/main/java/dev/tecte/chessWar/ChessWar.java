@@ -23,7 +23,6 @@ public final class ChessWar extends JavaPlugin {
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     private Set<PersistableState> persistableStates;
 
-
     @Override
     public void onEnable() {
         saveDefaultConfig();

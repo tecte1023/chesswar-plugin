@@ -8,8 +8,18 @@ import lombok.NonNull;
 
 import java.util.UUID;
 
+/**
+ * 체스판({@link Board}) 객체를 생성하는 팩토리 클래스입니다.
+ */
 @Singleton
 public class BoardFactory {
+    /**
+     * 주어진 생성 명세({@link BoardCreationSpec})를 바탕으로 체스판 객체를 생성합니다.
+     * 내부적으로 격자, 테두리 등을 모두 계산하고 조립합니다.
+     *
+     * @param spec 체스판 생성에 필요한 모든 정보
+     * @return 생성된 {@link Board} 인스턴스
+     */
     @NonNull
     public Board createBoard(@NonNull BoardCreationSpec spec) {
         SquareGrid squareGrid = SquareGrid.create(

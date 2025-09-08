@@ -27,6 +27,9 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.State.ORIENTATION;
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.State.SQUARE_GRID;
 
+/**
+ * {@link Board} 도메인 객체와 YML 파일에 저장될 Map 형태 간의 변환을 담당하는 매퍼 클래스입니다.
+ */
 @Singleton
 public class BoardMapper implements YmlMapper<UUID, Board> {
     @NonNull
