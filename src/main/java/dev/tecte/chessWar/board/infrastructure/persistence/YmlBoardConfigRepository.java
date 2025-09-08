@@ -48,6 +48,10 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.Defaults.MIN_SQUARE_HEIGHT;
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.Defaults.MIN_SQUARE_WIDTH;
 
+/**
+ * YML 파일에서 체스판의 정적 설정({@link BoardConfig})을 로드하고 저장하는 리포지토리 클래스입니다.
+ * 사용자 설정 > 초기 설정 > 플러그인 기본 설정 순으로 우선순위를 고려하여 설정 값을 결정합니다.
+ */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class YmlBoardConfigRepository {
@@ -55,6 +59,11 @@ public class YmlBoardConfigRepository {
     private final YmlFileManager userDataConfigManager;
     private final Logger logger;
 
+    /**
+     * 체스판 설정을 불러옵니다.
+     *
+     * @return 로드된 체스판 설정 객체
+     */
     @NonNull
     public BoardConfig getBoardConfig() {
         SquareConfig squareConfig = getSquareConfig();
@@ -68,6 +77,11 @@ public class YmlBoardConfigRepository {
                 .build();
     }
 
+    /**
+     * 주어진 체스판 설정을 사용자 설정 파일에 저장합니다.
+     *
+     * @param boardConfig 저장할 체스판 설정
+     */
     public void save(@NonNull BoardConfig boardConfig) {
         saveSquareConfig(boardConfig.squareConfig());
         saveInnerBorderConfig(boardConfig.innerBorderConfig());
@@ -110,12 +124,14 @@ public class YmlBoardConfigRepository {
         return new BorderConfig(thickness, block);
     }
 
-    public int getValidatedInt(
+    private int getValidatedInt(
             @NonNull String path,
             int fallback,
             int minValue,
             int maxValue
     ) {
+        // 값이 없는 경우와 유효하지 않은 경우를 명확하게 구분하고,
+        // 연쇄적인 fallback 로직을 간결하게 표현하기 위해 Optional 사용
         return findValidInt(userDataConfigManager.getConfig(), path, minValue, maxValue)
                 .or(() -> findValidInt(defaultConfig, path, minValue, maxValue))
                 .orElse(fallback);

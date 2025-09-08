@@ -12,6 +12,9 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.UUID;
 import java.util.logging.Logger;
 
+/**
+ * YML 파일을 사용하여 체스판 객체 데이터의 영속성을 관리하는 {@link BoardRepository}의 구현체입니다.
+ */
 @Singleton
 public class YmlBoardRepository extends AbstractYmlRepository<UUID, Board> implements BoardRepository {
     @Inject
