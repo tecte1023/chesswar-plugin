@@ -1,4 +1,4 @@
-package dev.tecte.chessWar.command;
+package dev.tecte.chessWar.infrastructure.command;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.CommandHelp;
@@ -13,6 +13,7 @@ import lombok.NonNull;
 public class MainCommand extends BaseCommand {
     @Default
     @HelpCommand
+    @SuppressWarnings("unused")
     public void onHelp(@NonNull CommandHelp help) {
         help.showHelp();
     }

@@ -1,4 +1,4 @@
-package dev.tecte.chessWar.command;
+package dev.tecte.chessWar.infrastructure.command;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;

@@ -1,37 +1,19 @@
+# ChessWar 플러그인 초기 설정 파일
+# 이 파일의 값들은 플러그인에서 사용되는 초기 설정값입니다.
+# data.yml 파일의 *.config 섹션에서 개별적으로 덮어쓸 수 있습니다.
+
 board:
-  config: # 체스판 설정
+  config:
     square:
-      row_count: 8
-      column_count: 8
+      row-count: 8
+      col-count: 8
       width: 3
       height: 3
-      black_block: STRIPPED_DARK_OAK_WOOD
-      white_block: STRIPPED_PALE_OAK_WOOD
-    inner_border:
+      black-block: STRIPPED_DARK_OAK_WOOD
+      white-block: STRIPPED_PALE_OAK_WOOD
+    inner-border:
       thickness: 1
       block: STRIPPED_OAK_WOOD
     frame:
       thickness: 2
       block: DARK_OAK_WOOD
-
-  generated: # 생성된 체스판 정보
-    bounding_box:
-      min:
-        x:
-        y:
-        z:
-      max:
-        x:
-        y:
-        z:
-    a1:
-      x:
-      y:
-      z:
-    square:
-      row_count:
-      column_count:
-      width:
-      height:
-    inner_border_thickness:
-    frame_thickness:
