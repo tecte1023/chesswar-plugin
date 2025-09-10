@@ -8,9 +8,8 @@ import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.logging.Logger;
 
 /**
  * 플러그인 전체의 의존성 주입(DI) 설정을 총괄하는 최상위 Guice 모듈입니다.
@@ -31,16 +30,17 @@ public class PluginModule extends AbstractModule {
     }
 
     /**
-     * 플러그인의 로거({@link Logger})를 DI 컨테이너에 제공합니다.
+     * Bukkit의 기본 설정 파일({@code config.yml})에 대한 {@link FileConfiguration} 객체를 DI 컨테이너에 제공합니다.
+     * 이 객체는 플러그인의 설정을 읽고 쓰는 데 사용됩니다.
      *
      * @param plugin 메인 플러그인 인스턴스
-     * @return 플러그인 로거
+     * @return {@code config.yml}에 대한 {@link FileConfiguration} 인스턴스
      */
     @NonNull
     @Provides
     @Singleton
-    Logger provideLogger(@NonNull JavaPlugin plugin) {
-        return plugin.getLogger();
+    public FileConfiguration provideDefaultFileConfiguration(@NonNull JavaPlugin plugin) {
+        return plugin.getConfig();
     }
 
     /**
@@ -52,7 +52,7 @@ public class PluginModule extends AbstractModule {
     @NonNull
     @Provides
     @Singleton
-    YmlFileManager provideDataFileManager(@NonNull JavaPlugin plugin) {
+    public YmlFileManager provideDataFileManager(@NonNull JavaPlugin plugin) {
         return new YmlFileManager(plugin, "data.yml");
     }
 }

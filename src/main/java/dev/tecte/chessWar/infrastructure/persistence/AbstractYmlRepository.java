@@ -1,16 +1,16 @@
 package dev.tecte.chessWar.infrastructure.persistence;
 
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
+import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * YML 파일을 이용한 영속성을 구현하는 추상 리포지토리 클래스입니다.
@@ -20,12 +20,12 @@ import java.util.logging.Logger;
  * @param <K> 리포지토리에서 관리하는 엔티티의 키 타입
  * @param <V> 리포지토리에서 관리하는 엔티티의 타입
  */
+@Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     private final JavaPlugin plugin;
     private final YmlFileManager fileManager;
     private final YmlMapper<K, V> mapper;
-    private final Logger logger;
 
     private final Map<K, V> cache = new ConcurrentHashMap<>();
 
@@ -73,13 +73,12 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
                 }
 
                 K key = convertKey(keyString);
-                V entity = mapper.fromMap(key, entitySection.getValues(false));
 
-                if (entity != null) {
-                    cache.put(key, entity);
-                }
+                cache.put(key, mapper.fromSection(key, entitySection));
+            } catch (YmlMappingException e) {
+                log.warn("Failed to load entity. {}", e.getMessage());
             } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to deserialize entity " + keyString + " in " + getDataPath(), e);
+                log.error("An unexpected error occurred while loading entity '{}'.", keyString, e);
             }
         }
     }
