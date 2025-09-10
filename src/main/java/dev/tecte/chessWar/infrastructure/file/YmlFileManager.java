@@ -5,6 +5,7 @@ import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceWriteE
 import jakarta.inject.Inject;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -16,6 +17,7 @@ import java.io.IOException;
  * YML 파일의 생성, 로드, 저장을 관리하는 클래스입니다.
  * 플러그인의 데이터 폴더 내에서 특정 YML 파일을 안전하게 다루는 기본 I/O 작업을 캡슐화합니다.
  */
+@Slf4j(topic = "ChessWar")
 public class YmlFileManager {
     private final File file;
     @Getter
@@ -50,7 +52,7 @@ public class YmlFileManager {
             } catch (IllegalArgumentException e) {
                 try {
                     if (!file.createNewFile()) {
-                        plugin.getLogger().warning("File was created by another process between checks: " + fileName);
+                        log.warn("File was created by another process between checks: {}", fileName);
                     }
                 } catch (IOException ex) {
                     throw new PersistenceInitializationException("Could not create new file: " + fileName, ex);

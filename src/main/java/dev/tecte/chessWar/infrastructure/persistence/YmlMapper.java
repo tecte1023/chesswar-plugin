@@ -1,9 +1,12 @@
 package dev.tecte.chessWar.infrastructure.persistence;
 
+import lombok.NonNull;
+import org.bukkit.configuration.ConfigurationSection;
+
 import java.util.Map;
 
 /**
- * 도메인 엔티티와 YML 파일에 저장될 Map 객체 간의 변환을 정의하는 인터페이스입니다.
+ * 도메인 엔티티와 YML 파일 데이터 간의 변환을 정의하는 인터페이스입니다.
  *
  * @param <K> 엔티티의 키 타입
  * @param <V> 엔티티의 타입
@@ -15,14 +18,16 @@ public interface YmlMapper<K, V> {
      * @param entity 변환할 엔티티
      * @return YML에 저장될 Map 객체
      */
-    Map<String, Object> toMap(V entity);
+    @NonNull
+    Map<String, Object> toMap(@NonNull V entity);
 
     /**
-     * YML에서 읽어온 Map 객체를 엔티티 객체로 변환합니다.
+     * YML에서 읽어온 설정 섹션({@link ConfigurationSection})을 엔티티 객체로 변환합니다.
      *
-     * @param key 변환할 엔티티의 키
-     * @param map YML에서 읽어온 Map 객체
+     * @param key     변환할 엔티티의 키
+     * @param section YML에서 읽어온 설정 섹션
      * @return 변환된 엔티티 객체
      */
-    V fromMap(K key, Map<String, Object> map);
+    @NonNull
+    V fromSection(@NonNull K key, @NonNull ConfigurationSection section);
 }

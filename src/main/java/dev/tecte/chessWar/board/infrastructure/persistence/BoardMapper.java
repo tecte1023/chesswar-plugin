@@ -5,13 +5,16 @@ import dev.tecte.chessWar.board.domain.model.Border;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.board.domain.model.SquareGrid;
 import dev.tecte.chessWar.infrastructure.persistence.YmlMapper;
+import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.Config.COL_COUNT;
@@ -28,7 +31,7 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.State.SQUARE_GRID;
 
 /**
- * {@link Board} 도메인 객체와 YML 파일에 저장될 Map 형태 간의 변환을 담당하는 매퍼 클래스입니다.
+ * {@link Board} 도메인 객체와 YML 파일 데이터 간의 변환을 담당하는 매퍼 클래스입니다.
  */
 @Singleton
 public class BoardMapper implements YmlMapper<UUID, Board> {
@@ -47,13 +50,16 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
 
     @NonNull
     @Override
-    @SuppressWarnings("unchecked")
-    public Board fromMap(@NonNull UUID key, @NonNull Map<String, Object> map) {
-        return dev.tecte.chessWar.board.domain.model.Board.builder()
+    public Board fromSection(@NonNull UUID key, @NonNull ConfigurationSection section) {
+        ConfigurationSection squareGridSection = requireSection(section, SQUARE_GRID);
+        ConfigurationSection innerBorderSection = requireSection(section, INNER_BORDER);
+        ConfigurationSection frameSection = requireSection(section, FRAME);
+
+        return Board.builder()
                 .id(key)
-                .squareGrid(fromMapSquareGrid((Map<String, Object>) map.get(SQUARE_GRID)))
-                .innerBorder(fromMapBorder((Map<String, Object>) map.get(INNER_BORDER)))
-                .frame(fromMapBorder((Map<String, Object>) map.get(FRAME)))
+                .squareGrid(fromSectionSquareGrid(squareGridSection))
+                .innerBorder(fromSectionBorder(innerBorderSection))
+                .frame(fromSectionBorder(frameSection))
                 .build();
     }
 
@@ -72,16 +78,15 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
     }
 
     @NonNull
-    @SuppressWarnings("unchecked")
-    private SquareGrid fromMapSquareGrid(@NonNull Map<String, Object> map) {
-        return SquareGrid.create(
-                Vector.deserialize((Map<String, Object>) map.get(ANCHOR)),
-                Orientation.valueOf((String) map.get(ORIENTATION)),
-                (int) map.get(ROW_COUNT),
-                (int) map.get(COL_COUNT),
-                (int) map.get(WIDTH),
-                (int) map.get(HEIGHT)
-        );
+    private SquareGrid fromSectionSquareGrid(@NonNull ConfigurationSection section) {
+        Vector anchor = requireValue(section, ANCHOR, Vector.class);
+        Orientation orientation = requireOrientation(section);
+        int rowCount = requireValue(section, ROW_COUNT, Integer.class);
+        int colCount = requireValue(section, COL_COUNT, Integer.class);
+        int width = requireValue(section, WIDTH, Integer.class);
+        int height = requireValue(section, HEIGHT, Integer.class);
+
+        return SquareGrid.create(anchor, orientation, rowCount, colCount, width, height);
     }
 
     @NonNull
@@ -95,11 +100,45 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
     }
 
     @NonNull
-    @SuppressWarnings("unchecked")
-    private Border fromMapBorder(@NonNull Map<String, Object> map) {
-        return new Border(
-                BoundingBox.deserialize((Map<String, Object>) map.get(BOUNDING_BOX)),
-                (int) map.get(THICKNESS)
-        );
+    private Border fromSectionBorder(@NonNull ConfigurationSection section) {
+        BoundingBox boundingBox = requireValue(section, BOUNDING_BOX, BoundingBox.class);
+        int thickness = requireValue(section, THICKNESS, Integer.class);
+
+        return new Border(boundingBox, thickness);
+    }
+
+    @NonNull
+    private ConfigurationSection requireSection(@NonNull ConfigurationSection parent, @NonNull String key) {
+        return Optional.ofNullable(parent.getConfigurationSection(key))
+                .orElseThrow(() -> new YmlMappingException("Missing required section: '" + key + "' in '" + parent.getCurrentPath() + "'."));
+    }
+
+    @NonNull
+    private <T> T requireValue(@NonNull ConfigurationSection section, @NonNull String key, @NonNull Class<T> type) {
+        if (!section.contains(key)) {
+            throw new YmlMappingException("Missing required value: '" + key + "' in '" + section.getCurrentPath() + "'.");
+        }
+
+        T value = section.getObject(key, type);
+
+        if (value == null) {
+            Object rawValue = section.get(key);
+            String actualType = rawValue != null ? rawValue.getClass().getSimpleName() : "null";
+
+            throw new YmlMappingException("Invalid type for '" + key + "' in '" + section.getCurrentPath() + "'. Expected " + type.getSimpleName() + ", but found " + actualType + ".");
+        }
+
+        return value;
+    }
+
+    @NonNull
+    private Orientation requireOrientation(@NonNull ConfigurationSection section) {
+        String orientationName = requireValue(section, ORIENTATION, String.class);
+
+        try {
+            return Orientation.valueOf(orientationName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new YmlMappingException("Invalid 'orientation' value in '" + section.getCurrentPath() + "': " + orientationName);
+        }
     }
 }

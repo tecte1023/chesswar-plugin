@@ -1,6 +1,5 @@
 package dev.tecte.chessWar.board.application;
 
-import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.application.port.BoardRenderer;
 import dev.tecte.chessWar.board.application.port.BoardRepository;
 import dev.tecte.chessWar.board.domain.model.Board;
@@ -15,16 +14,16 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
-
-import java.util.logging.Level;
 
 /**
  * 체스판과 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다.
  * 사용자의 요청을 받아 도메인 객체를 생성하고, 렌더링 및 영속성을 관리합니다.
  */
+@Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class BoardService {
@@ -32,7 +31,6 @@ public class BoardService {
     private final BoardRenderer boardRenderer;
     private final BoardRepository boardRepository;
     private final ConfigManager configManager;
-    private final ChessWar plugin;
 
     /**
      * 플레이어의 위치와 방향을 기준으로 새로운 체스판을 생성하고, 렌더링하며, 영속화합니다.
@@ -67,7 +65,7 @@ public class BoardService {
 
         boardRenderer.render(board, world);
         boardRepository.save(board);
-        plugin.getLogger().log(Level.INFO, "Player ''{0}'' created a new chessboard at {1} in world ''{2}''",
-                new Object[]{player.getName(), playerPosition, world.getName()});
+        log.info("Player '{}' created a new chessboard at {} in world '{}'",
+                player.getName(), playerPosition, world.getName());
     }
 }

@@ -8,12 +8,11 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.Config.BLACK_BLOCK_PATH;
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants.Config.COL_COUNT_PATH;
@@ -52,12 +51,12 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardConstants
  * YML 파일에서 체스판의 정적 설정({@link BoardConfig})을 로드하고 저장하는 리포지토리 클래스입니다.
  * 사용자 설정 > 초기 설정 > 플러그인 기본 설정 순으로 우선순위를 고려하여 설정 값을 결정합니다.
  */
+@Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class YmlBoardConfigRepository {
     private final FileConfiguration defaultConfig;
     private final YmlFileManager userDataConfigManager;
-    private final Logger logger;
 
     /**
      * 체스판 설정을 불러옵니다.
@@ -154,8 +153,7 @@ public class YmlBoardConfigRepository {
             return Optional.of(value);
         }
 
-        logger.log(Level.WARNING, "Invalid value in ''{0}'' at ''{1}'': {2}",
-                new Object[]{config.getName(), path, value});
+        log.warn("Invalid value in '{}' at '{}': {}", config.getName(), path, value);
 
         return Optional.empty();
     }
@@ -182,8 +180,7 @@ public class YmlBoardConfigRepository {
         try {
             return Optional.of(Material.valueOf(materialName.toUpperCase()));
         } catch (IllegalArgumentException e) {
-            logger.log(Level.WARNING, "Invalid material name in ''{0}'' at ''{1}'': ''{2}''",
-                    new Object[]{config.getName(), path, materialName});
+            log.warn("Invalid material name in '{}' at '{}': '{}'", config.getName(), path, materialName);
 
             return Optional.empty();
         }
