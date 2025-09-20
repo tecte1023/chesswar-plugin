@@ -5,6 +5,7 @@ import com.google.inject.Provides;
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
+import dev.tecte.chessWar.team.infrastructure.bootstrap.TeamModule;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class PluginModule extends AbstractModule {
         bind(JavaPlugin.class).toInstance(plugin);
 
         install(new BoardModule());
+        install(new TeamModule());
         install(new CommandModule());
     }
 
@@ -58,12 +60,28 @@ public class PluginModule extends AbstractModule {
         return new YmlFileManager(plugin, "data.yml");
     }
 
+    /**
+     * Bukkit 서버 인스턴스를 DI 컨테이너에 제공합니다.
+     * 서버 인스턴스는 플러그인 전역에서 플레이어, 월드 등 서버 관련 기능에 접근할 때 사용됩니다.
+     *
+     * @param plugin 메인 플러그인 인스턴스
+     * @return {@link Server} 인스턴스
+     */
+    @NonNull
     @Provides
     @Singleton
     public Server provideServer(@NonNull JavaPlugin plugin) {
         return plugin.getServer();
     }
 
+    /**
+     * Bukkit 스케줄러를 DI 컨테이너에 제공합니다.
+     * 스케줄러는 비동기 작업이나 지연된 작업을 실행할 때 필요합니다.
+     *
+     * @param server Bukkit 서버 인스턴스
+     * @return {@link BukkitScheduler} 인스턴스
+     */
+    @NonNull
     @Provides
     @Singleton
     public BukkitScheduler provideScheduler(@NonNull Server server) {

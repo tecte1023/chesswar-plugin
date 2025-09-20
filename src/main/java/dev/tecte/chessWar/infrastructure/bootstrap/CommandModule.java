@@ -7,6 +7,7 @@ import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.command.BoardCommand;
 import dev.tecte.chessWar.infrastructure.command.CommandConfigurer;
 import dev.tecte.chessWar.infrastructure.command.MainCommand;
+import dev.tecte.chessWar.team.infrastructure.command.TeamCommand;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 
@@ -23,6 +24,7 @@ public class CommandModule extends AbstractModule {
      * @param plugin       메인 플러그인 인스턴스
      * @param mainCommand  메인 커맨드 핸들러
      * @param boardCommand 보드 커맨드 핸들러
+     * @param teamCommand  팀 커맨드 핸들러
      * @param configurers  각 도메인에서 제공하는 커맨드 설정자의 Set
      * @return 완전히 설정된 {@link PaperCommandManager} 인스턴스
      */
@@ -34,6 +36,7 @@ public class CommandModule extends AbstractModule {
             @NonNull ChessWar plugin,
             @NonNull MainCommand mainCommand,
             @NonNull BoardCommand boardCommand,
+            @NonNull TeamCommand teamCommand,
             @NonNull Set<CommandConfigurer> configurers
     ) {
         PaperCommandManager commandManager = new PaperCommandManager(plugin);
@@ -45,6 +48,7 @@ public class CommandModule extends AbstractModule {
 
         commandManager.registerCommand(mainCommand);
         commandManager.registerCommand(boardCommand);
+        commandManager.registerCommand(teamCommand);
         commandManager.enableUnstableAPI("help");
 
         return commandManager;

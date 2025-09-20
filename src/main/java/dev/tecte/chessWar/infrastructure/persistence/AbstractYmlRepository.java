@@ -58,6 +58,11 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     @NonNull
     protected abstract K convertKey(@NonNull String keyString);
 
+    /**
+     * YML 파일에서 모든 엔티티를 로드하여 인메모리 캐시에 적재합니다.
+     * 플러그인 활성화 시점에 호출되어 이전에 저장된 상태를 복원합니다.
+     * 파싱 중 오류가 발생한 엔티티는 건너뛰고 로그를 남깁니다.
+     */
     @Override
     public void loadAll() {
         ConfigurationSection section = fileManager.getConfig().getConfigurationSection(getDataPath());
@@ -85,6 +90,10 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
         }
     }
 
+    /**
+     * 현재 인메모리 캐시에 있는 모든 엔티티를 YML 파일에 덮어씁니다.
+     * 플러그인 비활성화 시점에 호출되어 현재 상태를 파일에 저장합니다.
+     */
     @Override
     public void persistCache() {
         final String dataPath = getDataPath();
@@ -102,7 +111,8 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     }
 
     /**
-     * 엔티티를 캐시에 저장하고, 파일에 비동기적으로 영속화합니다.
+     * 단일 엔티티를 캐시에 저장하고, 파일에 비동기적으로 영속화합니다.
+     * 즉각적인 파일 쓰기를 보장하지 않으며, 서버 성능을 위해 백그라운드에서 처리됩니다.
      *
      * @param entity 저장할 엔티티
      */
