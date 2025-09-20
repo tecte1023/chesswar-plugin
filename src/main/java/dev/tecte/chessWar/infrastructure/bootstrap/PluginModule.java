@@ -8,8 +8,10 @@ import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.Server;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitScheduler;
 
 /**
  * 플러그인 전체의 의존성 주입(DI) 설정을 총괄하는 최상위 Guice 모듈입니다.
@@ -54,5 +56,17 @@ public class PluginModule extends AbstractModule {
     @Singleton
     public YmlFileManager provideDataFileManager(@NonNull JavaPlugin plugin) {
         return new YmlFileManager(plugin, "data.yml");
+    }
+
+    @Provides
+    @Singleton
+    public Server provideServer(@NonNull JavaPlugin plugin) {
+        return plugin.getServer();
+    }
+
+    @Provides
+    @Singleton
+    public BukkitScheduler provideScheduler(@NonNull Server server) {
+        return server.getScheduler();
     }
 }

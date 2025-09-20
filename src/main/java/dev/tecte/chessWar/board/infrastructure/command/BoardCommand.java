@@ -21,6 +21,7 @@ import org.bukkit.entity.Player;
 @CommandAlias(CommandConstants.ROOT)
 @Subcommand("board")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
+@SuppressWarnings("unused")
 public class BoardCommand extends BaseCommand {
     private final BoardService boardService;
 
@@ -31,14 +32,12 @@ public class BoardCommand extends BaseCommand {
      */
     @Subcommand("create")
     @Description("새로운 체스판을 생성합니다.")
-    @SuppressWarnings("unused")
     public void onCreateBoard(@NonNull Player player) {
         boardService.createBoard(player);
         player.sendMessage("체스판이 생성되었습니다.");
     }
 
     @HelpCommand
-    @SuppressWarnings("unused")
     public void onHelp(@NonNull CommandHelp help) {
         help.showHelp();
     }

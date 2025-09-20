@@ -1,6 +1,7 @@
 package dev.tecte.chessWar.board.domain.service;
 
-import dev.tecte.chessWar.board.domain.model.BorderConfig;
+import dev.tecte.chessWar.board.domain.model.FrameConfig;
+import dev.tecte.chessWar.board.domain.model.InnerBorderConfig;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.board.domain.model.SquareConfig;
 import lombok.Builder;
@@ -21,7 +22,7 @@ public record BoardCreationSpec(
         Vector gridAnchor,
         Orientation orientation,
         SquareConfig squareConfig,
-        BorderConfig innerBorderConfig,
-        BorderConfig frameConfig
+        InnerBorderConfig innerBorderConfig,
+        FrameConfig frameConfig
 ) {
 }

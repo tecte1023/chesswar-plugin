@@ -33,11 +33,6 @@ public class BoardFactory {
         Border innerBorder = Border.from(squareGrid.getBoundingBox(), spec.innerBorderConfig().thickness());
         Border frame = Border.from(innerBorder.boundingBox(), spec.frameConfig().thickness());
 
-        return Board.builder()
-                .id(UUID.randomUUID())
-                .squareGrid(squareGrid)
-                .innerBorder(innerBorder)
-                .frame(frame)
-                .build();
+        return new Board(UUID.randomUUID(), squareGrid, innerBorder, frame);
     }
 }

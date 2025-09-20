@@ -1,6 +1,7 @@
 package dev.tecte.chessWar.board.application.port;
 
 import dev.tecte.chessWar.board.domain.model.Board;
+import lombok.NonNull;
 
 /**
  * 체스판 데이터의 영속성을 관리하는 리포지토리 인터페이스입니다.
@@ -17,5 +18,5 @@ public interface BoardRepository {
      *
      * @param board 저장할 체스판 객체
      */
-    void save(Board board);
+    void save(@NonNull Board board);
 }

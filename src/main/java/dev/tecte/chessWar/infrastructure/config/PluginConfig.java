@@ -4,6 +4,8 @@ import dev.tecte.chessWar.board.domain.model.BoardConfig;
 import lombok.NonNull;
 import lombok.With;
 
+import java.util.Objects;
+
 /**
  * 플러그인의 모든 정적 설정 정보를 담는 불변 데이터 객체입니다.
  * 각 모듈의 설정 객체를 필드로 포함합니다.
@@ -12,13 +14,14 @@ import lombok.With;
  */
 @With
 public record PluginConfig(BoardConfig boardConfig) {
-    /**
-     * 비어있는 초기 정적 설정 객체를 생성합니다.
-     *
-     * @return 모든 필드가 null로 초기화된 {@link PluginConfig} 인스턴스
-     */
+    private static final PluginConfig DEFAULTS = new PluginConfig(BoardConfig.ofDefaults());
+
+    public PluginConfig {
+        Objects.requireNonNull(boardConfig, "boardConfig must not be null");
+    }
+
     @NonNull
-    public static PluginConfig empty() {
-        return new PluginConfig(null);
+    public static PluginConfig ofDefaults() {
+        return DEFAULTS;
     }
 }
