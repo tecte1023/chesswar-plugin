@@ -23,7 +23,7 @@ public class ConfigManager {
      * 등록된 모든 {@link ConfigUpdater}를 실행하여 정적 설정을 로드하고 갱신합니다.
      */
     public void load() {
-        PluginConfig newConfig = PluginConfig.empty();
+        PluginConfig newConfig = PluginConfig.ofDefaults();
 
         for (ConfigUpdater updater : updaters) {
             newConfig = updater.update(newConfig);

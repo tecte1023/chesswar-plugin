@@ -4,7 +4,8 @@ import dev.tecte.chessWar.board.application.port.BoardRenderer;
 import dev.tecte.chessWar.board.application.port.BoardRepository;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.BoardConfig;
-import dev.tecte.chessWar.board.domain.model.BorderConfig;
+import dev.tecte.chessWar.board.domain.model.FrameConfig;
+import dev.tecte.chessWar.board.domain.model.InnerBorderConfig;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.board.domain.model.SquareConfig;
 import dev.tecte.chessWar.board.domain.service.BoardCreationSpec;
@@ -41,8 +42,8 @@ public class BoardService {
         Orientation orientation = Orientation.from(player.getFacing());
         BoardConfig boardConfig = configManager.getPluginConfig().boardConfig();
         SquareConfig squareConfig = boardConfig.squareConfig();
-        BorderConfig innerBorderConfig = boardConfig.innerBorderConfig();
-        BorderConfig frameConfig = boardConfig.frameConfig();
+        InnerBorderConfig innerBorderConfig = boardConfig.innerBorderConfig();
+        FrameConfig frameConfig = boardConfig.frameConfig();
 
         // 체스판의 기준점(a1)은 좌측 하단 모서리
         // 플레이어가 자신의 위치를 기준으로 체스판을 자연스럽게 생성하도록 하려면,

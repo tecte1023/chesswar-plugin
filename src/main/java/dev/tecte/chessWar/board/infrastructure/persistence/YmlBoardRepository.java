@@ -8,8 +8,11 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.UUID;
+
+import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersistenceConstants.StatePaths;
 
 /**
  * YML 파일을 사용하여 체스판 객체 데이터의 영속성을 관리하는 {@link BoardRepository}의 구현체입니다.
@@ -19,16 +22,17 @@ public class YmlBoardRepository extends AbstractYmlRepository<UUID, Board> imple
     @Inject
     public YmlBoardRepository(
             @NonNull JavaPlugin plugin,
+            @NonNull BukkitScheduler scheduler,
             @NonNull YmlFileManager fileManager,
             @NonNull BoardMapper mapper
     ) {
-        super(plugin, fileManager, mapper);
+        super(plugin, scheduler, fileManager, mapper);
     }
 
     @NonNull
     @Override
     protected String getDataPath() {
-        return BoardConstants.State.STATE_PATH;
+        return StatePaths.STATE_PATH;
     }
 
     @NonNull

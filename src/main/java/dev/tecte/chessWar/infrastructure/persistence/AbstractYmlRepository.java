@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,10 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     private final JavaPlugin plugin;
+    private final BukkitScheduler scheduler;
     private final YmlFileManager fileManager;
     private final YmlMapper<K, V> mapper;
 
-    private final Map<K, V> cache = new ConcurrentHashMap<>();
+    protected final Map<K, V> cache = new ConcurrentHashMap<>();
 
     /**
      * 데이터가 저장될 YML 파일 내의 최상위 경로를 반환합니다.
@@ -116,7 +118,7 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
 
         // 파일 I/O 작업은 메인 스레드를 블로킹하여 서버 전체에 렉을 유발할 수 있음
         // 비동기 태스크로 실행하여 서버 성능에 미치는 영향을 최소화
-        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+        scheduler.runTaskAsynchronously(plugin, () -> {
             fileManager.set(path, value);
             fileManager.save();
         });

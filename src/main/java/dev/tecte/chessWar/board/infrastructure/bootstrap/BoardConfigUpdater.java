@@ -1,6 +1,5 @@
 package dev.tecte.chessWar.board.infrastructure.bootstrap;
 
-import dev.tecte.chessWar.board.domain.model.BoardConfig;
 import dev.tecte.chessWar.board.infrastructure.persistence.YmlBoardConfigRepository;
 import dev.tecte.chessWar.infrastructure.config.ConfigUpdater;
 import dev.tecte.chessWar.infrastructure.config.PluginConfig;
@@ -20,8 +19,6 @@ public class BoardConfigUpdater implements ConfigUpdater {
     @NonNull
     @Override
     public PluginConfig update(@NonNull PluginConfig pluginConfig) {
-        BoardConfig boardConfig = repository.getBoardConfig();
-
-        return pluginConfig.withBoardConfig(boardConfig);
+        return pluginConfig.withBoardConfig(repository.getBoardConfig());
     }
 }
