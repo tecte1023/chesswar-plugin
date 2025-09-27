@@ -1,5 +1,6 @@
 package dev.tecte.chessWar.infrastructure.bootstrap;
 
+import co.aikar.commands.MessageKeys;
 import co.aikar.commands.PaperCommandManager;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
@@ -11,6 +12,7 @@ import dev.tecte.chessWar.team.infrastructure.command.TeamCommand;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -41,15 +43,17 @@ public class CommandModule extends AbstractModule {
     ) {
         PaperCommandManager commandManager = new PaperCommandManager(plugin);
 
+        commandManager.enableUnstableAPI("help");
+        commandManager.registerCommand(mainCommand);
+        commandManager.registerCommand(boardCommand);
+        commandManager.registerCommand(teamCommand);
+        commandManager.getLocales().setDefaultLocale(Locale.KOREA);
+        commandManager.getLocales().addMessage(Locale.KOREA, MessageKeys.ERROR_PREFIX, "&c[ChessWar] {message}");
+
         // 각 도메인이 자신의 커맨드 설정을 스스로 등록하여 모듈 간의 결합도를 낮춤
         for (CommandConfigurer configurer : configurers) {
             configurer.configure(commandManager);
         }
-
-        commandManager.registerCommand(mainCommand);
-        commandManager.registerCommand(boardCommand);
-        commandManager.registerCommand(teamCommand);
-        commandManager.enableUnstableAPI("help");
 
         return commandManager;
     }
