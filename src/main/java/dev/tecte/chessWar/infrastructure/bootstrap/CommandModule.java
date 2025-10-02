@@ -4,6 +4,7 @@ import co.aikar.commands.MessageKeys;
 import co.aikar.commands.PaperCommandManager;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
+import com.google.inject.multibindings.Multibinder;
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.command.BoardCommand;
 import dev.tecte.chessWar.infrastructure.command.CommandConfigurer;
@@ -20,6 +21,13 @@ import java.util.Set;
  * Aikar's Command Framework(ACF)의 {@link PaperCommandManager}를 생성하고, 각 명령어 클래스를 등록합니다.
  */
 public class CommandModule extends AbstractModule {
+    @Override
+    protected void configure() {
+        // CommandConfigurer를 위한 멀티바인더를 설정하여,
+        // 설정자가 하나도 없더라도 안전하게 Set<CommandConfigurer>를 주입받을 수 있도록 보장
+        Multibinder.newSetBinder(binder(), CommandConfigurer.class);
+    }
+
     /**
      * ACF의 {@link PaperCommandManager}를 생성하고 설정하여 DI 컨테이너에 제공합니다.
      *
@@ -49,11 +57,8 @@ public class CommandModule extends AbstractModule {
         commandManager.registerCommand(teamCommand);
         commandManager.getLocales().setDefaultLocale(Locale.KOREA);
         commandManager.getLocales().addMessage(Locale.KOREA, MessageKeys.ERROR_PREFIX, "&c[ChessWar] {message}");
-
         // 각 도메인이 자신의 커맨드 설정을 스스로 등록하여 모듈 간의 결합도를 낮춤
-        for (CommandConfigurer configurer : configurers) {
-            configurer.configure(commandManager);
-        }
+        configurers.forEach(configurer -> configurer.configure(commandManager));
 
         return commandManager;
     }
