@@ -3,7 +3,6 @@ package dev.tecte.chessWar.team.infrastructure.command;
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.CommandCompletion;
-import co.aikar.commands.annotation.Conditions;
 import co.aikar.commands.annotation.Description;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chessWar.infrastructure.command.CommandConstants;
@@ -35,8 +34,7 @@ public class TeamCommand extends BaseCommand {
     @Subcommand("join")
     @Description("(흑/백) 팀에 참가합니다.")
     @CommandCompletion("@teamcolors")
-    public void onTeamJoin(@NonNull Player player, @Conditions("not_full") @NonNull TeamColor teamColor) {
+    public void onTeamJoin(@NonNull Player player, @NonNull TeamColor teamColor) {
         teamService.joinTeam(player.getUniqueId(), teamColor);
-        player.sendMessage("§a" + teamColor.getName() + "팀에 참가하셨습니다.");
     }
 }

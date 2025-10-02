@@ -4,11 +4,8 @@ import co.aikar.commands.InvalidCommandArgument;
 import co.aikar.commands.PaperCommandManager;
 import dev.tecte.chessWar.infrastructure.command.CommandConfigurer;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
-import dev.tecte.chessWar.team.domain.policy.TeamMembershipPolicy;
-import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -21,10 +18,12 @@ import java.util.stream.Collectors;
  * DDD 관점에서 이 클래스는 도메인 계층과 인프라스트럭처 계층 사이의 어댑터 역할을 수행합니다.
  */
 @Singleton
-@RequiredArgsConstructor(onConstructor_ = @Inject)
 public class TeamCommandConfigurer implements CommandConfigurer {
-    private final TeamMembershipPolicy teamMembershipPolicy;
-
+    /**
+     * Team 도메인에 필요한 커맨드 컨텍스트와 자동완성 규칙을 ACF에 등록합니다.
+     *
+     * @param commandManager 설정을 적용할 ACF 커맨드 매니저
+     */
     @Override
     public void configure(@NonNull PaperCommandManager commandManager) {
         commandManager.getCommandContexts().registerContext(TeamColor.class, c -> {
@@ -39,8 +38,5 @@ public class TeamCommandConfigurer implements CommandConfigurer {
                         .map(Enum::name)
                         .map(String::toLowerCase)
                         .collect(Collectors.toList()));
-
-        commandManager.getCommandConditions().addCondition(TeamColor.class, "not_full",
-                (context, execContext, value) -> teamMembershipPolicy.checkIfJoinable(value));
     }
 }
