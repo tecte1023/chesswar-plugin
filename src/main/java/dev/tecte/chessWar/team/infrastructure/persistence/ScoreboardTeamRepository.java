@@ -1,4 +1,4 @@
-package dev.tecte.chessWar.team.infrastructure.bukkit;
+package dev.tecte.chessWar.team.infrastructure.persistence;
 
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -27,12 +27,15 @@ import java.util.UUID;
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class ScoreboardTeamRepository implements TeamRepository {
     private static final String PREFIX = "cw_";
+    private static final String MAX_PLAYERS_OBJECTIVE = PREFIX + "team";
     private static final String MAX_PLAYERS_ENTRY = PREFIX + "max_players";
-    private static final String MAX_PLAYERS_OBJECTIVE = PREFIX + MAX_PLAYERS_ENTRY;
 
     private final TeamCapacityPolicy teamPolicy;
     private final Scoreboard scoreboard;
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getSize(@NonNull TeamColor teamColor) {
         Team team = scoreboard.getTeam(getTeamName(teamColor));
@@ -40,10 +43,14 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return team == null ? 0 : team.getEntries().size();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int getMaxPlayers() {
         Score score = getMaxPlayersScore();
 
+        // 스코어보드에 최대 인원 수가 설정되지 않은 경우, 정책의 기본값으로 초기화
         if (!score.isScoreSet()) {
             int maxPlayers = TeamCapacityPolicy.MAX_PLAYERS_DEFAULT;
 
@@ -55,9 +62,13 @@ public class ScoreboardTeamRepository implements TeamRepository {
         int unsafeValue = score.getScore();
         int safeValue = teamPolicy.applyTo(unsafeValue);
 
+        // 저장된 값이 정책을 위반하는 경우, 정책을 적용한 값으로 다시 저장
         return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int setMaxPlayers(int maxPlayers) {
         int appliedValue = teamPolicy.applyTo(maxPlayers);
@@ -70,6 +81,9 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return persistMaxPlayers(appliedValue);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void addPlayer(@NonNull UUID playerId, @NonNull TeamColor teamColor) {
         Team team = Optional.ofNullable(scoreboard.getTeam(getTeamName(teamColor)))
@@ -96,7 +110,7 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return scoreboard.registerNewObjective(
                 MAX_PLAYERS_OBJECTIVE,
                 Criteria.DUMMY,
-                Component.text("ChessWar Max Players")
+                Component.text("ChessWar Team")
         );
     }
 
