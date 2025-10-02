@@ -1,10 +1,8 @@
 package dev.tecte.chessWar.board.infrastructure.command;
 
 import co.aikar.commands.BaseCommand;
-import co.aikar.commands.CommandHelp;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Description;
-import co.aikar.commands.annotation.HelpCommand;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chessWar.board.application.BoardService;
 import dev.tecte.chessWar.infrastructure.command.CommandConstants;
@@ -35,10 +33,5 @@ public class BoardCommand extends BaseCommand {
     public void onCreateBoard(@NonNull Player player) {
         boardService.createBoard(player);
         player.sendMessage("체스판이 생성되었습니다.");
-    }
-
-    @HelpCommand
-    public void onHelp(@NonNull CommandHelp help) {
-        help.showHelp();
     }
 }
