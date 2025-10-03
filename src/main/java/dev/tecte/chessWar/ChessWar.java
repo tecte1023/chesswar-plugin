@@ -8,6 +8,7 @@ import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
 import dev.tecte.chessWar.infrastructure.config.ConfigManager;
 import dev.tecte.chessWar.infrastructure.persistence.PersistableState;
 import lombok.extern.slf4j.Slf4j;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Set;
@@ -68,6 +69,7 @@ public final class ChessWar extends JavaPlugin {
             commandManager.unregisterCommands();
         }
 
+        HandlerList.unregisterAll(this);
         log.info("ChessWar plugin has been disabled!");
     }
 }

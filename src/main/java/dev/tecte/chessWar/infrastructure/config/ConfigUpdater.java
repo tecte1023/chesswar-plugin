@@ -1,5 +1,7 @@
 package dev.tecte.chessWar.infrastructure.config;
 
+import lombok.NonNull;
+
 /**
  * 설정을 갱신하는 역할을 정의하는 함수형 인터페이스입니다.
  * 각 모듈은 이 인터페이스를 구현하여 자신의 설정을 {@link PluginConfig}에 통합할 수 있습니다.
@@ -12,5 +14,6 @@ public interface ConfigUpdater {
      * @param currentConfig 현재까지 누적된 정적 설정 객체
      * @return 갱신된 정적 설정 객체
      */
-    PluginConfig update(PluginConfig currentConfig);
+    @NonNull
+    PluginConfig update(@NonNull PluginConfig currentConfig);
 }

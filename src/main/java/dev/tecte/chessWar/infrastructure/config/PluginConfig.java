@@ -20,6 +20,11 @@ public record PluginConfig(BoardConfig boardConfig) {
         Objects.requireNonNull(boardConfig, "boardConfig must not be null");
     }
 
+    /**
+     * 플러그인의 기본 설정값을 담은 {@link PluginConfig} 객체를 반환합니다.
+     *
+     * @return 기본 설정 객체
+     */
     @NonNull
     public static PluginConfig ofDefaults() {
         return DEFAULTS;
