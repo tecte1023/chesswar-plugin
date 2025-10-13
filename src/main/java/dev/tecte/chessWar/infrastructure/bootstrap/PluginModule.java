@@ -9,7 +9,6 @@ import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.notifier.PlayerNotifier;
-import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
 import dev.tecte.chessWar.infrastructure.command.MainCommand;
 import dev.tecte.chessWar.infrastructure.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.infrastructure.exception.ExceptionHandlingInterceptor;
@@ -49,7 +48,6 @@ public class PluginModule extends AbstractModule {
 
         install(new BoardModule());
         install(new TeamModule());
-        install(new GameModule());
         install(new CommandModule());
         install(new ListenerModule());
         install(new ExceptionHandlerModule());
