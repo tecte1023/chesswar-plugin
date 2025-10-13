@@ -9,6 +9,7 @@ plugins {
 repositories {
     mavenCentral()
     maven { url 'https://repo.aikar.co/content/groups/aikar/' }
+    maven { url 'https://mvn.lumine.io/repository/maven-public/' }
     maven {
         name = "papermc-repo"
         url = "https://repo.papermc.io/repository/maven-public/"
@@ -23,11 +24,13 @@ dependencies {
     paperweight.paperDevBundle("1.21-R0.1-SNAPSHOT")
     compileOnly 'org.jetbrains:annotations:24.1.0'
     compileOnly 'org.slf4j:slf4j-api:2.0.17'
+    compileOnly 'io.lumine:Mythic-Dist:5.9.5'
     implementation 'co.aikar:acf-paper:0.5.1-SNAPSHOT'
     implementation 'com.google.inject:guice:7.0.0'
 }
 
 shadowJar {
+    archiveFileName.set("${project.name}-${version}.jar")
     relocate 'co.aikar.commands', 'dev.tecte.chesswar.libs.acf'
     relocate 'co.aikar.locales', 'dev.tecte.chesswar.libs.locales'
     relocate 'com.google.inject', 'dev.tecte.chesswar.libs.guice'
@@ -78,13 +81,11 @@ tasks.register('copyVersionedJar', Copy) {
     }
 }
 
-// 빌드된 jar 파일을 serverPluginsDir로 복사하고 이름을 변경하는 작업 (버전 제외)
 tasks.register('copyUnversionedJar', Copy) {
-    from shadowJar.archiveFile // 빌드된 jar 파일 (예: ChessWar-1.0.0.jar)
+    from shadowJar.archiveFile
     def serverPluginsDir = findProperty('serverPluginsDir')
     if (serverPluginsDir && new File(serverPluginsDir as String).exists()) {
         into(serverPluginsDir)
-        rename { _ -> 'ChessWar.jar' }
     }
 }
 
