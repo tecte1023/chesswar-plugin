@@ -1,12 +1,16 @@
 package dev.tecte.chessWar.infrastructure.bootstrap;
 
+import co.aikar.commands.BaseCommand;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.matcher.Matchers;
+import com.google.inject.multibindings.Multibinder;
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
-import dev.tecte.chessWar.common.annotation.HandleExceptions;
+import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.notifier.PlayerNotifier;
+import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
+import dev.tecte.chessWar.infrastructure.command.MainCommand;
 import dev.tecte.chessWar.infrastructure.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.infrastructure.exception.ExceptionHandlingInterceptor;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
@@ -41,24 +45,27 @@ public class PluginModule extends AbstractModule {
         bind(PluginManager.class).toInstance(server.getPluginManager());
         bind(PlayerNotifier.class).to(BukkitPlayerNotifier.class);
 
+        Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(MainCommand.class);
+
         install(new BoardModule());
         install(new TeamModule());
+        install(new GameModule());
         install(new CommandModule());
         install(new ListenerModule());
         install(new ExceptionHandlerModule());
 
         bindInterceptor(
                 Matchers.any(),
-                Matchers.annotatedWith(HandleExceptions.class),
+                Matchers.annotatedWith(HandleException.class),
                 new ExceptionHandlingInterceptor(getProvider(ExceptionDispatcher.class))
         );
     }
 
     /**
-     * 사용자 데이터 파일을 관리하는 {@link YmlFileManager}를 DI 컨테이너에 제공합니다.
+     * 사용자 데이터 파일(data.yml)을 관리하는 {@link YmlFileManager}의 싱글턴 인스턴스를 생성하여 DI 컨테이너에 제공합니다.
      *
      * @param plugin 메인 플러그인 인스턴스
-     * @return 데이터 파일 관리자 인스턴스
+     * @return {@link YmlFileManager}의 싱글턴 인스턴스
      */
     @NonNull
     @Provides
