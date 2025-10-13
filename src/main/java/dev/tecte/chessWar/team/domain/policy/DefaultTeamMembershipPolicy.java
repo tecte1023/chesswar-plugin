@@ -22,7 +22,7 @@ public class DefaultTeamMembershipPolicy implements TeamMembershipPolicy {
      * {@inheritDoc}
      */
     @Override
-    public void checkIfJoinable(@NonNull TeamColor teamColor, @NonNull UUID playerId) throws TeamFullException {
+    public void checkIfJoinable(@NonNull TeamColor teamColor, @NonNull UUID playerId) {
         if (teamRepository.getSize(teamColor) >= teamRepository.getMaxPlayers()) {
             throw new TeamFullException(teamColor, playerId);
         }

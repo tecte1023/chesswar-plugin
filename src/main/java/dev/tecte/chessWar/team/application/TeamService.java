@@ -1,6 +1,6 @@
 package dev.tecte.chessWar.team.application;
 
-import dev.tecte.chessWar.common.annotation.HandleExceptions;
+import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.notifier.PlayerNotifier;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -31,7 +31,7 @@ public class TeamService {
      * @param playerId  팀에 참가할 플레이어의 UUID
      * @param teamColor 참가할 팀의 색상
      */
-    @HandleExceptions
+    @HandleException
     public void joinTeam(@NonNull UUID playerId, @NonNull TeamColor teamColor) {
         teamMembershipPolicy.checkIfJoinable(teamColor, playerId);
         teamRepository.addPlayer(playerId, teamColor);
