@@ -11,7 +11,7 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@code @HandleExceptions} 어노테이션이 붙은 메서드 호출을 가로채는 AOP 인터셉터입니다.
+ * {@code @HandleException} 어노테이션이 붙은 메서드 호출을 가로채는 AOP 인터셉터입니다.
  * 메서드 실행 중 발생하는 모든 {@link Exception}을 잡아 {@link ExceptionDispatcher}로 전달하여
  * 중앙에서 예외를 처리하도록 합니다.
  */
