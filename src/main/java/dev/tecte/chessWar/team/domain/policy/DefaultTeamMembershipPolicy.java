@@ -8,10 +8,8 @@ import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
-import java.util.UUID;
-
 /**
- * 팀 멤버십(가입, 탈퇴, 추방 등)과 관련된 비즈니스 규칙의 기본 구현체입니다.
+ * 팀과 관련된 비즈니스 규칙의 기본 구현체입니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -22,9 +20,9 @@ public class DefaultTeamMembershipPolicy implements TeamMembershipPolicy {
      * {@inheritDoc}
      */
     @Override
-    public void checkIfJoinable(@NonNull TeamColor teamColor, @NonNull UUID playerId) {
+    public void checkIfJoinable(@NonNull TeamColor teamColor) {
         if (teamRepository.getSize(teamColor) >= teamRepository.getMaxPlayers()) {
-            throw new TeamFullException(teamColor, playerId);
+            throw new TeamFullException(teamColor);
         }
     }
 }

@@ -3,29 +3,25 @@ package dev.tecte.chessWar.infrastructure.bootstrap;
 import co.aikar.commands.BaseCommand;
 import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
-import com.google.inject.matcher.Matchers;
 import com.google.inject.multibindings.Multibinder;
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
-import dev.tecte.chessWar.common.annotation.HandleException;
-import dev.tecte.chessWar.common.notifier.PlayerNotifier;
+import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
 import dev.tecte.chessWar.infrastructure.command.MainCommand;
-import dev.tecte.chessWar.infrastructure.exception.ExceptionDispatcher;
-import dev.tecte.chessWar.infrastructure.exception.ExceptionHandlingInterceptor;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
-import dev.tecte.chessWar.infrastructure.notifier.BukkitPlayerNotifier;
+import dev.tecte.chessWar.infrastructure.notifier.BukkitSenderNotifier;
+import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import dev.tecte.chessWar.team.infrastructure.bootstrap.TeamModule;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Server;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 
 /**
- * 플러그인 전체의 의존성 주입(DI) 설정을 총괄하는 최상위 Guice 모듈입니다.
+ * 플러그인 전체의 의존성 주입 설정을 총괄하는 최상위 Guice 모듈입니다.
  * 각 도메인 모듈을 설치하고, 플러그인 전역에서 사용될 객체들을 제공합니다.
  */
 @RequiredArgsConstructor
@@ -39,24 +35,18 @@ public class PluginModule extends AbstractModule {
 
         bind(ChessWar.class).toInstance(plugin);
         bind(JavaPlugin.class).toInstance(plugin);
-        bind(FileConfiguration.class).toInstance(plugin.getConfig());
         bind(BukkitScheduler.class).toInstance(server.getScheduler());
         bind(PluginManager.class).toInstance(server.getPluginManager());
-        bind(PlayerNotifier.class).to(BukkitPlayerNotifier.class);
+        bind(SenderNotifier.class).to(BukkitSenderNotifier.class);
 
         Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(MainCommand.class);
 
         install(new BoardModule());
         install(new TeamModule());
+        install(new GameModule());
         install(new CommandModule());
         install(new ListenerModule());
         install(new ExceptionHandlerModule());
-
-        bindInterceptor(
-                Matchers.any(),
-                Matchers.annotatedWith(HandleException.class),
-                new ExceptionHandlingInterceptor(getProvider(ExceptionDispatcher.class))
-        );
     }
 
     /**

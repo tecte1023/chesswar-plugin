@@ -2,10 +2,14 @@ package dev.tecte.chessWar.board.infrastructure.persistence;
 
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Border;
+import dev.tecte.chessWar.board.domain.model.BorderType;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.board.domain.model.SquareGrid;
-import dev.tecte.chessWar.infrastructure.persistence.YmlMapper;
+import dev.tecte.chessWar.board.domain.model.spec.BorderSpec;
+import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
+import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
+import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -16,7 +20,6 @@ import org.bukkit.util.Vector;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersistenceConstants.Keys;
 
@@ -25,9 +28,15 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersisten
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class BoardMapper implements YmlMapper<UUID, Board> {
+public class BoardMapper implements SingleYmlMapper<Board> {
+    private final SquareSpec squareSpec;
+    private final GridSpec gridSpec;
+    private final BorderSpec borderSpec;
     private final YmlParser parser;
 
+    /**
+     * {@inheritDoc}
+     */
     @NonNull
     @Override
     public Map<String, Object> toMap(@NonNull Board entity) {
@@ -40,18 +49,20 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
         return map;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @NonNull
     @Override
-    public Board fromSection(@NonNull UUID key, @NonNull ConfigurationSection section) {
+    public Board fromSection(@NonNull ConfigurationSection section) {
         ConfigurationSection squareGridSection = parser.requireSection(section, Keys.SQUARE_GRID);
         ConfigurationSection innerBorderSection = parser.requireSection(section, Keys.INNER_BORDER);
         ConfigurationSection frameSection = parser.requireSection(section, Keys.FRAME);
 
         return new Board(
-                key,
                 fromSectionSquareGrid(squareGridSection),
-                fromSectionBorder(innerBorderSection),
-                fromSectionBorder(frameSection)
+                fromSectionBorder(innerBorderSection, borderSpec.innerBorderType()),
+                fromSectionBorder(frameSection, borderSpec.frameBorderType())
         );
     }
 
@@ -59,12 +70,8 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
     private Map<String, Object> toMapSquareGrid(@NonNull SquareGrid squareGrid) {
         Map<String, Object> map = new HashMap<>();
 
-        map.put(Keys.ANCHOR, squareGrid.getAnchor());
-        map.put(Keys.ORIENTATION, squareGrid.getOrientation().name());
-        map.put(Keys.ROW_COUNT, squareGrid.getRowCount());
-        map.put(Keys.COL_COUNT, squareGrid.getColCount());
-        map.put(Keys.WIDTH, squareGrid.getSquareWidth());
-        map.put(Keys.HEIGHT, squareGrid.getSquareHeight());
+        map.put(Keys.ANCHOR, squareGrid.anchor());
+        map.put(Keys.ORIENTATION, squareGrid.orientation().name());
 
         return map;
     }
@@ -72,13 +79,9 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
     @NonNull
     private SquareGrid fromSectionSquareGrid(@NonNull ConfigurationSection section) {
         Vector anchor = parser.requireValue(section, Keys.ANCHOR, Vector.class);
-        Orientation orientation = parser.requireEnum(section, Keys.ORIENTATION, Orientation.class);
-        int rowCount = parser.requireValue(section, Keys.ROW_COUNT, Integer.class);
-        int colCount = parser.requireValue(section, Keys.COL_COUNT, Integer.class);
-        int width = parser.requireValue(section, Keys.WIDTH, Integer.class);
-        int height = parser.requireValue(section, Keys.HEIGHT, Integer.class);
+        Orientation orientation = parser.requireEnum(section, Keys.ORIENTATION, Orientation::from);
 
-        return SquareGrid.create(anchor, orientation, rowCount, colCount, width, height);
+        return SquareGrid.create(anchor, orientation, gridSpec, squareSpec);
     }
 
     @NonNull
@@ -86,16 +89,14 @@ public class BoardMapper implements YmlMapper<UUID, Board> {
         Map<String, Object> map = new HashMap<>();
 
         map.put(Keys.BOUNDING_BOX, border.boundingBox());
-        map.put(Keys.THICKNESS, border.thickness());
 
         return map;
     }
 
     @NonNull
-    private Border fromSectionBorder(@NonNull ConfigurationSection section) {
+    private Border fromSectionBorder(@NonNull ConfigurationSection section, @NonNull BorderType borderType) {
         BoundingBox boundingBox = parser.requireValue(section, Keys.BOUNDING_BOX, BoundingBox.class);
-        int thickness = parser.requireValue(section, Keys.THICKNESS, Integer.class);
 
-        return new Border(boundingBox, thickness);
+        return new Border(borderType, boundingBox, borderSpec.thickness(borderType));
     }
 }
