@@ -32,6 +32,5 @@ public class BoardCommand extends BaseCommand {
     @Description("새로운 체스판을 생성합니다.")
     public void onCreateBoard(@NonNull Player player) {
         boardService.createBoard(player);
-        player.sendMessage("체스판이 생성되었습니다.");
     }
 }
