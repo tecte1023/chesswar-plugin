@@ -1,4 +1,4 @@
-package dev.tecte.chessWar.infrastructure.persistence;
+package dev.tecte.chessWar.port.persistence;
 
 import lombok.NonNull;
 import org.bukkit.configuration.ConfigurationSection;

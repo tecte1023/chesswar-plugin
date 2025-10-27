@@ -1,7 +1,10 @@
 package dev.tecte.chessWar.infrastructure.persistence;
 
+import dev.tecte.chessWar.common.annotation.HandleException;
+import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
-import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
+import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceWriteException;
+import dev.tecte.chessWar.port.persistence.YmlMapper;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -31,70 +34,33 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
 
     protected final Map<K, V> cache = new ConcurrentHashMap<>();
 
-    /**
-     * 데이터가 저장될 YML 파일 내의 최상위 경로를 반환합니다.
-     * 예: "board.state"
-     *
-     * @return 데이터 루트 경로
-     */
-    @NonNull
     protected abstract String getDataPath();
 
-    /**
-     * 주어진 엔티티에서 키를 추출합니다.
-     *
-     * @param entity 키를 추출할 엔티티
-     * @return 엔티티의 키
-     */
     @NonNull
     protected abstract K getKey(@NonNull V entity);
 
-    /**
-     * YML 파일에서 읽어온 문자열 키를 실제 키 타입으로 변환합니다.
-     *
-     * @param keyString 변환할 문자열 키
-     * @return 변환된 실제 키 객체
-     */
     @NonNull
     protected abstract K convertKey(@NonNull String keyString);
 
     /**
-     * YML 파일에서 모든 엔티티를 로드하여 인메모리 캐시에 적재합니다.
-     * 플러그인 활성화 시점에 호출되어 이전에 저장된 상태를 복원합니다.
-     * 파싱 중 오류가 발생한 엔티티는 건너뛰고 로그를 남깁니다.
+     * {@inheritDoc}
      */
     @Override
-    public void loadAll() {
+    public void load() {
         ConfigurationSection section = fileManager.getConfig().getConfigurationSection(getDataPath());
 
         if (section == null) {
             return;
         }
 
-        for (String keyString : section.getKeys(false)) {
-            try {
-                ConfigurationSection entitySection = section.getConfigurationSection(keyString);
-
-                if (entitySection == null) {
-                    continue;
-                }
-
-                K key = convertKey(keyString);
-
-                cache.put(key, mapper.fromSection(key, entitySection));
-            } catch (YmlMappingException e) {
-                log.warn("Failed to load entity. {}", e.getMessage());
-            } catch (Exception e) {
-                log.error("An unexpected error occurred while loading entity '{}'.", keyString, e);
-            }
-        }
+        section.getKeys(false).forEach(keyString -> reconstituteEntity(section, keyString));
     }
 
     /**
-     * 현재 인메모리 캐시에 있는 모든 엔티티를 YML 파일에 덮어씁니다.
-     * 플러그인 비활성화 시점에 호출되어 현재 상태를 파일에 저장합니다.
+     * {@inheritDoc}
      */
     @Override
+    @HandleException
     public void persistCache() {
         final String dataPath = getDataPath();
 
@@ -123,14 +89,32 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
         persistChangeAsync(key.toString(), mapper.toMap(entity));
     }
 
-    private void persistChangeAsync(@NonNull String key, Object value) {
+    @HandleException
+    private void reconstituteEntity(@NonNull ConfigurationSection dataSection, @NonNull String keyString) {
+        ConfigurationSection entitySection = dataSection.getConfigurationSection(keyString);
+
+        if (entitySection == null) {
+            return;
+        }
+
+        K key = convertKey(keyString);
+        V entity = mapper.fromSection(key, entitySection);
+
+        cache.put(key, entity);
+    }
+
+    private void persistChangeAsync(@NonNull String key, @NonNull Object value) {
         final String path = getDataPath() + "." + key;
 
         // 파일 I/O 작업은 메인 스레드를 블로킹하여 서버 전체에 렉을 유발할 수 있음
         // 비동기 태스크로 실행하여 서버 성능에 미치는 영향을 최소화
         scheduler.runTaskAsynchronously(plugin, () -> {
-            fileManager.set(path, value);
-            fileManager.save();
+            try {
+                fileManager.set(path, value);
+                fileManager.save();
+            } catch (PersistenceWriteException e) {
+                log.error("Failed to persist asynchronous change for key '{}'", key, e);
+            }
         });
     }
 }
