@@ -4,9 +4,9 @@ import co.aikar.commands.PaperCommandManager;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
+import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
-import dev.tecte.chessWar.infrastructure.config.ConfigManager;
-import dev.tecte.chessWar.infrastructure.persistence.PersistableState;
+import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceInitializationException;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -24,9 +24,6 @@ public final class ChessWar extends JavaPlugin {
     private PaperCommandManager commandManager;
 
     @Inject
-    private ConfigManager configManager;
-
-    @Inject
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     private Set<PersistableState> persistableStates;
 
@@ -36,19 +33,20 @@ public final class ChessWar extends JavaPlugin {
      */
     @Override
     public void onEnable() {
-        saveDefaultConfig();
-
         Injector injector = Guice.createInjector(new PluginModule(this));
         injector.injectMembers(this);
 
-        if (configManager != null) {
-            log.info("Loading configurations...");
-            configManager.load();
-        }
-
         if (persistableStates != null) {
             log.info("Loading all registered state data...");
-            persistableStates.forEach(PersistableState::loadAll);
+
+            try {
+                persistableStates.forEach(PersistableState::load);
+            } catch (PersistenceInitializationException e) {
+                log.error("Failed to initialize persistence layer. The plugin will be disabled.", e);
+                getServer().getPluginManager().disablePlugin(this);
+
+                return;
+            }
         }
 
         log.info("ChessWar plugin has been enabled!");

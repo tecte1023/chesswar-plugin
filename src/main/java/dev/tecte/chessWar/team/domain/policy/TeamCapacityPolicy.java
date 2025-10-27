@@ -6,23 +6,31 @@ package dev.tecte.chessWar.team.domain.policy;
  */
 public interface TeamCapacityPolicy {
     /**
-     * 팀의 최대 인원 수의 하한값입니다.
-     */
-    int MAX_PLAYERS_LOWER_BOUND = 1;
-    /**
-     * 팀의 최대 인원 수의 상한값입니다.
-     */
-    int MAX_PLAYERS_UPPER_BOUND = 8;
-    /**
-     * 팀의 최대 인원 수의 기본값입니다.
-     */
-    int MAX_PLAYERS_DEFAULT = 8;
-
-    /**
      * 주어진 값을 정책에 따라 검증하고, 유효한 값으로 조정하여 반환합니다.
      *
      * @param value 조정할 최대 인원 수 값
      * @return 정책이 적용된 최대 인원 수 값
      */
     int applyTo(int value);
+
+    /**
+     * 정책의 하한값을 반환합니다.
+     *
+     * @return 하한값
+     */
+    int lowerBound();
+
+    /**
+     * 정책의 상한값을 반환합니다.
+     *
+     * @return 상한값
+     */
+    int upperBound();
+
+    /**
+     * 정책의 기본값을 반환합니다.
+     *
+     * @return 기본값
+     */
+    int defaultValue();
 }

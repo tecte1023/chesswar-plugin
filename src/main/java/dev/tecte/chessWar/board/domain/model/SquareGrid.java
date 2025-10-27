@@ -1,6 +1,7 @@
 package dev.tecte.chessWar.board.domain.model;
 
-import lombok.Getter;
+import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
+import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
 import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
@@ -8,65 +9,77 @@ import org.bukkit.util.Vector;
 /**
  * 체스판의 격자 영역을 계산하고 관리하는 클래스입니다.
  * 격자의 기준점(a1), 방향, 크기 정보를 바탕으로 각 칸의 위치와 영역을 계산합니다.
+ *
+ * @param anchor      격자의 기준점 (a1: 좌측 하단 모서리)
+ * @param orientation 격자의 방향
+ * @param gridSpec    격자 명세
+ * @param squareSpec  칸 명세
  */
-@Getter
-public final class SquareGrid {
-    private final Vector anchor;
-    private final Orientation orientation;
-    private final int rowCount;
-    private final int colCount;
-    private final int squareWidth;
-    private final int squareHeight;
-    private final Vector colStep;
-    private final Vector rowStep;
-
-    private SquareGrid(
+public record SquareGrid(
+        Vector anchor,
+        Orientation orientation,
+        GridSpec gridSpec,
+        SquareSpec squareSpec
+) {
+    public SquareGrid(
             @NonNull Vector anchor,
             @NonNull Orientation orientation,
-            int rowCount,
-            int colCount,
-            int squareWidth,
-            int squareHeight
+            @NonNull GridSpec gridSpec,
+            @NonNull SquareSpec squareSpec
     ) {
-        this.anchor = anchor;
+        this.anchor = anchor.clone();
         this.orientation = orientation;
-        this.rowCount = rowCount;
-        this.colCount = colCount;
-        this.squareWidth = squareWidth;
-        this.squareHeight = squareHeight;
-        // 반복적으로 계산하는 것을 피하고, 각 칸의 위치를 효율적으로 찾을 수 있게 colStep과 rowStep을 미리 계산
-        colStep = orientation.getRight().clone().multiply(squareWidth);
-        rowStep = orientation.getForward().clone().multiply(squareHeight);
+        this.gridSpec = gridSpec;
+        this.squareSpec = squareSpec;
     }
 
     /**
      * {@link SquareGrid}의 새 인스턴스를 생성하는 정적 팩토리 메서드입니다.
      *
-     * @param anchor       격자의 기준점 (a1: 좌측 하단 모서리)
-     * @param orientation  격자의 방향
-     * @param rowCount     격자의 행 수
-     * @param colCount     격자의 열 수
-     * @param squareWidth  각 칸의 너비
-     * @param squareHeight 각 칸의 높이
+     * @param anchor      격자의 기준점 (a1: 좌측 하단 모서리)
+     * @param orientation 격자의 방향
+     * @param gridSpec    격자 명세
+     * @param squareSpec  칸 명세
      * @return 생성된 {@link SquareGrid} 인스턴스
      */
     @NonNull
     public static SquareGrid create(
             @NonNull Vector anchor,
             @NonNull Orientation orientation,
-            int rowCount,
-            int colCount,
-            int squareWidth,
-            int squareHeight
+            @NonNull GridSpec gridSpec,
+            @NonNull SquareSpec squareSpec
     ) {
-        return new SquareGrid(
-                anchor,
-                orientation,
-                rowCount,
-                colCount,
-                squareWidth,
-                squareHeight
-        );
+        return new SquareGrid(anchor, orientation, gridSpec, squareSpec);
+    }
+
+    /**
+     * 격자의 기준점(a1) 벡터를 복제하여 반환합니다.
+     *
+     * @return 기준점 벡터의 복제본
+     */
+    @NonNull
+    public Vector anchor() {
+        return anchor.clone();
+    }
+
+    /**
+     * 한 열을 오른쪽으로 이동하는 데 필요한 변위 벡터를 계산합니다.
+     *
+     * @return 열 이동 벡터
+     */
+    @NonNull
+    public Vector colStep() {
+        return orientation.right().multiply(squareSpec.width());
+    }
+
+    /**
+     * 한 행을 앞으로 이동하는 데 필요한 변위 벡터를 계산합니다.
+     *
+     * @return 행 이동 벡터
+     */
+    @NonNull
+    public Vector rowStep() {
+        return orientation.forward().multiply(squareSpec.height());
     }
 
     /**
@@ -75,12 +88,12 @@ public final class SquareGrid {
      * @return 격자의 영역
      */
     @NonNull
-    public BoundingBox getBoundingBox() {
-        Vector diagonalOffset = colStep.clone().multiply(colCount)
-                .add(rowStep.clone().multiply(rowCount));
-        Vector diagonalCorner = anchor.clone().add(diagonalOffset);
+    public BoundingBox boundingBox() {
+        Vector diagonalOffset = colStep().multiply(gridSpec.colCount())
+                .add(rowStep().multiply(gridSpec.rowCount()));
+        Vector diagonalCorner = anchor().add(diagonalOffset);
 
-        return BoundingBox.of(anchor, diagonalCorner);
+        return BoundingBox.of(anchor(), diagonalCorner);
     }
 
     /**
@@ -91,14 +104,16 @@ public final class SquareGrid {
      * @return 계산된 {@link Square} 객체
      */
     @NonNull
-    public Square getSquareAt(int row, int col) {
-        Vector squareOrigin = anchor.clone()
-                .add(colStep.clone().multiply(col))
-                .add(rowStep.clone().multiply(row));
-        Vector diagonalCorner = squareOrigin.clone().add(colStep).add(rowStep);
-        BoundingBox boundingBox = BoundingBox.of(squareOrigin, diagonalCorner);
+    public Square squareAt(int row, int col) {
         SquareColor color = (row + col) % 2 == 0 ? SquareColor.BLACK : SquareColor.WHITE;
+        Vector squareOrigin = anchor()
+                .add(colStep().multiply(col))
+                .add(rowStep().multiply(row));
+        Vector diagonalCorner = squareOrigin.clone()
+                .add(colStep())
+                .add(rowStep());
+        BoundingBox boundingBox = BoundingBox.of(squareOrigin, diagonalCorner);
 
-        return new Square(boundingBox, color);
+        return new Square(color, boundingBox);
     }
 }

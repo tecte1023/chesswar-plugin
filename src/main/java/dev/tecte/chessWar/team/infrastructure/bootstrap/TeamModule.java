@@ -8,6 +8,7 @@ import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.policy.DefaultTeamCapacityPolicy;
 import dev.tecte.chessWar.team.domain.policy.DefaultTeamMembershipPolicy;
 import dev.tecte.chessWar.team.domain.policy.TeamCapacityPolicy;
+import dev.tecte.chessWar.team.domain.policy.TeamCapacitySpec;
 import dev.tecte.chessWar.team.domain.policy.TeamMembershipPolicy;
 import dev.tecte.chessWar.team.infrastructure.command.TeamCommand;
 import dev.tecte.chessWar.team.infrastructure.command.TeamCommandConfigurer;
@@ -24,6 +25,7 @@ import org.bukkit.scoreboard.Scoreboard;
 public class TeamModule extends AbstractModule {
     @Override
     protected void configure() {
+        bind(TeamCapacitySpec.class).toInstance(TeamCapacitySpec.defaultSpec());
         bind(TeamCapacityPolicy.class).to(DefaultTeamCapacityPolicy.class);
         bind(TeamMembershipPolicy.class).to(DefaultTeamMembershipPolicy.class);
         bind(TeamRepository.class).to(ScoreboardTeamRepository.class);

@@ -32,9 +32,9 @@ public class TeamCommand extends BaseCommand {
      * @param teamColor 참가할 팀의 색상 (not_full 조건에 의해 가득 차지 않은 팀만 가능)
      */
     @Subcommand("join")
-    @Description("(흑/백) 팀에 참가합니다.")
+    @Description("(흑팀/백팀)에 참가합니다.")
     @CommandCompletion("@teamcolors")
     public void onTeamJoin(@NonNull Player player, @NonNull TeamColor teamColor) {
-        teamService.joinTeam(player.getUniqueId(), teamColor);
+        teamService.joinTeam(player, teamColor);
     }
 }

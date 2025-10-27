@@ -30,7 +30,7 @@ public class ScoreboardTeamRepository implements TeamRepository {
     private static final String MAX_PLAYERS_OBJECTIVE = PREFIX + "team";
     private static final String MAX_PLAYERS_ENTRY = PREFIX + "max_players";
 
-    private final TeamCapacityPolicy teamPolicy;
+    private final TeamCapacityPolicy teamCapacityPolicy;
     private final Scoreboard scoreboard;
 
     /**
@@ -52,7 +52,7 @@ public class ScoreboardTeamRepository implements TeamRepository {
 
         // 스코어보드에 최대 인원 수가 설정되지 않은 경우, 정책의 기본값으로 초기화
         if (!score.isScoreSet()) {
-            int maxPlayers = TeamCapacityPolicy.MAX_PLAYERS_DEFAULT;
+            int maxPlayers = teamCapacityPolicy.defaultValue();
 
             log.info("Max players not set, initializing to default value({}).", maxPlayers);
 
@@ -60,7 +60,7 @@ public class ScoreboardTeamRepository implements TeamRepository {
         }
 
         int unsafeValue = score.getScore();
-        int safeValue = teamPolicy.applyTo(unsafeValue);
+        int safeValue = teamCapacityPolicy.applyTo(unsafeValue);
 
         // 저장된 값이 정책을 위반하는 경우, 정책을 적용한 값으로 다시 저장
         return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
@@ -71,11 +71,11 @@ public class ScoreboardTeamRepository implements TeamRepository {
      */
     @Override
     public int setMaxPlayers(int maxPlayers) {
-        int appliedValue = teamPolicy.applyTo(maxPlayers);
+        int appliedValue = teamCapacityPolicy.applyTo(maxPlayers);
 
         if (maxPlayers != appliedValue) {
             log.warn("Invalid max player count found ({}). Value must be between {}-{}. Resetting to {}.",
-                    maxPlayers, TeamCapacityPolicy.MAX_PLAYERS_LOWER_BOUND, TeamCapacityPolicy.MAX_PLAYERS_UPPER_BOUND, appliedValue);
+                    maxPlayers, teamCapacityPolicy.lowerBound(), teamCapacityPolicy.upperBound(), appliedValue);
         }
 
         return persistMaxPlayers(appliedValue);

@@ -51,6 +51,6 @@ public class TeamJoinListener implements Listener {
         Material itemType = player.getInventory().getItemInMainHand().getType();
 
         Optional.ofNullable(TEAM_COLOR_BY_ITEM.get(itemType))
-                .ifPresent(selectedTeam -> teamService.joinTeam(player.getUniqueId(), selectedTeam));
+                .ifPresent(selectedTeam -> teamService.joinTeam(player, selectedTeam));
     }
 }

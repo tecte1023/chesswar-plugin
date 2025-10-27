@@ -23,13 +23,6 @@ public class YmlFileManager {
     @Getter
     private final FileConfiguration config;
 
-    /**
-     * {@link YmlFileManager}를 생성하고, 대상 파일이 없을 경우 리소스에서 복사하거나 파일을 생성합니다.
-     *
-     * @param plugin   JavaPlugin 인스턴스
-     * @param fileName 데이터 폴더 내의 YML 파일 이름
-     * @throws PersistenceInitializationException 파일 또는 디렉토리 생성에 실패할 경우
-     */
     @Inject
     public YmlFileManager(@NonNull JavaPlugin plugin, @NonNull String fileName) {
         file = new File(plugin.getDataFolder(), fileName);
@@ -37,7 +30,7 @@ public class YmlFileManager {
         File parentDir = file.getParentFile();
 
         if (!parentDir.exists() && !parentDir.mkdirs()) {
-            throw new PersistenceInitializationException("Failed to create parent directories for: " + file.getPath());
+            throw PersistenceInitializationException.forDirectoryCreationFailure(file.getPath());
         }
 
         if (!file.exists()) {
@@ -55,7 +48,7 @@ public class YmlFileManager {
                         log.warn("File was created by another process between checks: {}", fileName);
                     }
                 } catch (IOException ex) {
-                    throw new PersistenceInitializationException("Could not create new file: " + fileName, ex);
+                    throw PersistenceInitializationException.forFileCreationFailure(fileName, ex);
                 }
             }
         }
@@ -82,7 +75,7 @@ public class YmlFileManager {
         try {
             config.save(file);
         } catch (IOException e) {
-            throw new PersistenceWriteException("Could not save to " + file.getName(), e);
+            throw new PersistenceWriteException(file.getName(), e);
         }
     }
 }
