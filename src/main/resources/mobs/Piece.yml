@@ -1,0 +1,76 @@
+Piece:
+  Type: SLIME
+  Health: 10
+  Damage: 0
+  Options:
+    NoGravity: true                   # 중력 무시
+    NoAI: true                        # AI 비활성화
+    Size: 1                           # 원본 몹의 크기
+    Silent: true                      # 소리 비활성화
+    KnockbackResistance: 1            # 넉백 저항
+    PreventOtherDrops: true           # 바닐라 드롭 방지
+    Despawn: false                    # 서버/청크 이동 시 자동 despawn 방지
+    Invincible: true                  # 무적 상태
+    PreventRenaming: true             # 이름표로 이름 변경 불가
+  Skills:
+    - setrotation{pitch=0} @self ~onSpawn
+
+WhitePawn:
+  Template: Piece
+  Skills:
+    - model{m=white_pawn;s=1.5} @self ~onSpawn
+
+BlackPawn:
+  Template: Piece
+  Skills:
+    - model{m=black_pawn;s=1.5} @self ~onSpawn
+
+WhiteKnight:
+  Template: Piece
+  Skills:
+    - model{m=white_knight;s=1.5} @self ~onSpawn
+
+BlackKnight:
+  Template: Piece
+  Skills:
+    - model{m=black_knight;s=1.5} @self ~onSpawn
+
+WhiteBishop:
+  Template: Piece
+  Skills:
+    - model{m=white_bishop;s=1.5} @self ~onSpawn
+
+BlackBishop:
+  Template: Piece
+  Skills:
+    - model{m=black_bishop;s=1.5} @self ~onSpawn
+
+WhiteRook:
+  Template: Piece
+  Skills:
+    - model{m=white_rook;s=1.5} @self ~onSpawn
+
+BlackRook:
+  Template: Piece
+  Skills:
+    - model{m=black_rook;s=1.5} @self ~onSpawn
+
+WhiteQueen:
+  Template: Piece
+  Skills:
+    - model{m=white_queen;s=1.5} @self ~onSpawn
+
+BlackQueen:
+  Template: Piece
+  Skills:
+    - model{m=black_queen;s=1.5} @self ~onSpawn
+
+WhiteKing:
+  Template: Piece
+  Skills:
+    - model{m=white_king;s=1.5} @self ~onSpawn
+
+BlackKing:
+  Template: Piece
+  Skills:
+    - model{m=black_king;s=1.5} @self ~onSpawn

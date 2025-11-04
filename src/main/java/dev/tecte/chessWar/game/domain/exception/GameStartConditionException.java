@@ -34,4 +34,15 @@ public class GameStartConditionException extends BusinessException implements No
                 String.format("게임 시작 실패: 각 팀에 최소 %d명 이상의 플레이어가 필요합니다.", minPlayers)
         );
     }
+
+    /**
+     * 체스판의 월드를 찾을 수 없을 때 이 예외를 생성합니다.
+     *
+     * @param worldName 찾을 수 없는 월드의 이름
+     * @return {@link GameStartConditionException}의 새 인스턴스
+     */
+    @NonNull
+    public static GameStartConditionException forWorldNotFound(@NonNull String worldName) {
+        return new GameStartConditionException(String.format("게임 시작 실패: 월드 '%s'를 찾을 수 없습니다.", worldName));
+    }
 }
