@@ -32,10 +32,20 @@ public class BoardFactory {
      */
     @NonNull
     public Board createBoard(@NonNull BoardCreationParams params) {
-        SquareGrid squareGrid = SquareGrid.create(params.gridAnchor(), params.orientation(), gridSpec, squareSpec);
+        SquareGrid squareGrid = SquareGrid.builder()
+                .anchor(params.gridAnchor())
+                .orientation(params.orientation())
+                .gridSpec(gridSpec)
+                .squareSpec(squareSpec)
+                .build();
         Border innerBorder = Border.from(BorderType.INNER_BORDER, squareGrid.boundingBox(), borderSpec.innerThickness());
         Border frame = Border.from(BorderType.FRAME, innerBorder.boundingBox(), borderSpec.frameThickness());
 
-        return new Board(squareGrid, innerBorder, frame);
+        return Board.builder()
+                .worldName(params.worldName())
+                .squareGrid(squareGrid)
+                .innerBorder(innerBorder)
+                .frame(frame)
+                .build();
     }
 }

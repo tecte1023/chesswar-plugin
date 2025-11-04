@@ -5,16 +5,19 @@ import org.bukkit.util.Vector;
 import java.util.Objects;
 
 /**
- * 체스판 생성을 위한 동적 파라미터들을 담는 객체입니다.
+ * 체스판 생성을 위한 파라미터를 담는 레코드입니다.
  *
+ * @param worldName   체스판이 생성될 월드의 이름
  * @param gridAnchor  격자의 기준점 (a1: 좌측 하단 모서리)
  * @param orientation 격자의 방향
  */
 public record BoardCreationParams(
+        String worldName,
         Vector gridAnchor,
         Orientation orientation
 ) {
     public BoardCreationParams {
+        Objects.requireNonNull(worldName, "World name cannot be null.");
         Objects.requireNonNull(gridAnchor, "Grid anchor cannot be null.");
         Objects.requireNonNull(orientation, "Orientation cannot be null.");
     }
