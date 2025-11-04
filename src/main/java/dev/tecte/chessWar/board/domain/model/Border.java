@@ -3,6 +3,8 @@ package dev.tecte.chessWar.board.domain.model;
 import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 
+import java.util.Objects;
+
 /**
  * 체스판의 테두리를 나타내는 데이터 객체입니다.
  *
@@ -10,11 +12,20 @@ import org.bukkit.util.BoundingBox;
  * @param boundingBox 테두리가 차지하는 영역
  * @param thickness   테두리의 두께
  */
-public record Border(BorderType borderType, BoundingBox boundingBox, int thickness) {
-    public Border(@NonNull BorderType borderType, @NonNull BoundingBox boundingBox, int thickness) {
-        this.borderType = borderType;
-        this.boundingBox = boundingBox.clone();
-        this.thickness = thickness;
+public record Border(
+        BorderType borderType,
+        BoundingBox boundingBox,
+        int thickness
+) {
+    public Border {
+        Objects.requireNonNull(borderType, "Border type cannot be null");
+        Objects.requireNonNull(boundingBox, "Bounding box cannot be null");
+
+        if (thickness < 0) {
+            throw new IllegalArgumentException("Thickness cannot be negative.");
+        }
+
+        boundingBox = boundingBox.clone();
     }
 
     /**
@@ -39,7 +50,6 @@ public record Border(BorderType borderType, BoundingBox boundingBox, int thickne
      * @return 복제된 {@link BoundingBox} 객체
      */
     @NonNull
-    @Override
     public BoundingBox boundingBox() {
         return boundingBox.clone();
     }

@@ -21,6 +21,8 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
+import java.util.Optional;
+
 /**
  * 체스판과 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다.
  * 사용자의 요청을 받아 도메인 객체를 생성하고, 렌더링 및 영속성을 관리합니다.
@@ -59,9 +61,9 @@ public class BoardService {
                 .add(orientation.forward().multiply(thickness));
         Vector playerPosition = player.getLocation().toBlockLocation().toVector();
         Vector gridAnchor = playerPosition.clone().add(offset);
-        BoardCreationParams params = new BoardCreationParams(gridAnchor, orientation);
-        Board board = boardFactory.createBoard(params);
         World world = player.getWorld();
+        BoardCreationParams params = new BoardCreationParams(world.getName(), gridAnchor, orientation);
+        Board board = boardFactory.createBoard(params);
 
         boardRenderer.render(board, world);
         boardRepository.save(board);
@@ -72,11 +74,12 @@ public class BoardService {
     }
 
     /**
-     * 현재 활성화된 체스판이 존재하는지 확인합니다.
+     * 저장된 체스판 데이터를 조회합니다.
      *
-     * @return 체스판이 존재하면 true, 그렇지 않으면 false
+     * @return 체스판이 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
-    public boolean isExists() {
-        return boardRepository.isExists();
+    @NonNull
+    public Optional<Board> getBoard() {
+        return boardRepository.get();
     }
 }

@@ -4,6 +4,7 @@ import dev.tecte.chessWar.board.application.port.BoardRenderer;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Border;
 import dev.tecte.chessWar.board.domain.model.BorderType;
+import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.domain.model.Square;
 import dev.tecte.chessWar.board.domain.model.SquareColor;
 import dev.tecte.chessWar.board.domain.model.SquareGrid;
@@ -50,7 +51,7 @@ public class BukkitBoardRenderer implements BoardRenderer {
 
         for (int row = 0; row < rowCount; row++) {
             for (int col = 0; col < colCount; col++) {
-                Square square = squareGrid.squareAt(row, col);
+                Square square = squareGrid.squareAt(new Coordinate(row, col));
                 BoundingBox boundingBox = square.boundingBox();
                 Material material = square.color() == SquareColor.WHITE ? squareTheme.white() : squareTheme.black();
 

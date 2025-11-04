@@ -1,22 +1,23 @@
 package dev.tecte.chessWar.board.domain.model;
 
+import lombok.Builder;
+
 import java.util.Objects;
 
 /**
- * 체스판의 전체 구조를 나타내는 레코드입니다.
- *
- * @param squareGrid  체스판의 격자
- * @param innerBorder 체스판의 내부 테두리
- * @param frame       체스판의 외부 프레임
+ * 체스판의 구조를 나타내는 불변 데이터 객체입니다.
  */
+@Builder
 public record Board(
+        String worldName,
         SquareGrid squareGrid,
         Border innerBorder,
         Border frame
 ) {
     public Board {
-        Objects.requireNonNull(squareGrid, "squareGrid cannot be null");
-        Objects.requireNonNull(innerBorder, "innerBorder cannot be null");
-        Objects.requireNonNull(frame, "frame cannot be null");
+        Objects.requireNonNull(worldName, "World name cannot be null");
+        Objects.requireNonNull(squareGrid, "Square grid cannot be null");
+        Objects.requireNonNull(innerBorder, "Inner border cannot be null");
+        Objects.requireNonNull(frame, "Frame cannot be null");
     }
 }

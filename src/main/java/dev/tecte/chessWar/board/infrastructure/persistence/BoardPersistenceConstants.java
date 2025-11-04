@@ -18,9 +18,10 @@ public final class BoardPersistenceConstants {
     public static final class Keys {
         public static final String STATE = "state";
 
+        public static final String WORLD_NAME = "world";
+        public static final String SQUARE_GRID = "square-grid";
         public static final String INNER_BORDER = "inner-border";
         public static final String FRAME = "frame";
-        public static final String SQUARE_GRID = "square-grid";
 
         public static final String ANCHOR = "anchor";
         public static final String ORIENTATION = "orientation";

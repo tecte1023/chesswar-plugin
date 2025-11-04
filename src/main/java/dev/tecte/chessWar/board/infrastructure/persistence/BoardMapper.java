@@ -42,6 +42,7 @@ public class BoardMapper implements SingleYmlMapper<Board> {
     public Map<String, Object> toMap(@NonNull Board entity) {
         Map<String, Object> map = new HashMap<>();
 
+        map.put(Keys.WORLD_NAME, entity.worldName());
         map.put(Keys.SQUARE_GRID, toMapSquareGrid(entity.squareGrid()));
         map.put(Keys.INNER_BORDER, toMapBorder(entity.innerBorder()));
         map.put(Keys.FRAME, toMapBorder(entity.frame()));
@@ -55,15 +56,17 @@ public class BoardMapper implements SingleYmlMapper<Board> {
     @NonNull
     @Override
     public Board fromSection(@NonNull ConfigurationSection section) {
+        String worldName = parser.requireValue(section, Keys.WORLD_NAME, String.class);
         ConfigurationSection squareGridSection = parser.requireSection(section, Keys.SQUARE_GRID);
         ConfigurationSection innerBorderSection = parser.requireSection(section, Keys.INNER_BORDER);
         ConfigurationSection frameSection = parser.requireSection(section, Keys.FRAME);
 
-        return new Board(
-                fromSectionSquareGrid(squareGridSection),
-                fromSectionBorder(innerBorderSection, borderSpec.innerBorderType()),
-                fromSectionBorder(frameSection, borderSpec.frameBorderType())
-        );
+        return Board.builder()
+                .worldName(worldName)
+                .squareGrid(fromSectionSquareGrid(squareGridSection))
+                .innerBorder(fromSectionBorder(innerBorderSection, borderSpec.innerBorderType()))
+                .frame(fromSectionBorder(frameSection, borderSpec.frameBorderType()))
+                .build();
     }
 
     @NonNull
@@ -81,7 +84,12 @@ public class BoardMapper implements SingleYmlMapper<Board> {
         Vector anchor = parser.requireValue(section, Keys.ANCHOR, Vector.class);
         Orientation orientation = parser.requireEnum(section, Keys.ORIENTATION, Orientation::from);
 
-        return SquareGrid.create(anchor, orientation, gridSpec, squareSpec);
+        return SquareGrid.builder()
+                .anchor(anchor)
+                .orientation(orientation)
+                .gridSpec(gridSpec)
+                .squareSpec(squareSpec)
+                .build();
     }
 
     @NonNull

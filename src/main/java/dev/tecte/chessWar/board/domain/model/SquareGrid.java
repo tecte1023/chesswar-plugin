@@ -2,9 +2,12 @@ package dev.tecte.chessWar.board.domain.model;
 
 import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
 import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
+import lombok.Builder;
 import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+
+import java.util.Objects;
 
 /**
  * 체스판의 격자 영역을 계산하고 관리하는 클래스입니다.
@@ -15,41 +18,20 @@ import org.bukkit.util.Vector;
  * @param gridSpec    격자 명세
  * @param squareSpec  칸 명세
  */
+@Builder
 public record SquareGrid(
         Vector anchor,
         Orientation orientation,
         GridSpec gridSpec,
         SquareSpec squareSpec
 ) {
-    public SquareGrid(
-            @NonNull Vector anchor,
-            @NonNull Orientation orientation,
-            @NonNull GridSpec gridSpec,
-            @NonNull SquareSpec squareSpec
-    ) {
-        this.anchor = anchor.clone();
-        this.orientation = orientation;
-        this.gridSpec = gridSpec;
-        this.squareSpec = squareSpec;
-    }
+    public SquareGrid {
+        Objects.requireNonNull(anchor, "Anchor cannot be null");
+        Objects.requireNonNull(orientation, "Orientation cannot be null");
+        Objects.requireNonNull(gridSpec, "GridSpec cannot be null");
+        Objects.requireNonNull(squareSpec, "SquareSpec cannot be null");
 
-    /**
-     * {@link SquareGrid}의 새 인스턴스를 생성하는 정적 팩토리 메서드입니다.
-     *
-     * @param anchor      격자의 기준점 (a1: 좌측 하단 모서리)
-     * @param orientation 격자의 방향
-     * @param gridSpec    격자 명세
-     * @param squareSpec  칸 명세
-     * @return 생성된 {@link SquareGrid} 인스턴스
-     */
-    @NonNull
-    public static SquareGrid create(
-            @NonNull Vector anchor,
-            @NonNull Orientation orientation,
-            @NonNull GridSpec gridSpec,
-            @NonNull SquareSpec squareSpec
-    ) {
-        return new SquareGrid(anchor, orientation, gridSpec, squareSpec);
+        anchor = anchor.clone();
     }
 
     /**
@@ -97,14 +79,15 @@ public record SquareGrid(
     }
 
     /**
-     * 지정된 행과 열에 위치한 체스판 칸({@link Square})의 정보를 계산합니다.
+     * 지정된 좌표에 위치한 체스판 칸({@link Square})의 정보를 계산합니다.
      *
-     * @param row 칸의 행 인덱스 (0부터 시작)
-     * @param col 칸의 열 인덱스 (0부터 시작)
+     * @param coordinate 칸의 좌표
      * @return 계산된 {@link Square} 객체
      */
     @NonNull
-    public Square squareAt(int row, int col) {
+    public Square squareAt(@NonNull Coordinate coordinate) {
+        int row = coordinate.row();
+        int col = coordinate.col();
         SquareColor color = (row + col) % 2 == 0 ? SquareColor.BLACK : SquareColor.WHITE;
         Vector squareOrigin = anchor()
                 .add(colStep().multiply(col))
