@@ -6,7 +6,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -20,12 +19,9 @@ import java.util.Optional;
 /**
  * 플레이어가 특정 양털을 우클릭했을 때 해당 색상의 팀에 참가하도록 하는 리스너입니다.
  */
-@Slf4j
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class TeamJoinListener implements Listener {
-    // 양털을 팀 선택 도구로 매핑
-    // 플레이어가 이 아이템을 들고 우클릭하면 해당 팀에 참가
     private static final Map<Material, TeamColor> TEAM_COLOR_BY_ITEM = Map.of(
             Material.WHITE_WOOL, TeamColor.WHITE,
             Material.BLACK_WOOL, TeamColor.BLACK

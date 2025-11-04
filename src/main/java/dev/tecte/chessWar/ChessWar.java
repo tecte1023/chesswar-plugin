@@ -5,6 +5,7 @@ import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import dev.tecte.chessWar.common.persistence.PersistableState;
+import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsSetup;
 import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
 import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceInitializationException;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +34,8 @@ public final class ChessWar extends JavaPlugin {
      */
     @Override
     public void onEnable() {
+        new MythicMobsSetup(getServer().getPluginManager(), this).run();
+
         Injector injector = Guice.createInjector(new PluginModule(this));
         injector.injectMembers(this);
 
