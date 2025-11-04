@@ -13,6 +13,8 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 
+import java.util.Optional;
+
 /**
  * YML 파일을 이용해 단일 엔티티의 영속성을 구현하는 추상 리포지토리 클래스입니다.
  * 제네릭 타입 V(Value)를 사용하여 특정 도메인 객체의 CRUD 기능을 재사용할 수 있도록 지원합니다.
@@ -68,12 +70,13 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 캐시된 엔티티가 존재하는지 확인합니다.
+     * 캐시된 엔티티를 Optional 형태로 안전하게 반환합니다.
      *
-     * @return 엔티티가 존재하면 true, 그렇지 않으면 false
+     * @return 캐시된 엔티티가 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
-    public boolean isExists() {
-        return cache != null;
+    @NonNull
+    public Optional<V> get() {
+        return Optional.ofNullable(cache);
     }
 
     private void persistChangeAsync(@NonNull Object value) {
