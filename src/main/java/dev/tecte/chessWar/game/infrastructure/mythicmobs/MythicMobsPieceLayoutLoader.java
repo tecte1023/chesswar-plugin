@@ -1,7 +1,7 @@
 package dev.tecte.chessWar.game.infrastructure.mythicmobs;
 
-import dev.tecte.chessWar.game.application.port.PieceLayoutLoader;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
+import dev.tecte.chessWar.game.application.port.PieceLayoutLoader;
 import dev.tecte.chessWar.game.domain.model.Piece;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.domain.model.PieceType;
@@ -47,10 +47,10 @@ public class MythicMobsPieceLayoutLoader implements PieceLayoutLoader {
         };
 
         for (int col = 0; col < 8; col++) {
-            pieces.put(new Coordinate(0, col), createPieceFromMythicMob(TeamColor.BLACK, backRow[col]));
-            pieces.put(new Coordinate(1, col), createPieceFromMythicMob(TeamColor.BLACK, PieceType.PAWN));
-            pieces.put(new Coordinate(6, col), createPieceFromMythicMob(TeamColor.WHITE, PieceType.PAWN));
-            pieces.put(new Coordinate(7, col), createPieceFromMythicMob(TeamColor.WHITE, backRow[col]));
+            pieces.put(new Coordinate(0, col), createPieceFromMythicMob(TeamColor.WHITE, backRow[col]));
+            pieces.put(new Coordinate(1, col), createPieceFromMythicMob(TeamColor.WHITE, PieceType.PAWN));
+            pieces.put(new Coordinate(6, col), createPieceFromMythicMob(TeamColor.BLACK, PieceType.PAWN));
+            pieces.put(new Coordinate(7, col), createPieceFromMythicMob(TeamColor.BLACK, backRow[col]));
         }
 
         return new PieceLayout(pieces);
