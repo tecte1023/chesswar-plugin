@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
 
@@ -25,10 +26,10 @@ import java.util.Optional;
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractSingleYmlRepository<V> implements PersistableState {
-    private final JavaPlugin plugin;
-    private final BukkitScheduler scheduler;
-    private final YmlFileManager fileManager;
     private final SingleYmlMapper<V> mapper;
+    private final YmlFileManager fileManager;
+    private final BukkitScheduler scheduler;
+    private final JavaPlugin plugin;
 
     private V cache;
 
@@ -75,11 +76,19 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
      * @return 캐시된 엔티티가 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
     @NonNull
-    public Optional<V> get() {
+    public Optional<V> find() {
         return Optional.ofNullable(cache);
     }
 
-    private void persistChangeAsync(@NonNull Object value) {
+    /**
+     * 현재 저장된 엔티티를 삭제합니다. 캐시를 비우고 영구 저장소에서도 데이터를 제거합니다.
+     */
+    public void delete() {
+        cache = null;
+        persistChangeAsync(null);
+    }
+
+    private void persistChangeAsync(@Nullable Object value) {
         String path = getDataPath();
 
         scheduler.runTaskAsynchronously(plugin, () -> {
