@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,7 +63,7 @@ public class YmlFileManager {
      * @param path  값을 설정할 경로
      * @param value 설정할 값
      */
-    public synchronized void set(@NonNull String path, Object value) {
+    public synchronized void set(@NonNull String path, @Nullable Object value) {
         config.set(path, value);
     }
 
