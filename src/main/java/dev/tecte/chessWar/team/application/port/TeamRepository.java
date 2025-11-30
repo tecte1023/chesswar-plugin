@@ -3,6 +3,8 @@ package dev.tecte.chessWar.team.application.port;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import lombok.NonNull;
 
+import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -40,4 +42,22 @@ public interface TeamRepository {
      * @param teamColor 플레이어가 추가될 팀의 색상
      */
     void addPlayer(@NonNull UUID playerId, @NonNull TeamColor teamColor);
+
+    /**
+     * 지정된 색상 팀에 속한 모든 플레이어의 UUID를 조회합니다.
+     *
+     * @param teamColor 조회할 팀의 색상
+     * @return 해당 팀에 속한 모든 플레이어의 UUID 집합
+     */
+    @NonNull
+    Set<UUID> getPlayerUUIDs(@NonNull TeamColor teamColor);
+
+    /**
+     * 플레이어가 속한 팀을 조회합니다.
+     *
+     * @param playerId 조회할 플레이어의 UUID
+     * @return 플레이어가 속한 팀의 색상을 반환하고, 없으면 빈 {@link Optional}을 반환
+     */
+    @NonNull
+    Optional<TeamColor> findTeam(@NonNull UUID playerId);
 }
