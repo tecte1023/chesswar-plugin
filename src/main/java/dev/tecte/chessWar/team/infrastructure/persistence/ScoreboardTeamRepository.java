@@ -16,7 +16,9 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * {@link TeamRepository}의 Bukkit Scoreboard API 기반 구현체입니다.
@@ -92,6 +94,34 @@ public class ScoreboardTeamRepository implements TeamRepository {
         team.addEntry(playerId.toString());
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
+    @Override
+    public Set<UUID> getPlayerUUIDs(@NonNull TeamColor teamColor) {
+        Team team = scoreboard.getTeam(getTeamName(teamColor));
+
+        if (team == null) {
+            return Set.of();
+        }
+
+        return team.getEntries().stream()
+                .map(UUID::fromString)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @NonNull
+    @Override
+    public Optional<TeamColor> findTeam(@NonNull UUID playerId) {
+        return Optional.ofNullable(scoreboard.getEntryTeam(playerId.toString()))
+                .map(Team::getName)
+                .flatMap(this::parseTeamColor);
+    }
+
     @NonNull
     private String getTeamName(@NonNull TeamColor teamColor) {
         return PREFIX + teamColor.name().toLowerCase();
@@ -130,5 +160,13 @@ public class ScoreboardTeamRepository implements TeamRepository {
         getMaxPlayersScore().setScore(value);
 
         return value;
+    }
+
+    @NonNull
+    private Optional<TeamColor> parseTeamColor(@NonNull String teamName) {
+        return Optional.of(teamName)
+                .filter(name -> name.startsWith(PREFIX))
+                .map(name -> name.substring(PREFIX.length()))
+                .flatMap(TeamColor::from);
     }
 }
