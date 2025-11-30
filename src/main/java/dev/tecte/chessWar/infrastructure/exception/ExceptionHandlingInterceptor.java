@@ -1,9 +1,7 @@
 package dev.tecte.chessWar.infrastructure.exception;
 
-import com.google.inject.Provider;
 import dev.tecte.chessWar.common.annotation.HandleException;
-import dev.tecte.chessWar.port.exception.ExceptionHandler;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
+import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -13,31 +11,25 @@ import org.aopalliance.intercept.MethodInvocation;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.Set;
+import java.lang.reflect.Method;
+import java.util.Optional;
 
 /**
  * {@link HandleException} 어노테이션이 붙은 메서드에서 발생하는 예외를 가로채는 AOP 인터셉터입니다.
  * <p>
- * 발생한 예외를 처리할 수 있는 {@link ExceptionHandler} 구현체들을 찾아 처리를 위임합니다.
- * 만약 적절한 핸들러가 없다면, 처리되지 않은 예외로 간주하고 에러 로그를 남깁니다.
+ * 실제 예외 처리 로직은 {@link ExceptionDispatcher}에 위임합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 public class ExceptionHandlingInterceptor implements MethodInterceptor {
     @Inject
-    private Provider<Set<ExceptionHandler>> handlersProvider;
-    @Inject
-    private SenderNotifier notifier;
+    private ExceptionDispatcher dispatcher;
 
     /**
-     * 대상 메서드를 실행하고, 발생하는 모든 예외를 가로채서 처리합니다.
-     * <p>
-     * 예외가 발생하면, 해당 예외를 지원하는 {@link ExceptionHandler}를 찾아 처리를 위임합니다.
-     * 만약 적절한 핸들러가 없다면, 처리되지 않은 예외로 간주하고 에러 로그를 남긴 후 사용자에게 일반적인 오류 메시지를 보냅니다.
+     * 대상 메서드를 실행하고, 발생하는 모든 예외를 가로채서 {@link ExceptionDispatcher}에 처리를 위임합니다.
      *
      * @param invocation 가로챈 메서드 호출 정보
-     * @return 메서드 실행 결과. 예외 발생 시 null을 반환합니다.
+     * @return 메서드 실행 결과. 예외 발생 시 null 또는 어노테이션에 지정된 대체 값을 반환합니다.
      * @throws Throwable 처리할 수 없는 예외가 발생할 경우
      */
     @Nullable
@@ -46,23 +38,12 @@ public class ExceptionHandlingInterceptor implements MethodInterceptor {
         try {
             return invocation.proceed();
         } catch (Exception e) {
-            Set<ExceptionHandler> handlers = handlersProvider.get();
+            Method method = invocation.getMethod();
             CommandSender sender = findSenderArgument(invocation.getArguments());
-            List<ExceptionHandler> supportingHandlers = handlers.stream()
-                    .filter(handler -> handler.supports(e))
-                    .toList();
 
-            if (supportingHandlers.isEmpty()) {
-                log.error("Unhandled exception caught in method {}:", invocation.getMethod().getName(), e);
+            dispatcher.dispatch(e, sender, "method " + method.getName());
 
-                if (sender != null) {
-                    notifier.notifyError(sender, "알 수 없는 오류가 발생했습니다.");
-                }
-            } else {
-                supportingHandlers.forEach(handler -> handler.handle(e, sender));
-            }
-
-            return null;
+            return getFallbackReturnValue(method.getReturnType(), method.getAnnotation(HandleException.class));
         }
     }
 
@@ -72,6 +53,45 @@ public class ExceptionHandlingInterceptor implements MethodInterceptor {
             if (arg instanceof CommandSender sender) {
                 return sender;
             }
+        }
+
+        return null;
+    }
+
+    @Nullable
+    private Object getFallbackReturnValue(@NonNull Class<?> returnType, @Nullable HandleException annotation) {
+        if (returnType == void.class || returnType == Void.class) {
+            return null;
+        }
+
+        if (returnType == Optional.class) {
+            return Optional.empty();
+        }
+
+        if (returnType == boolean.class || returnType == Boolean.class) {
+            return annotation != null && annotation.fallbackBoolean();
+        }
+
+        double fbDouble = annotation != null ? annotation.fallbackNumber() : 0.0;
+
+        if (returnType == double.class || returnType == Double.class) {
+            return fbDouble;
+        } else if (returnType == float.class || returnType == Float.class) {
+            return (float) fbDouble;
+        }
+
+        int fbInt = annotation != null ? annotation.fallbackInt() : 0;
+
+        if (returnType == int.class || returnType == Integer.class) {
+            return fbInt;
+        } else if (returnType == long.class || returnType == Long.class) {
+            return (long) fbInt;
+        } else if (returnType == short.class || returnType == Short.class) {
+            return (short) fbInt;
+        } else if (returnType == byte.class || returnType == Byte.class) {
+            return (byte) fbInt;
+        } else if (returnType == char.class || returnType == Character.class) {
+            return (char) fbInt;
         }
 
         return null;

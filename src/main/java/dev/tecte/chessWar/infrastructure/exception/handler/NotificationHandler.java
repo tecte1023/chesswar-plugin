@@ -32,7 +32,7 @@ public class NotificationHandler implements ExceptionHandler {
     @Override
     public void handle(@NonNull Exception e, @Nullable CommandSender sender) {
         if (sender != null) {
-            notifier.notifyError(sender, e.getMessage());
+            notifier.notifyError(sender, ((Notifiable) e).getNotificationComponent());
         }
     }
 }
