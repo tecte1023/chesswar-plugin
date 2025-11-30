@@ -5,6 +5,7 @@ import jakarta.inject.Singleton;
 import lombok.NonNull;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.title.Title;
 import org.bukkit.command.CommandSender;
 
 /**
@@ -20,7 +21,7 @@ public class BukkitSenderNotifier implements SenderNotifier {
      */
     @Override
     public void notifySuccess(@NonNull CommandSender sender, @NonNull Component message) {
-        sender.sendMessage(PREFIX.append(message));
+        sendMessageWithPrefix(sender, message, NamedTextColor.GREEN);
     }
 
     /**
@@ -36,7 +37,7 @@ public class BukkitSenderNotifier implements SenderNotifier {
      */
     @Override
     public void notifyError(@NonNull CommandSender sender, @NonNull Component message) {
-        sender.sendMessage(PREFIX.append(message.colorIfAbsent(NamedTextColor.RED)));
+        sendMessageWithPrefix(sender, message, NamedTextColor.RED);
     }
 
     /**
@@ -45,5 +46,37 @@ public class BukkitSenderNotifier implements SenderNotifier {
     @Override
     public void notifyError(@NonNull CommandSender sender, @NonNull String message) {
         notifyError(sender, Component.text(message));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void sendTitle(@NonNull CommandSender sender, @NonNull Component title, @NonNull Component subtitle) {
+        sender.showTitle(Title.title(title, subtitle));
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void sendTitle(@NonNull CommandSender sender, @NonNull Component title) {
+        sendTitle(sender, title, Component.empty());
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void sendActionBar(@NonNull CommandSender sender, @NonNull Component message) {
+        sender.sendActionBar(message);
+    }
+
+    private void sendMessageWithPrefix(
+            @NonNull CommandSender sender,
+            @NonNull Component message,
+            @NonNull NamedTextColor color
+    ) {
+        sender.sendMessage(PREFIX.append(message.colorIfAbsent(color)));
     }
 }

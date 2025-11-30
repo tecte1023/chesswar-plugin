@@ -40,4 +40,29 @@ public interface SenderNotifier {
      * @param message 보낼 메시지 문자열
      */
     void notifyError(@NonNull CommandSender sender, @NonNull String message);
+
+    /**
+     * 타이틀 메시지를 보냅니다.
+     *
+     * @param sender   알림을 받을 주체
+     * @param title    메인 타이틀 텍스트
+     * @param subtitle 서브 타이틀 텍스트
+     */
+    void sendTitle(@NonNull CommandSender sender, @NonNull Component title, @NonNull Component subtitle);
+
+    /**
+     * 타이틀 메시지를 보냅니다. 서브 타이틀은 표시되지 않습니다.
+     *
+     * @param sender 알림을 받을 주체
+     * @param title  메인 타이틀 텍스트
+     */
+    void sendTitle(@NonNull CommandSender sender, @NonNull Component title);
+
+    /**
+     * 액션바 메시지를 보냅니다.
+     *
+     * @param sender  알림을 받을 주체
+     * @param message 액션바 메시지
+     */
+    void sendActionBar(@NonNull CommandSender sender, @NonNull Component message);
 }
