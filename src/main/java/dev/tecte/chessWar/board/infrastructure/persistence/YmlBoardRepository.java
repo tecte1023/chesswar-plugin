@@ -19,12 +19,12 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersisten
 public class YmlBoardRepository extends AbstractSingleYmlRepository<Board> implements BoardRepository {
     @Inject
     public YmlBoardRepository(
-            @NonNull JavaPlugin plugin,
-            @NonNull BukkitScheduler scheduler,
+            @NonNull BoardMapper mapper,
             @NonNull YmlFileManager fileManager,
-            @NonNull BoardMapper mapper
+            @NonNull BukkitScheduler scheduler,
+            @NonNull JavaPlugin plugin
     ) {
-        super(plugin, scheduler, fileManager, mapper);
+        super(mapper, fileManager, scheduler, plugin);
     }
 
     @NonNull

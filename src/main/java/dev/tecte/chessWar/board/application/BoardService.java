@@ -79,7 +79,7 @@ public class BoardService {
      * @return 체스판이 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
     @NonNull
-    public Optional<Board> getBoard() {
-        return boardRepository.get();
+    public Optional<Board> findBoard() {
+        return boardRepository.find();
     }
 }
