@@ -13,4 +13,18 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface HandleException {
+    /**
+     * boolean 반환 메서드 실패 시 반환할 값
+     */
+    boolean fallbackBoolean() default false;
+
+    /**
+     * 정수형 반환 메서드 실패 시 반환할 값
+     */
+    int fallbackInt() default 0;
+
+    /**
+     * 실수형 반환 메서드 실패 시 반환할 값
+     */
+    double fallbackNumber() default 0.0;
 }

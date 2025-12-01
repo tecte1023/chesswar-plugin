@@ -35,9 +35,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
     private final TeamCapacityPolicy teamCapacityPolicy;
     private final Scoreboard scoreboard;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getSize(@NonNull TeamColor teamColor) {
         Team team = scoreboard.getTeam(getTeamName(teamColor));
@@ -45,9 +42,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return team == null ? 0 : team.getEntries().size();
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int getMaxPlayers() {
         Score score = getMaxPlayersScore();
@@ -68,9 +62,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public int setMaxPlayers(int maxPlayers) {
         int appliedValue = teamCapacityPolicy.applyTo(maxPlayers);
@@ -83,9 +74,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
         return persistMaxPlayers(appliedValue);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void addPlayer(@NonNull UUID playerId, @NonNull TeamColor teamColor) {
         Team team = Optional.ofNullable(scoreboard.getTeam(getTeamName(teamColor)))
@@ -94,9 +82,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
         team.addEntry(playerId.toString());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @NonNull
     @Override
     public Set<UUID> getPlayerUUIDs(@NonNull TeamColor teamColor) {
@@ -111,9 +96,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
                 .collect(Collectors.toSet());
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @NonNull
     @Override
     public Optional<TeamColor> findTeam(@NonNull UUID playerId) {

@@ -46,4 +46,14 @@ public record Board(
     public Orientation orientation() {
         return squareGrid.orientation();
     }
+
+    /**
+     * 보드 전체 영역의 중심점 위치 벡터를 반환합니다.
+     *
+     * @return 보드의 중심점 {@link Vector}
+     */
+    @NonNull
+    public Vector center() {
+        return squareGrid.boundingBox().getCenter();
+    }
 }

@@ -5,13 +5,20 @@ import com.google.inject.AbstractModule;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
+import dev.tecte.chessWar.common.persistence.PersistableState;
+import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.PieceLayoutLoader;
+import dev.tecte.chessWar.game.application.port.PieceSpawner;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.infrastructure.command.GameCommand;
 import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceLayoutLoader;
+import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceSpawner;
+import dev.tecte.chessWar.game.infrastructure.persistence.YmlGameRepository;
+import dev.tecte.chessWar.game.infrastructure.listener.GameVisibilityListener;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MobManager;
 import lombok.NonNull;
+import org.bukkit.event.Listener;
 
 /**
  * 게임 도메인의 의존성 주입 설정을 담당하는 Guice 모듈입니다.
@@ -21,8 +28,12 @@ public class GameModule extends AbstractModule {
     @Override
     protected void configure() {
         bind(PieceLayoutLoader.class).to(MythicMobsPieceLayoutLoader.class);
+        bind(GameRepository.class).to(YmlGameRepository.class);
+        bind(PieceSpawner.class).to(MythicMobsPieceSpawner.class);
 
+        Multibinder.newSetBinder(binder(), PersistableState.class).addBinding().to(YmlGameRepository.class);
         Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(GameCommand.class);
+        Multibinder.newSetBinder(binder(), Listener.class).addBinding().to(GameVisibilityListener.class);
     }
 
     /**

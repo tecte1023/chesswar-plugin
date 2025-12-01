@@ -23,5 +23,5 @@ public interface BoardRepository {
      * @return 체스판 데이터가 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
     @NonNull
-    Optional<Board> get();
+    Optional<Board> find();
 }
