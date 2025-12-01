@@ -11,6 +11,8 @@ import net.kyori.adventure.text.Component;
  * 게임 객체를 찾을 수 없을 때 발생하는 예외입니다.
  */
 public class GameNotFoundException extends BusinessException implements Loggable, Notifiable {
+    private static final Component NOTIFICATION = Component.text("진행 중인 게임 정보를 찾을 수 없습니다.");
+
     private GameNotFoundException(String message) {
         super(message);
     }
@@ -36,9 +38,19 @@ public class GameNotFoundException extends BusinessException implements Loggable
         return new GameNotFoundException("Game not found during phase transition: " + phase.name());
     }
 
+    /**
+     * 진행 중인 게임이 없는데 게임 관련 작업을 시도할 때 이 예외를 생성합니다.
+     *
+     * @return {@link GameNotFoundException}의 새 인스턴스
+     */
+    @NonNull
+    public static GameNotFoundException noGameInProgress() {
+        return new GameNotFoundException("No game currently in progress.");
+    }
+
     @NonNull
     @Override
     public Component getNotificationComponent() {
-        return Component.text("기물 소환 도중 게임을 찾을 수 없습니다.");
+        return NOTIFICATION;
     }
 }
