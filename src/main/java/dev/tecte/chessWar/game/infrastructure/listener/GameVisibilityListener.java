@@ -41,7 +41,7 @@ public class GameVisibilityListener implements Listener {
 
             teamService.findTeam(joinedPlayer).ifPresent(joinedPlayerTeam -> {
                 teamService.concealEnemiesFor(joinedPlayer, joinedPlayerTeam);
-                pieceService.concealPiecesFor(game, joinedPlayer, joinedPlayerTeam);
+                pieceService.concealEnemyPiecesFor(game, joinedPlayer, joinedPlayerTeam);
             });
         });
     }

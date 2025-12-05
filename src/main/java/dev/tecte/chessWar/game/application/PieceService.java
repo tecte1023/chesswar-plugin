@@ -22,22 +22,27 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class PieceService {
     private static final int SPAWN_AMOUNT_PER_TICK = 4;
+    private static final long SPAWN_TASK_INITIAL_DELAY_TICKS = 0L;
+    private static final long SPAWN_TASK_PERIOD_TICKS = 1L;
 
     private final PieceLayout pieceLayout;
     private final TeamDirectionPolicy teamDirectionPolicy;
+    private final GameTaskScheduler gameTaskScheduler;
     private final TeamService teamService;
     private final PieceSpawner pieceSpawner;
     private final JavaPlugin plugin;
@@ -56,32 +61,29 @@ public class PieceService {
         CompletableFuture<Map<Coordinate, Piece>> future = new CompletableFuture<>();
         Map<Coordinate, Piece> spawnedPieces = new HashMap<>();
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try {
-                    for (int i = 0; i < SPAWN_AMOUNT_PER_TICK; i++) {
-                        if (!pieceIterator.hasNext()) {
-                            cancel();
-                            future.complete(spawnedPieces);
+        gameTaskScheduler.scheduleRepeat(task -> {
+            try {
+                for (int i = 0; i < SPAWN_AMOUNT_PER_TICK; i++) {
+                    if (!pieceIterator.hasNext()) {
+                        task.cancel();
+                        future.complete(spawnedPieces);
 
-                            return;
-                        }
-
-                        var entry = pieceIterator.next();
-                        Coordinate coordinate = entry.getKey();
-                        PieceSpec spec = entry.getValue();
-                        Entity spawnedEntity = spawnPieceEntity(spec, coordinate, board, world);
-                        Piece piece = Piece.of(spawnedEntity.getUniqueId(), spec);
-
-                        spawnedPieces.put(coordinate, piece);
+                        return;
                     }
-                } catch (Exception e) {
-                    cancel();
-                    future.completeExceptionally(e);
+
+                    var entry = pieceIterator.next();
+                    Coordinate coordinate = entry.getKey();
+                    PieceSpec spec = entry.getValue();
+                    Entity spawnedEntity = spawnPieceEntity(spec, coordinate, board, world);
+                    Piece piece = Piece.of(spawnedEntity.getUniqueId(), spec);
+
+                    spawnedPieces.put(coordinate, piece);
                 }
+            } catch (Exception e) {
+                task.cancel();
+                future.completeExceptionally(e);
             }
-        }.runTaskTimer(plugin, 0L, 1L);
+        }, SPAWN_TASK_INITIAL_DELAY_TICKS, SPAWN_TASK_PERIOD_TICKS);
 
         return future;
     }
@@ -126,37 +128,60 @@ public class PieceService {
      * @param player     대상 플레이어
      * @param playerTeam 대상 플레이어의 팀 (이 팀의 적대 팀 기물을 숨김)
      */
-    public void concealPiecesFor(@NonNull Game game, @NonNull Player player, @NonNull TeamColor playerTeam) {
-        TeamColor enemyTeam = playerTeam.opposite();
+    public void concealEnemyPiecesFor(
+            @NonNull Game game,
+            @NonNull Player player,
+            @NonNull TeamColor playerTeam
+    ) {
+        List<Entity> enemyEntities = findPieceEntities(game, playerTeam.opposite());
 
+        setEntitiesVisibility(player, enemyEntities, false);
+    }
+
+    /**
+     * 게임에 존재하는 모든 기물을 제거합니다.
+     *
+     * @param game 현재 게임 상태
+     */
+    public void despawnPieces(@NonNull Game game) {
         for (Piece piece : game.pieces().values()) {
-            if (piece.spec().teamColor() == enemyTeam) {
-                Entity pieceEntity = Bukkit.getEntity(piece.entityId());
+            Entity entity = Bukkit.getEntity(piece.entityId());
 
-                if (pieceEntity != null) {
-                    player.hideEntity(plugin, pieceEntity);
-                }
+            if (entity != null) {
+                entity.remove();
             }
         }
     }
 
     private void applyPieceVisibility(@NonNull Game game, boolean visible) {
-        for (Piece piece : game.pieces().values()) {
-            Entity pieceEntity = Bukkit.getEntity(piece.entityId());
+        for (TeamColor team : TeamColor.values()) {
+            Set<Player> players = teamService.getOnlinePlayers(team);
+            List<Entity> enemyEntities = findPieceEntities(game, team.opposite());
 
-            if (pieceEntity == null) {
-                continue;
-            }
+            players.forEach(player -> setEntitiesVisibility(player, enemyEntities, visible));
+        }
+    }
 
-            TeamColor oppositeTeam = piece.spec().teamColor().opposite();
-            Set<Player> oppositePlayers = teamService.getOnlinePlayers(oppositeTeam);
+    @NonNull
+    private List<Entity> findPieceEntities(@NonNull Game game, @NonNull TeamColor teamColor) {
+        return game.pieces().values().stream()
+                .filter(piece -> piece.spec().teamColor() == teamColor)
+                .map(Piece::entityId)
+                .map(Bukkit::getEntity)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+    }
 
-            for (Player oppositePlayer : oppositePlayers) {
-                if (visible) {
-                    oppositePlayer.showEntity(plugin, pieceEntity);
-                } else {
-                    oppositePlayer.hideEntity(plugin, pieceEntity);
-                }
+    private void setEntitiesVisibility(
+            @NonNull Player player,
+            @NonNull List<Entity> entities,
+            boolean visible
+    ) {
+        for (Entity entity : entities) {
+            if (visible) {
+                player.showEntity(plugin, entity);
+            } else {
+                player.hideEntity(plugin, entity);
             }
         }
     }
