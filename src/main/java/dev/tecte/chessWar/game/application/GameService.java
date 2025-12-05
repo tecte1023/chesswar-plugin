@@ -2,6 +2,7 @@ package dev.tecte.chessWar.game.application;
 
 import dev.tecte.chessWar.board.application.BoardService;
 import dev.tecte.chessWar.board.domain.model.Board;
+import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.game.application.port.GameRepository;
@@ -9,6 +10,7 @@ import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
 import dev.tecte.chessWar.game.domain.exception.GameStartConditionException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.game.domain.model.Piece;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.team.application.TeamService;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -21,10 +23,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
-import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
+
+import java.util.Map;
 
 /**
  * 게임의 생명주기와 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다
@@ -33,18 +34,17 @@ import org.bukkit.util.Vector;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameService {
-    private static final int MIN_PLAYERS = 0;
+    private static final int MIN_PLAYERS = 1;
     private static final long CLASS_SELECTION_DURATION_TICKS = 5 * 60 * 20;
     private static final long POST_GAME_DURATION_TICKS = 10 * 20;
 
+    private final PieceService pieceService;
+    private final GameNotifier gameNotifier;
+    private final GameTaskScheduler gameTaskScheduler;
     private final BoardService boardService;
     private final TeamService teamService;
-    private final PieceService pieceService;
     private final GameRepository gameRepository;
     private final ExceptionDispatcher exceptionDispatcher;
-    private final GameNotifier gameNotifier;
-    private final BukkitScheduler scheduler;
-    private final JavaPlugin plugin;
 
     /**
      * 게임 시작 조건을 확인한 후, 조건을 충족하면 게임을 시작합니다.
@@ -76,19 +76,30 @@ public class GameService {
         startClassSelectionPhase(game, world, sender);
     }
 
+    /**
+     * 게임을 중단하고 모든 데이터를 초기화합니다.
+     * 소환된 기물들도 모두 제거됩니다.
+     *
+     * @param sender 명령어를 실행한 주체
+     */
+    @HandleException
+    public void stopGame(@NonNull CommandSender sender) {
+        Game game = gameRepository.find().orElseThrow(GameNotFoundException::noGameInProgress);
+
+        gameNotifier.stopGuidance();
+        gameTaskScheduler.shutdown();
+        pieceService.despawnPieces(game);
+        gameRepository.delete();
+        gameNotifier.notifyGameStop(sender);
+    }
+
     private void startClassSelectionPhase(
             @NonNull Game game,
             @NonNull World world,
             @NonNull CommandSender sender
     ) {
         pieceService.spawnPieces(world, game.board())
-                .thenAccept(spawnedPieces -> {
-                    Game currentGame = gameRepository.find().orElseThrow(GameNotFoundException::duringPieceSpawning);
-                    Game updatedGame = currentGame.withPieces(spawnedPieces);
-
-                    gameRepository.save(updatedGame);
-                    pieceService.concealPieces(updatedGame);
-                })
+                .thenAccept(this::registerSpawnedPieces)
                 .exceptionally(t -> {
                     onPieceSpawnFailed(t, sender);
 
@@ -97,10 +108,16 @@ public class GameService {
         teleportPlayersToStartingPositions(game, world);
         teamService.concealEnemies();
         gameNotifier.announceClassSelectionStart(teamService.getAllOnlinePlayers());
+        gameNotifier.startClassSelectionGuidance();
+        scheduleClassSelectionPhaseEnd();
+    }
 
-        BukkitTask guidanceTask = gameNotifier.startClassSelectionGuidance();
+    private void registerSpawnedPieces(@NonNull Map<Coordinate, Piece> spawnedPieces) {
+        Game currentGame = gameRepository.find().orElseThrow(GameNotFoundException::duringPieceSpawning);
+        Game updatedGame = currentGame.withPieces(spawnedPieces);
 
-        schedulePhaseTransition(guidanceTask);
+        gameRepository.save(updatedGame);
+        pieceService.concealPieces(updatedGame);
     }
 
     private void onPieceSpawnFailed(@NonNull Throwable t, @NonNull CommandSender sender) {
@@ -129,9 +146,9 @@ public class GameService {
         teamService.teleportTeam(TeamColor.BLACK, blackLocation);
     }
 
-    private void schedulePhaseTransition(@NonNull BukkitTask guidanceTask) {
-        scheduler.runTaskLater(plugin, () -> {
-            guidanceTask.cancel();
+    private void scheduleClassSelectionPhaseEnd() {
+        gameTaskScheduler.scheduleOnce(GameTaskType.PHASE_TRANSITION, () -> {
+            gameNotifier.stopGuidance();
             startTurnOrderSelectionPhase();
         }, CLASS_SELECTION_DURATION_TICKS);
     }
@@ -198,20 +215,21 @@ public class GameService {
     }
 
     /**
-     * 게임을 강제로 종료합니다.
-     * 현재 진행 중인 게임이 있다면 'ENDED' 상태로 변경하고, 일정 시간 후 데이터를 정리합니다.
+     * 게임을 종료합니다.
+     * 현재 진행 중인 게임이 있다면 {@link GamePhase#ENDED} 상태로 변경하고, 일정 시간 후 데이터를 정리합니다.
      */
     public void endGame() {
         Game game = gameRepository.find().orElse(null);
-        if (game == null) return;
+        if (game == null) {
+            return;
+        }
 
         if (game.phase() != GamePhase.ENDED) {
             gameRepository.save(game.end());
             log.info("Game phase changed to ENDED.");
         }
 
-
-        scheduler.runTaskLater(plugin, this::cleanupAfterGameEnd, POST_GAME_DURATION_TICKS);
+        gameTaskScheduler.scheduleOnce(GameTaskType.GAME_CLEANUP, this::cleanupAfterGameEnd, POST_GAME_DURATION_TICKS);
     }
 
     private void cleanupAfterGameEnd() {
