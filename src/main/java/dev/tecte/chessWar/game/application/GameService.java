@@ -89,6 +89,7 @@ public class GameService {
         gameNotifier.stopGuidance();
         gameTaskScheduler.shutdown();
         pieceService.despawnPieces(game);
+        teamService.revealEnemies();
         gameRepository.delete();
         gameNotifier.notifyGameStop(sender);
     }
