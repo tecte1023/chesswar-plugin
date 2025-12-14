@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * 진행 중인 체스 게임의 상태를 나타내는 불변 데이터 객체입니다.
@@ -169,5 +170,20 @@ public record Game(
         newPieces.putAll(additionalPieces);
 
         return new Game(board, newPieces, phase, currentTurn);
+    }
+
+    /**
+     * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
+     * <p>
+     * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
+     *
+     * @param entityId 찾을 엔티티의 UUID
+     * @return 해당하는 기물이 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
+     */
+    @NonNull
+    public Optional<Piece> findPiece(@NonNull UUID entityId) {
+        return pieces.values().stream()
+                .filter(piece -> piece.entityId().equals(entityId))
+                .findFirst();
     }
 }
