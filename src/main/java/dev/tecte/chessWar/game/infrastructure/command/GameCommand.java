@@ -40,7 +40,7 @@ public class GameCommand extends BaseCommand {
      * @param sender 명령어를 실행한 주체
      */
     @Subcommand("stop")
-    @Description("진행 중인 게임을 강제로 중단하고 데이터를 초기화합니다.")
+    @Description("진행 중인 게임을 중단합니다.")
     public void onGameStop(@NonNull CommandSender sender) {
         gameService.stopGame(sender);
     }
