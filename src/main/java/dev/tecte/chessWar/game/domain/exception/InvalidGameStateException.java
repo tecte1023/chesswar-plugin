@@ -10,7 +10,7 @@ import lombok.NonNull;
  * 이 예외는 개발자가 인지해야 할 로직상의 버그를 나타내므로, 로그에는 기록되지만 사용자에게 직접적인 내용은 전달되지 않습니다.
  */
 public class InvalidGameStateException extends BusinessException implements Loggable {
-    private InvalidGameStateException(String message) {
+    private InvalidGameStateException(@NonNull String message) {
         super(message);
     }
 

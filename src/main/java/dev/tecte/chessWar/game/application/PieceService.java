@@ -2,12 +2,17 @@ package dev.tecte.chessWar.game.application;
 
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
+import dev.tecte.chessWar.common.annotation.HandleException;
+import dev.tecte.chessWar.game.application.port.GameRepository;
+import dev.tecte.chessWar.game.application.port.PieceInfoRenderer;
 import dev.tecte.chessWar.game.application.port.PieceSpawner;
 import dev.tecte.chessWar.game.domain.exception.PieceSpawnException;
 import dev.tecte.chessWar.game.domain.model.Game;
+import dev.tecte.chessWar.game.domain.model.GamePhase;
 import dev.tecte.chessWar.game.domain.model.Piece;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.domain.model.PieceSpec;
+import dev.tecte.chessWar.game.domain.model.PieceType;
 import dev.tecte.chessWar.game.domain.policy.TeamDirectionPolicy;
 import dev.tecte.chessWar.team.application.TeamService;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -32,6 +37,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
+/**
+ * 기물 도메인의 전체 생명주기를 관리하고,
+ * 게임 진행에 필요한 기물 관련 비즈니스 로직을 처리하는 서비스입니다.
+ */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -45,6 +54,8 @@ public class PieceService {
     private final GameTaskScheduler gameTaskScheduler;
     private final TeamService teamService;
     private final PieceSpawner pieceSpawner;
+    private final PieceInfoRenderer pieceInfoRenderer;
+    private final GameRepository gameRepository;
     private final JavaPlugin plugin;
 
     /**
@@ -88,19 +99,37 @@ public class PieceService {
         return future;
     }
 
-    @NonNull
-    private Entity spawnPieceEntity(
-            @NonNull PieceSpec spec,
-            @NonNull Coordinate coordinate,
-            @NonNull Board board,
-            @NonNull World world
-    ) throws PieceSpawnException {
-        Location spawnLocation = board.spawnPositionVector(coordinate).toLocation(world);
-        Vector direction = teamDirectionPolicy.calculateFacingVector(spec, board);
+    /**
+     * 게임에 존재하는 모든 기물을 제거합니다.
+     *
+     * @param game 현재 게임 상태
+     */
+    public void despawnPieces(@NonNull Game game) {
+        for (Piece piece : game.pieces().values()) {
+            Entity entity = Bukkit.getEntity(piece.entityId());
 
-        spawnLocation.setDirection(direction);
+            if (entity != null) {
+                entity.remove();
+            }
+        }
+    }
 
-        return pieceSpawner.spawnPiece(spec, spawnLocation);
+    /**
+     * 대상 엔티티를 검사하고, 조건이 충족되면 상세 정보를 표시합니다.
+     * <p>
+     * <b>직업 선택 단계</b>이며 자신의 팀 기물인 경우, 해당 기물의 상세 정보를 보여줍니다. (단, 폰은 제외됩니다.)
+     *
+     * @param player 정보를 표시할 대상 플레이어
+     * @param entity 검사 대상 엔티티
+     */
+    @HandleException
+    public void inspectPiece(@NonNull Player player, @NonNull Entity entity) {
+        gameRepository.find()
+                .filter(game -> game.phase() == GamePhase.CLASS_SELECTION)
+                .flatMap(game -> game.findPiece(entity.getUniqueId()))
+                .filter(piece -> piece.spec().type() != PieceType.PAWN)
+                .filter(piece -> isFriendlyPiece(player, piece))
+                .ifPresent(piece -> pieceInfoRenderer.renderInfo(player, piece));
     }
 
     /**
@@ -138,19 +167,25 @@ public class PieceService {
         setEntitiesVisibility(player, enemyEntities, false);
     }
 
-    /**
-     * 게임에 존재하는 모든 기물을 제거합니다.
-     *
-     * @param game 현재 게임 상태
-     */
-    public void despawnPieces(@NonNull Game game) {
-        for (Piece piece : game.pieces().values()) {
-            Entity entity = Bukkit.getEntity(piece.entityId());
+    @NonNull
+    private Entity spawnPieceEntity(
+            @NonNull PieceSpec spec,
+            @NonNull Coordinate coordinate,
+            @NonNull Board board,
+            @NonNull World world
+    ) throws PieceSpawnException {
+        Location spawnLocation = board.spawnPositionVector(coordinate).toLocation(world);
+        Vector direction = teamDirectionPolicy.calculateFacingVector(spec, board);
 
-            if (entity != null) {
-                entity.remove();
-            }
-        }
+        spawnLocation.setDirection(direction);
+
+        return pieceSpawner.spawnPiece(spec, spawnLocation);
+    }
+
+    private boolean isFriendlyPiece(@NonNull Player player, @NonNull Piece piece) {
+        return teamService.findTeam(player)
+                .map(team -> team == piece.spec().teamColor())
+                .orElse(false);
     }
 
     private void applyPieceVisibility(@NonNull Game game, boolean visible) {

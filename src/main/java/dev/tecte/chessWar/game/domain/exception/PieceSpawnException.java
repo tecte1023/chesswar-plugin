@@ -4,15 +4,16 @@ import dev.tecte.chessWar.common.exception.BusinessException;
 import dev.tecte.chessWar.common.exception.Loggable;
 import dev.tecte.chessWar.common.exception.Notifiable;
 import dev.tecte.chessWar.game.domain.model.PieceSpec;
-import lombok.Getter;
 import lombok.NonNull;
 import net.kyori.adventure.text.Component;
 
-@Getter
+/**
+ * 기물 스폰 과정에서 실패가 발생했을 때 던져지는 예외입니다.
+ */
 public class PieceSpawnException extends BusinessException implements Loggable, Notifiable {
     private final PieceSpec pieceSpec;
 
-    private PieceSpawnException(String message, @NonNull PieceSpec pieceSpec) {
+    private PieceSpawnException(@NonNull String message, @NonNull PieceSpec pieceSpec) {
         super(message);
         this.pieceSpec = pieceSpec;
     }

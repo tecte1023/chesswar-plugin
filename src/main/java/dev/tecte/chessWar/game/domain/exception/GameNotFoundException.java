@@ -13,7 +13,7 @@ import net.kyori.adventure.text.Component;
 public class GameNotFoundException extends BusinessException implements Loggable, Notifiable {
     private static final Component NOTIFICATION = Component.text("진행 중인 게임 정보를 찾을 수 없습니다.");
 
-    private GameNotFoundException(String message) {
+    private GameNotFoundException(@NonNull String message) {
         super(message);
     }
 
