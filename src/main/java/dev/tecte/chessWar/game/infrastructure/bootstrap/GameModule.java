@@ -10,13 +10,16 @@ import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.PieceInfoRenderer;
 import dev.tecte.chessWar.game.application.port.PieceLayoutLoader;
 import dev.tecte.chessWar.game.application.port.PieceSpawner;
+import dev.tecte.chessWar.game.application.port.PieceStatProvider;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.infrastructure.bukkit.BukkitPieceInfoRenderer;
+import dev.tecte.chessWar.game.infrastructure.command.ClassChangeCommand;
 import dev.tecte.chessWar.game.infrastructure.command.GameCommand;
 import dev.tecte.chessWar.game.infrastructure.listener.GameVisibilityListener;
 import dev.tecte.chessWar.game.infrastructure.listener.PieceInteractionListener;
 import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceLayoutLoader;
 import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceSpawner;
+import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceStatProvider;
 import dev.tecte.chessWar.game.infrastructure.persistence.YmlGameRepository;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MobManager;
@@ -35,11 +38,15 @@ public class GameModule extends AbstractModule {
         bind(GameRepository.class).to(YmlGameRepository.class);
         bind(PieceSpawner.class).to(MythicMobsPieceSpawner.class);
         bind(PieceInfoRenderer.class).to(BukkitPieceInfoRenderer.class);
+        bind(PieceStatProvider.class).to(MythicMobsPieceStatProvider.class);
+
+        Multibinder<BaseCommand> commandBinder = Multibinder.newSetBinder(binder(), BaseCommand.class);
+        Multibinder<Listener> listenerBinder = Multibinder.newSetBinder(binder(), Listener.class);
 
         Multibinder.newSetBinder(binder(), PersistableState.class).addBinding().to(YmlGameRepository.class);
-        Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(GameCommand.class);
 
-        Multibinder<Listener> listenerBinder = Multibinder.newSetBinder(binder(), Listener.class);
+        commandBinder.addBinding().to(GameCommand.class);
+        commandBinder.addBinding().to(ClassChangeCommand.class);
 
         listenerBinder.addBinding().to(GameVisibilityListener.class);
         listenerBinder.addBinding().to(PieceInteractionListener.class);

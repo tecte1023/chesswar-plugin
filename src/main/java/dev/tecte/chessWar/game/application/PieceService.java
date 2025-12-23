@@ -33,7 +33,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -97,6 +99,17 @@ public class PieceService {
         }, SPAWN_TASK_INITIAL_DELAY_TICKS, SPAWN_TASK_PERIOD_TICKS);
 
         return future;
+    }
+
+    /**
+     * 현재 진행 중인 게임에서 특정 엔티티 ID를 가진 기물을 조회합니다.
+     *
+     * @param pieceEntityId 찾을 기물의 엔티티 UUID
+     * @return 찾은 기물을 포함하는 {@link Optional}, 게임이 없거나 기물을 찾을 수 없으면 빈 {@link Optional}
+     */
+    @NonNull
+    public Optional<Piece> findPiece(@NonNull UUID pieceEntityId) {
+        return gameRepository.find().flatMap(game -> game.findPiece(pieceEntityId));
     }
 
     /**
