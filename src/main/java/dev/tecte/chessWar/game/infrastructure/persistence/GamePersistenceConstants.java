@@ -20,12 +20,13 @@ public final class GamePersistenceConstants {
 
         public static final String PIECES = "pieces";
         public static final String PHASE = "phase";
-        public static final String CURRENT_TURN = "currentTurn";
+        public static final String CURRENT_TURN = "current-turn";
 
-        public static final String ENTITY_ID = "entityId";
+        public static final String ENTITY_ID = "entity-id";
         public static final String PIECE_TYPE = "type";
         public static final String TEAM_COLOR = "team";
-        public static final String MOB_ID = "mobId";
+        public static final String MOB_ID = "mob-id";
+        public static final String PLAYER_ID = "player-id";
     }
 
     /**

@@ -95,6 +95,10 @@ public class GameMapper implements SingleYmlMapper<Game> {
         map.put(Keys.TEAM_COLOR, pieceSpec.teamColor().name());
         map.put(Keys.MOB_ID, pieceSpec.mobId());
 
+        if (piece.playerId() != null) {
+            map.put(Keys.PLAYER_ID, piece.playerId().toString());
+        }
+
         return map;
     }
 
@@ -104,7 +108,8 @@ public class GameMapper implements SingleYmlMapper<Game> {
         PieceType type = parser.requireEnum(section, Keys.PIECE_TYPE, PieceType::from);
         TeamColor teamColor = parser.requireEnum(section, Keys.TEAM_COLOR, TeamColor::from);
         String mobId = parser.requireValue(section, Keys.MOB_ID, String.class);
+        UUID playerId = parser.findUUID(section, Keys.PLAYER_ID).orElse(null);
 
-        return Piece.of(entityId, PieceSpec.of(type, teamColor, mobId));
+        return Piece.of(entityId, PieceSpec.of(type, teamColor, mobId), playerId);
     }
 }
