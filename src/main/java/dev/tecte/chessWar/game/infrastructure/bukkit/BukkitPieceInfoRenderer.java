@@ -87,14 +87,34 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
 
     @NonNull
     private Component buildPromotionButton(@NonNull Piece piece) {
+        Component button;
+
+        if (piece.isSelected()) {
+            button = Component.text()
+                    .color(NamedTextColor.GRAY)
+                    .append(Component.text("[ ⚔ "))
+                    .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
+                    .append(Component.text(" ]"))
+                    .hoverEvent(HoverEvent.showText(
+                            Component.text("이미 참전 중인 기물입니다.", NamedTextColor.RED)
+                    ))
+                    .build();
+        } else {
+            button = Component.text()
+                    .color(NamedTextColor.GREEN)
+                    .append(Component.text("[ ⚔ "))
+                    .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
+                    .append(Component.text(" ]"))
+                    .hoverEvent(HoverEvent.showText(
+                            Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN)
+                    ))
+                    .clickEvent(ClickEvent.runCommand("/chesswar class select " + piece.entityId()))
+                    .build();
+        }
+
         return Component.text()
                 .append(Component.text("               "))
-                .append(Component.text("[ ✔ 전직하기 ]", NamedTextColor.GREEN, TextDecoration.BOLD)
-                        .hoverEvent(HoverEvent.showText(Component.text(
-                                "클릭하여 해당 직업으로 전직합니다.",
-                                NamedTextColor.GREEN
-                        )))
-                        .clickEvent(ClickEvent.runCommand("/chesswar class select " + piece.entityId())))
+                .append(button)
                 .build();
     }
 }

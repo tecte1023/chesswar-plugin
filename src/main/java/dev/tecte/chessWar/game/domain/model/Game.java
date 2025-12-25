@@ -173,6 +173,22 @@ public record Game(
     }
 
     /**
+     * 지정된 좌표에 기물을 배치하거나 교체하고 새로운 Game 인스턴스를 반환합니다.
+     *
+     * @param coordinate 기물을 배치할 좌표
+     * @param piece      배치할 기물
+     * @return 기물이 업데이트된 새로운 {@link Game} 인스턴스
+     */
+    @NonNull
+    public Game withPiece(@NonNull Coordinate coordinate, @NonNull Piece piece) {
+        Map<Coordinate, Piece> newPieces = new HashMap<>(pieces);
+
+        newPieces.put(coordinate, piece);
+
+        return new Game(board, newPieces, phase, currentTurn);
+    }
+
+    /**
      * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
      * <p>
      * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
@@ -185,5 +201,24 @@ public record Game(
         return pieces.values().stream()
                 .filter(piece -> piece.entityId().equals(entityId))
                 .findFirst();
+    }
+
+    /**
+     * 특정 기물의 정보를 갱신합니다.
+     * 엔티티 ID가 일치하는 기존 기물을 찾아 새 기물 객체로 교체합니다.
+     *
+     * @param newPiece 갱신할 기물 객체
+     * @return 기물이 갱신된 새로운 {@link Game} 객체
+     * @throws IllegalArgumentException 해당 기물이 게임 내에 존재하지 않을 경우
+     */
+    @NonNull
+    public Game updatePiece(@NonNull Piece newPiece) {
+        Coordinate coordinate = pieces.entrySet().stream()
+                .filter(entry -> entry.getValue().entityId().equals(newPiece.entityId()))
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Piece not found in game: " + newPiece.entityId()));
+
+        return withPiece(coordinate, newPiece);
     }
 }

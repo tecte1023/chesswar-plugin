@@ -65,48 +65,6 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 필수 Enum 상수를 가져옵니다.
-     * 값이 존재하지 않거나 유효한 Enum 상수가 아니면 {@link YmlMappingException}을 발생시킵니다.
-     *
-     * @param section    값을 가져올 {@link ConfigurationSection}
-     * @param key        찾고자 하는 값의 키
-     * @param enumParser 문자열을 Optional<T>로 변환하는 팩토리 메소드
-     * @param <T>        값의 타입
-     * @return 찾은 Enum 상수
-     * @throws YmlMappingException 키가 없거나, 값이 유효한 Enum 상수가 아닐 경우
-     */
-    @NonNull
-    public <T> T requireEnum(
-            @NonNull ConfigurationSection section,
-            @NonNull String key,
-            @NonNull Function<String, Optional<T>> enumParser
-    ) {
-        String value = requireValue(section, key, String.class);
-
-        return enumParser.apply(value)
-                .orElseThrow(() -> YmlMappingException.forInvalidEnumValue(key, section.getCurrentPath(), value));
-    }
-
-    /**
-     * 지정된 경로에서 필수 UUID 값을 가져옵니다.
-     * 키가 없거나 형식이 올바르지 않으면 예외를 발생시킵니다.
-     *
-     * @param section 값을 가져올 {@link ConfigurationSection}
-     * @param key     찾고자 하는 값의 키
-     * @return 파싱된 UUID
-     */
-    @NonNull
-    public UUID requireUUID(@NonNull ConfigurationSection section, @NonNull String key) {
-        String value = requireValue(section, key, String.class);
-
-        try {
-            return UUID.fromString(value);
-        } catch (IllegalArgumentException e) {
-            throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), "UUID", value);
-        }
-    }
-
-    /**
      * 지정된 경로에서 값을 선택적으로 가져옵니다.
      * 키가 존재하지 않거나 값이 null인 경우 빈 Optional을 반환합니다.
      *
@@ -145,6 +103,29 @@ public class YmlParser {
     }
 
     /**
+     * 지정된 경로에서 필수 Enum 상수를 가져옵니다.
+     * 값이 존재하지 않거나 유효한 Enum 상수가 아니면 {@link YmlMappingException}을 발생시킵니다.
+     *
+     * @param section    값을 가져올 {@link ConfigurationSection}
+     * @param key        찾고자 하는 값의 키
+     * @param enumParser 문자열을 Optional<T>로 변환하는 팩토리 메소드
+     * @param <T>        값의 타입
+     * @return 찾은 Enum 상수
+     * @throws YmlMappingException 키가 없거나, 값이 유효한 Enum 상수가 아닐 경우
+     */
+    @NonNull
+    public <T> T requireEnum(
+            @NonNull ConfigurationSection section,
+            @NonNull String key,
+            @NonNull Function<String, Optional<T>> enumParser
+    ) {
+        String value = requireValue(section, key, String.class);
+
+        return enumParser.apply(value)
+                .orElseThrow(() -> YmlMappingException.forInvalidEnumValue(key, section.getCurrentPath(), value));
+    }
+
+    /**
      * 지정된 경로에서 Enum 상수를 선택적으로 가져옵니다.
      *
      * @param section    값을 가져올 {@link ConfigurationSection}
@@ -162,5 +143,45 @@ public class YmlParser {
     ) {
         return findValue(section, key, String.class).map(v -> enumParser.apply(v)
                 .orElseThrow(() -> YmlMappingException.forInvalidEnumValue(key, section.getCurrentPath(), v)));
+    }
+
+    /**
+     * 지정된 경로에서 필수 UUID 값을 가져옵니다.
+     * 키가 없거나 형식이 올바르지 않으면 예외를 발생시킵니다.
+     *
+     * @param section 값을 가져올 {@link ConfigurationSection}
+     * @param key     찾고자 하는 값의 키
+     * @return 파싱된 UUID
+     */
+    @NonNull
+    public UUID requireUUID(@NonNull ConfigurationSection section, @NonNull String key) {
+        String value = requireValue(section, key, String.class);
+
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), "UUID", value);
+        }
+    }
+
+    /**
+     * 지정된 경로에서 UUID 값을 선택적으로 가져옵니다.
+     * 키가 없거나 값이 null인 경우 빈 Optional을 반환합니다.
+     * 형식이 올바르지 않은 경우 예외를 발생시킵니다.
+     *
+     * @param section 값을 가져올 {@link ConfigurationSection}
+     * @param key     찾고자 하는 값의 키
+     * @return 파싱된 UUID를 담은 Optional, 없으면 빈 Optional
+     * @throws YmlMappingException 값이 존재하지만 UUID 형식이 아닌 경우
+     */
+    @NonNull
+    public Optional<UUID> findUUID(@NonNull ConfigurationSection section, @NonNull String key) {
+        return findValue(section, key, String.class).map(v -> {
+            try {
+                return UUID.fromString(v);
+            } catch (IllegalArgumentException e) {
+                throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), "UUID", v);
+            }
+        });
     }
 }

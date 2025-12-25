@@ -11,7 +11,7 @@ import net.kyori.adventure.text.Component;
  * 게임 객체를 찾을 수 없을 때 발생하는 예외입니다.
  */
 public class GameNotFoundException extends BusinessException implements Loggable, Notifiable {
-    private static final Component NOTIFICATION = Component.text("진행 중인 게임 정보를 찾을 수 없습니다.");
+    private static final Component NOTIFICATION = Component.text("진행 중인 게임이 없습니다.");
 
     private GameNotFoundException(@NonNull String message) {
         super(message);
