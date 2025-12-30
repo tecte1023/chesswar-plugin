@@ -6,7 +6,7 @@ import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.infrastructure.persistence.BoardMapper;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import dev.tecte.chessWar.game.domain.model.PieceSpec;
 import dev.tecte.chessWar.game.domain.model.PieceType;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
@@ -49,7 +49,7 @@ public class GameMapper implements SingleYmlMapper<Game> {
     public Game fromSection(@NonNull ConfigurationSection section) {
         Board board = boardRepository.find().orElseThrow(YmlMappingException::forMissingBoard);
         ConfigurationSection piecesSection = parser.requireSection(section, Keys.PIECES);
-        Map<Coordinate, Piece> pieces = fromSectionPieces(piecesSection);
+        Map<Coordinate, UnitPiece> pieces = fromSectionPieces(piecesSection);
         GamePhase phase = parser.requireEnum(section, Keys.PHASE, GamePhase::from);
         TeamColor currentTurn = parser.findEnum(section, Keys.CURRENT_TURN, TeamColor::from).orElse(null);
 
@@ -57,7 +57,7 @@ public class GameMapper implements SingleYmlMapper<Game> {
     }
 
     @NonNull
-    private Map<String, Object> toMapPieces(@NonNull Map<Coordinate, Piece> pieces) {
+    private Map<String, Object> toMapPieces(@NonNull Map<Coordinate, UnitPiece> pieces) {
         Map<String, Object> map = new HashMap<>();
 
         for (var entry : pieces.entrySet()) {
@@ -71,13 +71,13 @@ public class GameMapper implements SingleYmlMapper<Game> {
     }
 
     @NonNull
-    private Map<Coordinate, Piece> fromSectionPieces(@NonNull ConfigurationSection section) {
-        Map<Coordinate, Piece> pieces = new HashMap<>();
+    private Map<Coordinate, UnitPiece> fromSectionPieces(@NonNull ConfigurationSection section) {
+        Map<Coordinate, UnitPiece> pieces = new HashMap<>();
 
         for (String coordinateKey : section.getKeys(false)) {
             ConfigurationSection pieceSection = parser.requireSection(section, coordinateKey);
             Coordinate coordinate = boardMapper.deserializeCoordinate(coordinateKey, section.getCurrentPath());
-            Piece piece = fromSectionPiece(pieceSection);
+            UnitPiece piece = fromSectionPiece(pieceSection);
 
             pieces.put(coordinate, piece);
         }
@@ -86,7 +86,7 @@ public class GameMapper implements SingleYmlMapper<Game> {
     }
 
     @NonNull
-    private Map<String, Object> toMapPiece(@NonNull Piece piece) {
+    private Map<String, Object> toMapPiece(@NonNull UnitPiece piece) {
         Map<String, Object> map = new HashMap<>();
         PieceSpec pieceSpec = piece.spec();
 
@@ -103,13 +103,13 @@ public class GameMapper implements SingleYmlMapper<Game> {
     }
 
     @NonNull
-    private Piece fromSectionPiece(@NonNull ConfigurationSection section) {
+    private UnitPiece fromSectionPiece(@NonNull ConfigurationSection section) {
         UUID entityId = parser.requireUUID(section, Keys.ENTITY_ID);
         PieceType type = parser.requireEnum(section, Keys.PIECE_TYPE, PieceType::from);
         TeamColor teamColor = parser.requireEnum(section, Keys.TEAM_COLOR, TeamColor::from);
         String mobId = parser.requireValue(section, Keys.MOB_ID, String.class);
         UUID playerId = parser.findUUID(section, Keys.PLAYER_ID).orElse(null);
 
-        return Piece.of(entityId, PieceSpec.of(type, teamColor, mobId), playerId);
+        return UnitPiece.of(entityId, PieceSpec.of(type, teamColor, mobId), playerId);
     }
 }

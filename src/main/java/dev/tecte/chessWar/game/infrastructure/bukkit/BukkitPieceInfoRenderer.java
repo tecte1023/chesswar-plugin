@@ -2,7 +2,7 @@ package dev.tecte.chessWar.game.infrastructure.bukkit;
 
 import dev.tecte.chessWar.game.application.port.PieceInfoRenderer;
 import dev.tecte.chessWar.game.domain.exception.PieceEntityNotFoundException;
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import dev.tecte.chessWar.game.domain.model.PieceType;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import io.lumine.mythic.core.mobs.MobExecutor;
@@ -29,7 +29,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     private final MobExecutor mobExecutor;
 
     @Override
-    public void renderInfo(@NonNull Player player, @NonNull Piece piece) {
+    public void renderInfo(@NonNull Player player, @NonNull UnitPiece piece) {
         ActiveMob activeMob = mobExecutor.getActiveMob(piece.entityId())
                 .orElseThrow(PieceEntityNotFoundException::entityNotFound);
         Component title = buildTitle(piece);
@@ -51,7 +51,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     }
 
     @NonNull
-    private Component buildTitle(@NonNull Piece piece) {
+    private Component buildTitle(@NonNull UnitPiece piece) {
         PieceType type = piece.spec().type();
         Component deco = Component.text("━━━━━━━━━━━━━━━", NamedTextColor.DARK_GRAY)
                 .decorate(TextDecoration.STRIKETHROUGH);
@@ -78,7 +78,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     }
 
     @NonNull
-    private Component buildRangeInfo(@NonNull Piece piece) {
+    private Component buildRangeInfo(@NonNull UnitPiece piece) {
         return Component.text()
                 .append(Component.text("공격 및 이동 범위: ", NamedTextColor.GRAY))
                 .append(Component.text(piece.spec().type().getRangeDescription(), NamedTextColor.AQUA))
@@ -86,7 +86,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     }
 
     @NonNull
-    private Component buildPromotionButton(@NonNull Piece piece) {
+    private Component buildPromotionButton(@NonNull UnitPiece piece) {
         Component button;
 
         if (piece.isSelected()) {

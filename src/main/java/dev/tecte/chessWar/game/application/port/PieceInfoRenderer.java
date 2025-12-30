@@ -1,6 +1,6 @@
 package dev.tecte.chessWar.game.application.port;
 
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import lombok.NonNull;
 import org.bukkit.entity.Player;
 
@@ -14,5 +14,5 @@ public interface PieceInfoRenderer {
      * @param player 정보를 볼 플레이어
      * @param piece  정보를 표시할 기물
      */
-    void renderInfo(@NonNull Player player, @NonNull Piece piece);
+    void renderInfo(@NonNull Player player, @NonNull UnitPiece piece);
 }

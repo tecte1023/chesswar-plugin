@@ -10,7 +10,7 @@ import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
 import dev.tecte.chessWar.game.domain.exception.GameStartConditionException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.team.application.TeamService;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -113,7 +113,7 @@ public class GameService {
         schedulePieceSelectionPhaseEnd();
     }
 
-    private void registerSpawnedPieces(@NonNull Map<Coordinate, Piece> spawnedPieces) {
+    private void registerSpawnedPieces(@NonNull Map<Coordinate, UnitPiece> spawnedPieces) {
         Game currentGame = gameRepository.find().orElseThrow(GameNotFoundException::duringPieceSpawning);
         Game updatedGame = currentGame.withPieces(spawnedPieces);
 
