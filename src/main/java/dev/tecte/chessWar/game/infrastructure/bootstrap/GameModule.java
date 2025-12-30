@@ -13,8 +13,8 @@ import dev.tecte.chessWar.game.application.port.PieceSpawner;
 import dev.tecte.chessWar.game.application.port.PieceStatProvider;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.infrastructure.bukkit.BukkitPieceInfoRenderer;
-import dev.tecte.chessWar.game.infrastructure.command.ClassChangeCommand;
 import dev.tecte.chessWar.game.infrastructure.command.GameCommand;
+import dev.tecte.chessWar.game.infrastructure.command.PieceSelectCommand;
 import dev.tecte.chessWar.game.infrastructure.listener.GameVisibilityListener;
 import dev.tecte.chessWar.game.infrastructure.listener.PieceInteractionListener;
 import dev.tecte.chessWar.game.infrastructure.mythicmobs.MythicMobsPieceLayoutLoader;
@@ -46,7 +46,7 @@ public class GameModule extends AbstractModule {
         Multibinder.newSetBinder(binder(), PersistableState.class).addBinding().to(YmlGameRepository.class);
 
         commandBinder.addBinding().to(GameCommand.class);
-        commandBinder.addBinding().to(ClassChangeCommand.class);
+        commandBinder.addBinding().to(PieceSelectCommand.class);
 
         listenerBinder.addBinding().to(GameVisibilityListener.class);
         listenerBinder.addBinding().to(PieceInteractionListener.class);

@@ -35,7 +35,7 @@ import java.util.Map;
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameService {
     private static final int MIN_PLAYERS = 1;
-    private static final long CLASS_SELECTION_DURATION_TICKS = 5 * 60 * 20;
+    private static final long PIECE_SELECTION_DURATION_TICKS = 5 * 60 * 20;
     private static final long POST_GAME_DURATION_TICKS = 10 * 20;
 
     private final PieceService pieceService;
@@ -73,7 +73,7 @@ public class GameService {
         Game game = Game.create(board);
 
         gameRepository.save(game);
-        startClassSelectionPhase(game, world, sender);
+        startPieceSelectionPhase(game, world, sender);
     }
 
     /**
@@ -94,7 +94,7 @@ public class GameService {
         gameNotifier.notifyGameStop(sender);
     }
 
-    private void startClassSelectionPhase(
+    private void startPieceSelectionPhase(
             @NonNull Game game,
             @NonNull World world,
             @NonNull CommandSender sender
@@ -108,9 +108,9 @@ public class GameService {
                 });
         teleportPlayersToStartingPositions(game, world);
         teamService.concealEnemies();
-        gameNotifier.announceClassSelectionStart(teamService.getAllOnlinePlayers());
-        gameNotifier.startClassSelectionGuidance();
-        scheduleClassSelectionPhaseEnd();
+        gameNotifier.announcePieceSelectionStart(teamService.getAllOnlinePlayers());
+        gameNotifier.startPieceSelectionGuidance();
+        schedulePieceSelectionPhaseEnd();
     }
 
     private void registerSpawnedPieces(@NonNull Map<Coordinate, Piece> spawnedPieces) {
@@ -147,11 +147,11 @@ public class GameService {
         teamService.teleportTeam(TeamColor.BLACK, blackLocation);
     }
 
-    private void scheduleClassSelectionPhaseEnd() {
+    private void schedulePieceSelectionPhaseEnd() {
         gameTaskScheduler.scheduleOnce(GameTaskType.PHASE_TRANSITION, () -> {
             gameNotifier.stopGuidance();
             startTurnOrderSelectionPhase();
-        }, CLASS_SELECTION_DURATION_TICKS);
+        }, PIECE_SELECTION_DURATION_TICKS);
     }
 
     @NonNull

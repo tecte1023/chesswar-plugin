@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
  * 게임의 진행 단계를 나타내는 열거형입니다.
  */
 public enum GamePhase {
-    CLASS_SELECTION,
+    PIECE_SELECTION,
     TURN_ORDER_SELECTION,
     BATTLE,
     ENDED;
@@ -38,6 +38,6 @@ public enum GamePhase {
      */
     @NonNull
     public static GamePhase initial() {
-        return CLASS_SELECTION;
+        return PIECE_SELECTION;
     }
 }
