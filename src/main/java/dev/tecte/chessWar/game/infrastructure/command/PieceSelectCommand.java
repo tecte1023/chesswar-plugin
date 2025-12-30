@@ -2,13 +2,13 @@ package dev.tecte.chessWar.game.infrastructure.command;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
-import co.aikar.commands.annotation.CommandCompletion;
 import co.aikar.commands.annotation.Description;
 import co.aikar.commands.annotation.Subcommand;
-import dev.tecte.chessWar.game.application.PieceClassService;
+import dev.tecte.chessWar.game.application.PieceSelectionService;
 import dev.tecte.chessWar.infrastructure.command.CommandConstants;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
@@ -16,26 +16,26 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * 게임 내 플레이어의 전직(Class Change) 명령어를 처리합니다.
+ * 기물 선택 및 참전에 관한 명령어를 처리하는 클래스입니다.
  */
+@Singleton
 @CommandAlias(CommandConstants.ROOT)
-@Subcommand("class")
+@Subcommand("piece")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
-public class ClassChangeCommand extends BaseCommand {
-    private final PieceClassService pieceClassService;
+public class PieceSelectCommand extends BaseCommand {
+    private final PieceSelectionService pieceSelectionService;
     private final SenderNotifier senderNotifier;
 
     /**
-     * 자기 자신을 지정된 기물 클래스로 전직시킵니다.
+     * 대상 기물을 선택하여 전장에 참전합니다.
      *
      * @param player  명령어를 실행한 플레이어
-     * @param pieceId 대상 기물의 엔티티 UUID 문자열
+     * @param pieceId 참전할 대상 기물의 엔티티 UUID
      */
     @Subcommand("select")
-    @Description("자신을 지정된 기물로 전직시킵니다.")
-    @CommandCompletion("@nothing")
-    public void changeClass(@NonNull Player player, @NonNull String pieceId) {
+    @Description("대상 기물을 선택하여 전장에 참전합니다.")
+    public void selectPiece(@NonNull Player player, @NonNull String pieceId) {
         UUID uuid;
 
         try {
@@ -46,6 +46,6 @@ public class ClassChangeCommand extends BaseCommand {
             return;
         }
 
-        pieceClassService.changeClass(player, uuid);
+        pieceSelectionService.selectPiece(player, uuid);
     }
 }

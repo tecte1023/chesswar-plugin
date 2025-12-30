@@ -24,7 +24,7 @@ public class InvalidGameStateException extends BusinessException implements Logg
     public static InvalidGameStateException forTurnOrderSelection(@NonNull GamePhase currentPhase) {
         return new InvalidGameStateException(
                 String.format("Cannot transition to '%s'. Required phase: '%s', but current phase is '%s'.",
-                        GamePhase.TURN_ORDER_SELECTION, GamePhase.CLASS_SELECTION, currentPhase)
+                        GamePhase.TURN_ORDER_SELECTION, GamePhase.PIECE_SELECTION, currentPhase)
         );
     }
 

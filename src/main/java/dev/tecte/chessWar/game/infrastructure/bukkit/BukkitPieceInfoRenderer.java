@@ -108,7 +108,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
                     .hoverEvent(HoverEvent.showText(
                             Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN)
                     ))
-                    .clickEvent(ClickEvent.runCommand("/chesswar class select " + piece.entityId()))
+                    .clickEvent(ClickEvent.runCommand("/chesswar piece select " + piece.entityId()))
                     .build();
         }
 

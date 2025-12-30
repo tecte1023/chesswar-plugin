@@ -65,11 +65,11 @@ public record Game(
      * 게임을 '턴 순서 선택' 단계로 전환합니다.
      *
      * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws InvalidGameStateException 현재 단계가 {@link GamePhase#CLASS_SELECTION} 아닐 경우
+     * @throws InvalidGameStateException 현재 단계가 {@link GamePhase#PIECE_SELECTION} 아닐 경우
      */
     @NonNull
     public Game startTurnSelection() {
-        if (phase != GamePhase.CLASS_SELECTION) {
+        if (phase != GamePhase.PIECE_SELECTION) {
             throw InvalidGameStateException.forTurnOrderSelection(phase);
         }
 
@@ -158,6 +158,21 @@ public record Game(
     }
 
     /**
+     * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
+     * <p>
+     * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
+     *
+     * @param entityId 찾을 엔티티의 UUID
+     * @return 해당하는 기물이 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
+     */
+    @NonNull
+    public Optional<Piece> findPiece(@NonNull UUID entityId) {
+        return pieces.values().stream()
+                .filter(piece -> piece.entityId().equals(entityId))
+                .findFirst();
+    }
+
+    /**
      * 주어진 기물들을 기존 기물 맵에 추가하고 새로운 Game 인스턴스를 반환합니다.
      *
      * @param additionalPieces 추가할 기물들의 맵
@@ -186,21 +201,6 @@ public record Game(
         newPieces.put(coordinate, piece);
 
         return new Game(board, newPieces, phase, currentTurn);
-    }
-
-    /**
-     * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
-     * <p>
-     * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
-     *
-     * @param entityId 찾을 엔티티의 UUID
-     * @return 해당하는 기물이 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
-     */
-    @NonNull
-    public Optional<Piece> findPiece(@NonNull UUID entityId) {
-        return pieces.values().stream()
-                .filter(piece -> piece.entityId().equals(entityId))
-                .findFirst();
     }
 
     /**

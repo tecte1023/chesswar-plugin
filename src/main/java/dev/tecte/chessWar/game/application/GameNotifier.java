@@ -17,10 +17,10 @@ import java.util.Set;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameNotifier {
-    private static final Component CLASS_SELECTION_TITLE =
-            Component.text("직업 선택").decorate(TextDecoration.BOLD).color(NamedTextColor.AQUA);
-    private static final Component CLASS_SELECTION_GUIDE =
-            Component.text("기물을 우클릭하여 직업을 선택해주세요.").color(NamedTextColor.RED);
+    private static final Component PIECE_SELECTION_TITLE =
+            Component.text("기물 선택").decorate(TextDecoration.BOLD).color(NamedTextColor.AQUA);
+    private static final Component PIECE_SELECTION_GUIDE =
+            Component.text("기물을 우클릭하여 참전할 기물을 선택해주세요.").color(NamedTextColor.RED);
     private static final Component GAME_STOP_MESSAGE = Component.text("게임이 종료되었습니다.");
 
     private static final long GUIDE_INITIAL_DELAY_TICKS = 0L;
@@ -31,21 +31,21 @@ public class GameNotifier {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 직업 선택 단계 시작을 알립니다. (타이틀 전송)
+     * 기물 선택 단계 시작을 알립니다. (타이틀 전송)
      *
      * @param participants 알림을 받을 참가자 목록
      */
-    public void announceClassSelectionStart(@NonNull Set<Player> participants) {
-        participants.forEach(player -> senderNotifier.sendTitle(player, CLASS_SELECTION_TITLE));
+    public void announcePieceSelectionStart(@NonNull Set<Player> participants) {
+        participants.forEach(player -> senderNotifier.sendTitle(player, PIECE_SELECTION_TITLE));
     }
 
     /**
-     * 직업 선택 가이드를 시작합니다. (액션바 반복 전송)
+     * 기물 선택 가이드를 시작합니다. (액션바 반복 전송)
      */
-    public void startClassSelectionGuidance() {
+    public void startPieceSelectionGuidance() {
         gameTaskScheduler.scheduleRepeat(
                 GameTaskType.GUIDANCE,
-                () -> broadcastActionBar(CLASS_SELECTION_GUIDE),
+                () -> broadcastActionBar(PIECE_SELECTION_GUIDE),
                 GUIDE_INITIAL_DELAY_TICKS,
                 GUIDE_INTERVAL_TICKS
         );
