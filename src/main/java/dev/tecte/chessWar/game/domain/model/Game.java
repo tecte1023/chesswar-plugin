@@ -19,7 +19,7 @@ import java.util.UUID;
  */
 public record Game(
         Board board,
-        Map<Coordinate, Piece> pieces,
+        Map<Coordinate, UnitPiece> pieces,
         GamePhase phase,
         TeamColor currentTurn
 ) {
@@ -54,7 +54,7 @@ public record Game(
     @NonNull
     public static Game of(
             @NonNull Board board,
-            @NonNull Map<Coordinate, Piece> pieces,
+            @NonNull Map<Coordinate, UnitPiece> pieces,
             @NonNull GamePhase phase,
             @Nullable TeamColor currentTurn
     ) {
@@ -153,7 +153,7 @@ public record Game(
      * @return 해당 좌표에 기물이 있으면 {@link Optional}를, 없으면 빈 {@link Optional}을 반환
      */
     @NonNull
-    public Optional<Piece> getPieceAt(@NonNull Coordinate coordinate) {
+    public Optional<UnitPiece> getPieceAt(@NonNull Coordinate coordinate) {
         return Optional.ofNullable(pieces.get(coordinate));
     }
 
@@ -166,7 +166,7 @@ public record Game(
      * @return 해당하는 기물이 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
      */
     @NonNull
-    public Optional<Piece> findPiece(@NonNull UUID entityId) {
+    public Optional<UnitPiece> findPiece(@NonNull UUID entityId) {
         return pieces.values().stream()
                 .filter(piece -> piece.entityId().equals(entityId))
                 .findFirst();
@@ -179,8 +179,8 @@ public record Game(
      * @return 기물 맵이 업데이트된 새로운 {@link Game} 인스턴스
      */
     @NonNull
-    public Game withPieces(@NonNull Map<Coordinate, Piece> additionalPieces) {
-        Map<Coordinate, Piece> newPieces = new HashMap<>(pieces);
+    public Game withPieces(@NonNull Map<Coordinate, UnitPiece> additionalPieces) {
+        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
 
         newPieces.putAll(additionalPieces);
 
@@ -195,8 +195,8 @@ public record Game(
      * @return 기물이 업데이트된 새로운 {@link Game} 인스턴스
      */
     @NonNull
-    public Game withPiece(@NonNull Coordinate coordinate, @NonNull Piece piece) {
-        Map<Coordinate, Piece> newPieces = new HashMap<>(pieces);
+    public Game withPiece(@NonNull Coordinate coordinate, @NonNull UnitPiece piece) {
+        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
 
         newPieces.put(coordinate, piece);
 
@@ -212,7 +212,7 @@ public record Game(
      * @throws IllegalArgumentException 해당 기물이 게임 내에 존재하지 않을 경우
      */
     @NonNull
-    public Game updatePiece(@NonNull Piece newPiece) {
+    public Game updatePiece(@NonNull UnitPiece newPiece) {
         Coordinate coordinate = pieces.entrySet().stream()
                 .filter(entry -> entry.getValue().entityId().equals(newPiece.entityId()))
                 .map(Map.Entry::getKey)

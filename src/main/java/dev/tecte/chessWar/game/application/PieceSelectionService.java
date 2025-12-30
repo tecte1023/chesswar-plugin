@@ -7,7 +7,7 @@ import dev.tecte.chessWar.game.application.port.dto.PieceStatsDto;
 import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
 import dev.tecte.chessWar.game.domain.exception.PieceSelectionException;
 import dev.tecte.chessWar.game.domain.model.Game;
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import dev.tecte.chessWar.game.domain.model.PieceSpec;
 import dev.tecte.chessWar.game.domain.model.PieceType;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
@@ -53,7 +53,7 @@ public class PieceSelectionService {
     @HandleException
     public void selectPiece(@NonNull Player player, @NonNull UUID targetPieceId) {
         Game game = gameRepository.find().orElseThrow(GameNotFoundException::noGameInProgress);
-        Piece piece = game.findPiece(targetPieceId).orElseThrow(PieceSelectionException::pieceNotFound);
+        UnitPiece piece = game.findPiece(targetPieceId).orElseThrow(PieceSelectionException::pieceNotFound);
         PieceSpec spec = piece.spec();
         PieceType type = spec.type();
 

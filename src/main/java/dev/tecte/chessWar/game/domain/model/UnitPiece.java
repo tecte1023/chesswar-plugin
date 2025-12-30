@@ -8,14 +8,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * 체스판 위에 존재하는 실제 기물 인스턴스를 나타내는 불변 객체입니다.
+ * 체스판 위에 존재하는 일반 기물을 나타내는 불변 객체입니다.
  *
  * @param entityId 스폰된 기물 엔티티의 UUID.
  * @param spec     기물의 정적 명세 ({@link PieceSpec})
  * @param playerId 해당 기물을 선택하여 참전한 플레이어의 UUID
  */
-public record Piece(UUID entityId, PieceSpec spec, UUID playerId) {
-    public Piece {
+public record UnitPiece(UUID entityId, PieceSpec spec, UUID playerId) {
+    public UnitPiece {
         Objects.requireNonNull(entityId, "Entity id cannot be null");
         Objects.requireNonNull(spec, "Piece specification cannot be null");
     }
@@ -25,11 +25,11 @@ public record Piece(UUID entityId, PieceSpec spec, UUID playerId) {
      *
      * @param entityId 스폰된 기물 엔티티의 UUID
      * @param spec     기물의 정적 명세
-     * @return 새로운 {@link Piece} 인스턴스
+     * @return 새로운 {@link UnitPiece} 인스턴스
      */
     @NonNull
-    public static Piece of(@NonNull UUID entityId, @NonNull PieceSpec spec) {
-        return new Piece(entityId, spec, null);
+    public static UnitPiece of(@NonNull UUID entityId, @NonNull PieceSpec spec) {
+        return new UnitPiece(entityId, spec, null);
     }
 
     /**
@@ -38,22 +38,22 @@ public record Piece(UUID entityId, PieceSpec spec, UUID playerId) {
      * @param entityId 스폰된 기물 엔티티의 UUID
      * @param spec     기물의 정적 명세
      * @param playerId 해당 기물을 선택하여 참전한 플레이어의 UUID
-     * @return 새로운 {@link Piece} 인스턴스
+     * @return 새로운 {@link UnitPiece} 인스턴스
      */
     @NonNull
-    public static Piece of(@NonNull UUID entityId, @NonNull PieceSpec spec, @Nullable UUID playerId) {
-        return new Piece(entityId, spec, playerId);
+    public static UnitPiece of(@NonNull UUID entityId, @NonNull PieceSpec spec, @Nullable UUID playerId) {
+        return new UnitPiece(entityId, spec, playerId);
     }
 
     /**
      * 해당 기물을 특정 플레이어가 선택하여 참전한 상태로 설정한 새로운 기물 객체를 반환합니다.
      *
      * @param playerId 이 기물로 참전할 플레이어의 UUID
-     * @return 플레이어가 참전한 상태의 새로운 {@link Piece} 객체
+     * @return 플레이어가 참전한 상태의 새로운 {@link UnitPiece} 객체
      */
     @NonNull
-    public Piece selectedBy(@NonNull UUID playerId) {
-        return new Piece(entityId, spec, playerId);
+    public UnitPiece selectedBy(@NonNull UUID playerId) {
+        return new UnitPiece(entityId, spec, playerId);
     }
 
     /**

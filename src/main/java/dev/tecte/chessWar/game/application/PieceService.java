@@ -9,7 +9,7 @@ import dev.tecte.chessWar.game.application.port.PieceSpawner;
 import dev.tecte.chessWar.game.domain.exception.PieceSpawnException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.Piece;
+import dev.tecte.chessWar.game.domain.model.UnitPiece;
 import dev.tecte.chessWar.game.domain.model.PieceLayout;
 import dev.tecte.chessWar.game.domain.model.PieceSpec;
 import dev.tecte.chessWar.game.domain.model.PieceType;
@@ -67,10 +67,10 @@ public class PieceService {
      * @return 성공 시 스폰된 기물들의 맵을 담은 Future, 실패 시 예외를 담은 Future
      */
     @NonNull
-    public CompletableFuture<Map<Coordinate, Piece>> spawnPieces(@NonNull World world, @NonNull Board board) {
+    public CompletableFuture<Map<Coordinate, UnitPiece>> spawnPieces(@NonNull World world, @NonNull Board board) {
         var pieceIterator = pieceLayout.pieces().entrySet().iterator();
-        CompletableFuture<Map<Coordinate, Piece>> future = new CompletableFuture<>();
-        Map<Coordinate, Piece> spawnedPieces = new HashMap<>();
+        CompletableFuture<Map<Coordinate, UnitPiece>> future = new CompletableFuture<>();
+        Map<Coordinate, UnitPiece> spawnedPieces = new HashMap<>();
 
         gameTaskScheduler.scheduleRepeat(task -> {
             try {
@@ -86,7 +86,7 @@ public class PieceService {
                     Coordinate coordinate = entry.getKey();
                     PieceSpec spec = entry.getValue();
                     Entity spawnedEntity = spawnPieceEntity(spec, coordinate, board, world);
-                    Piece piece = Piece.of(spawnedEntity.getUniqueId(), spec);
+                    UnitPiece piece = UnitPiece.of(spawnedEntity.getUniqueId(), spec);
 
                     spawnedPieces.put(coordinate, piece);
                 }
@@ -105,7 +105,7 @@ public class PieceService {
      * @param game 현재 게임 상태
      */
     public void despawnPieces(@NonNull Game game) {
-        for (Piece piece : game.pieces().values()) {
+        for (UnitPiece piece : game.pieces().values()) {
             Entity entity = Bukkit.getEntity(piece.entityId());
 
             if (entity != null) {
@@ -182,7 +182,7 @@ public class PieceService {
         return pieceSpawner.spawnPiece(spec, spawnLocation);
     }
 
-    private boolean isFriendlyPiece(@NonNull Player player, @NonNull Piece piece) {
+    private boolean isFriendlyPiece(@NonNull Player player, @NonNull UnitPiece piece) {
         return teamService.findTeam(player)
                 .map(team -> team == piece.spec().teamColor())
                 .orElse(false);
@@ -201,7 +201,7 @@ public class PieceService {
     private List<Entity> findPieceEntities(@NonNull Game game, @NonNull TeamColor teamColor) {
         return game.pieces().values().stream()
                 .filter(piece -> piece.spec().teamColor() == teamColor)
-                .map(Piece::entityId)
+                .map(UnitPiece::entityId)
                 .map(Bukkit::getEntity)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
