@@ -7,6 +7,7 @@ import com.google.inject.multibindings.Multibinder;
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
 import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
+import dev.tecte.chessWar.piece.infrastructure.bootstrap.PieceModule;
 import dev.tecte.chessWar.infrastructure.command.MainCommand;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import dev.tecte.chessWar.infrastructure.notifier.BukkitSenderNotifier;
@@ -43,6 +44,7 @@ public class PluginModule extends AbstractModule {
 
         install(new BoardModule());
         install(new TeamModule());
+        install(new PieceModule());
         install(new GameModule());
         install(new CommandModule());
         install(new ListenerModule());

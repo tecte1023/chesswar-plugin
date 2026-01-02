@@ -6,11 +6,10 @@ import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.infrastructure.persistence.BoardMapper;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.UnitPiece;
-import dev.tecte.chessWar.game.domain.model.PieceSpec;
-import dev.tecte.chessWar.game.domain.model.PieceType;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
 import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
+import dev.tecte.chessWar.piece.domain.model.UnitPiece;
+import dev.tecte.chessWar.piece.infrastructure.persistence.PieceMapper;
 import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
@@ -21,15 +20,20 @@ import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import static dev.tecte.chessWar.game.infrastructure.persistence.GamePersistenceConstants.Keys;
 
+/**
+ * 게임 객체와 YAML 데이터 간의 변환을 담당하는 매퍼입니다.
+ * <p>
+ * 전체적인 게임 데이터를 YAML 형식으로 직렬화하거나 섹션으로부터 복원합니다.
+ */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameMapper implements SingleYmlMapper<Game> {
     private final BoardRepository boardRepository;
     private final BoardMapper boardMapper;
+    private final PieceMapper pieceMapper;
     private final YmlParser parser;
 
     @NonNull
@@ -48,8 +52,7 @@ public class GameMapper implements SingleYmlMapper<Game> {
     @Override
     public Game fromSection(@NonNull ConfigurationSection section) {
         Board board = boardRepository.find().orElseThrow(YmlMappingException::forMissingBoard);
-        ConfigurationSection piecesSection = parser.requireSection(section, Keys.PIECES);
-        Map<Coordinate, UnitPiece> pieces = fromSectionPieces(piecesSection);
+        Map<Coordinate, UnitPiece> pieces = fromSectionPieces(parser.requireSection(section, Keys.PIECES));
         GamePhase phase = parser.requireEnum(section, Keys.PHASE, GamePhase::from);
         TeamColor currentTurn = parser.findEnum(section, Keys.CURRENT_TURN, TeamColor::from).orElse(null);
 
@@ -60,12 +63,9 @@ public class GameMapper implements SingleYmlMapper<Game> {
     private Map<String, Object> toMapPieces(@NonNull Map<Coordinate, UnitPiece> pieces) {
         Map<String, Object> map = new HashMap<>();
 
-        for (var entry : pieces.entrySet()) {
-            String coordinateKey = boardMapper.serializeCoordinate(entry.getKey());
-            Map<String, Object> pieceMap = toMapPiece(entry.getValue());
-
-            map.put(coordinateKey, pieceMap);
-        }
+        pieces.forEach((coordinate, piece) ->
+                map.put(boardMapper.serializeCoordinate(coordinate), pieceMapper.toMap(piece))
+        );
 
         return map;
     }
@@ -75,41 +75,12 @@ public class GameMapper implements SingleYmlMapper<Game> {
         Map<Coordinate, UnitPiece> pieces = new HashMap<>();
 
         for (String coordinateKey : section.getKeys(false)) {
-            ConfigurationSection pieceSection = parser.requireSection(section, coordinateKey);
             Coordinate coordinate = boardMapper.deserializeCoordinate(coordinateKey, section.getCurrentPath());
-            UnitPiece piece = fromSectionPiece(pieceSection);
+            UnitPiece piece = pieceMapper.fromSection(parser.requireSection(section, coordinateKey));
 
             pieces.put(coordinate, piece);
         }
 
         return pieces;
-    }
-
-    @NonNull
-    private Map<String, Object> toMapPiece(@NonNull UnitPiece piece) {
-        Map<String, Object> map = new HashMap<>();
-        PieceSpec pieceSpec = piece.spec();
-
-        map.put(Keys.ENTITY_ID, piece.entityId().toString());
-        map.put(Keys.PIECE_TYPE, pieceSpec.type().name());
-        map.put(Keys.TEAM_COLOR, pieceSpec.teamColor().name());
-        map.put(Keys.MOB_ID, pieceSpec.mobId());
-
-        if (piece.playerId() != null) {
-            map.put(Keys.PLAYER_ID, piece.playerId().toString());
-        }
-
-        return map;
-    }
-
-    @NonNull
-    private UnitPiece fromSectionPiece(@NonNull ConfigurationSection section) {
-        UUID entityId = parser.requireUUID(section, Keys.ENTITY_ID);
-        PieceType type = parser.requireEnum(section, Keys.PIECE_TYPE, PieceType::from);
-        TeamColor teamColor = parser.requireEnum(section, Keys.TEAM_COLOR, TeamColor::from);
-        String mobId = parser.requireValue(section, Keys.MOB_ID, String.class);
-        UUID playerId = parser.findUUID(section, Keys.PLAYER_ID).orElse(null);
-
-        return UnitPiece.of(entityId, PieceSpec.of(type, teamColor, mobId), playerId);
     }
 }

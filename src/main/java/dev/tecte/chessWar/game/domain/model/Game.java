@@ -3,6 +3,7 @@ package dev.tecte.chessWar.game.domain.model;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.game.domain.exception.InvalidGameStateException;
+import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import lombok.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;

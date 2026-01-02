@@ -6,11 +6,15 @@ import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.game.application.port.GameRepository;
+import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
 import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
 import dev.tecte.chessWar.game.domain.exception.GameStartConditionException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.UnitPiece;
+import dev.tecte.chessWar.piece.application.PieceService;
+import dev.tecte.chessWar.piece.application.port.PieceInfoRenderer;
+import dev.tecte.chessWar.piece.domain.model.PieceType;
+import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.team.application.TeamService;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -23,6 +27,8 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
 import java.util.Map;
@@ -38,12 +44,13 @@ public class GameService {
     private static final long PIECE_SELECTION_DURATION_TICKS = 5 * 60 * 20;
     private static final long POST_GAME_DURATION_TICKS = 10 * 20;
 
-    private final PieceService pieceService;
     private final GameNotifier gameNotifier;
-    private final GameTaskScheduler gameTaskScheduler;
     private final BoardService boardService;
     private final TeamService teamService;
+    private final PieceService pieceService;
     private final GameRepository gameRepository;
+    private final GameTaskScheduler gameTaskScheduler;
+    private final PieceInfoRenderer pieceInfoRenderer;
     private final ExceptionDispatcher exceptionDispatcher;
 
     /**
@@ -92,6 +99,24 @@ public class GameService {
         teamService.revealEnemies();
         gameRepository.delete();
         gameNotifier.notifyGameStop(sender);
+    }
+
+    /**
+     * 대상 엔티티를 검사하고, 조건이 충족되면 상세 정보를 표시합니다.
+     * <p>
+     * <b>직업 선택 단계</b>이며 자신의 팀 기물인 경우, 해당 기물의 상세 정보를 보여줍니다. (단, 폰은 제외됩니다.)
+     *
+     * @param player 정보를 표시할 대상 플레이어
+     * @param entity 검사 대상 엔티티
+     */
+    @HandleException
+    public void inspectPiece(@NonNull Player player, @NonNull Entity entity) {
+        gameRepository.find()
+                .filter(game -> game.phase() == GamePhase.PIECE_SELECTION)
+                .flatMap(game -> game.findPiece(entity.getUniqueId()))
+                .filter(piece -> piece.spec().type() != PieceType.PAWN)
+                .filter(piece -> isFriendlyPiece(player, piece))
+                .ifPresent(piece -> pieceInfoRenderer.renderInfo(player, piece));
     }
 
     private void startPieceSelectionPhase(
@@ -237,5 +262,11 @@ public class GameService {
         if (gameRepository.find().isEmpty()) return;
 
         gameRepository.delete();
+    }
+
+    private boolean isFriendlyPiece(@NonNull Player player, @NonNull UnitPiece piece) {
+        return teamService.findTeam(player)
+                .map(team -> team == piece.spec().teamColor())
+                .orElse(false);
     }
 }
