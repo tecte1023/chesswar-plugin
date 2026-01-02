@@ -1,8 +1,8 @@
 package dev.tecte.chessWar.game.infrastructure.listener;
 
-import dev.tecte.chessWar.game.application.PieceService;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.piece.application.PieceService;
 import dev.tecte.chessWar.team.application.TeamService;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;

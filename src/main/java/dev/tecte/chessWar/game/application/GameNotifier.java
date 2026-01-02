@@ -1,5 +1,6 @@
 package dev.tecte.chessWar.game.application;
 
+import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import dev.tecte.chessWar.team.application.TeamService;
 import jakarta.inject.Inject;
