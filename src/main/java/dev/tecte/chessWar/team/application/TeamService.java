@@ -3,8 +3,8 @@ package dev.tecte.chessWar.team.application;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
+import dev.tecte.chessWar.team.domain.exception.TeamException;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
-import dev.tecte.chessWar.team.domain.policy.TeamMembershipPolicy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -34,7 +34,6 @@ public class TeamService {
             NamedTextColor.AQUA
     );
 
-    private final TeamMembershipPolicy teamMembershipPolicy;
     private final TeamRepository teamRepository;
     private final SenderNotifier senderNotifier;
     private final JavaPlugin plugin;
@@ -47,7 +46,7 @@ public class TeamService {
      */
     @HandleException
     public void joinTeam(@NonNull Player player, @NonNull TeamColor teamColor) {
-        teamMembershipPolicy.checkIfJoinable(teamColor);
+        checkTeamCapacity(teamColor);
         teamRepository.addPlayer(player.getUniqueId(), teamColor);
 
         Component successMessage = Component.text(teamColor.displayName(), teamColor.textColor())
@@ -150,6 +149,12 @@ public class TeamService {
      */
     public void teleportTeam(@NonNull TeamColor teamColor, @NonNull Location location) {
         getOnlinePlayers(teamColor).forEach(player -> player.teleport(location));
+    }
+
+    private void checkTeamCapacity(@NonNull TeamColor teamColor) {
+        if (teamRepository.getSize(teamColor) >= teamRepository.getMaxPlayers()) {
+            throw TeamException.capacityExceeded(teamColor);
+        }
     }
 
     private void applyEnemyVisibility(boolean canSeeEnemy) {

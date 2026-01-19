@@ -2,7 +2,7 @@ package dev.tecte.chessWar.team.infrastructure.persistence;
 
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
-import dev.tecte.chessWar.team.domain.policy.TeamCapacityPolicy;
+import dev.tecte.chessWar.team.domain.model.TeamCapacityPolicy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -50,13 +50,13 @@ public class ScoreboardTeamRepository implements TeamRepository {
         if (!score.isScoreSet()) {
             int maxPlayers = teamCapacityPolicy.defaultValue();
 
-            log.info("Max players not set, initializing to default value({}).", maxPlayers);
+            log.info("Max players not set, initializing to default value [{}].", maxPlayers);
 
             return persistMaxPlayers(maxPlayers);
         }
 
         int unsafeValue = score.getScore();
-        int safeValue = teamCapacityPolicy.applyTo(unsafeValue);
+        int safeValue = teamCapacityPolicy.adjust(unsafeValue);
 
         // 저장된 값이 정책을 위반하는 경우, 정책을 적용한 값으로 다시 저장
         return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
@@ -64,10 +64,10 @@ public class ScoreboardTeamRepository implements TeamRepository {
 
     @Override
     public int setMaxPlayers(int maxPlayers) {
-        int appliedValue = teamCapacityPolicy.applyTo(maxPlayers);
+        int appliedValue = teamCapacityPolicy.adjust(maxPlayers);
 
         if (maxPlayers != appliedValue) {
-            log.warn("Invalid max player count found ({}). Value must be between {}-{}. Resetting to {}.",
+            log.warn("Invalid max player count found [{}]. Value must be between [{}-{}]. Resetting to [{}].",
                     maxPlayers, teamCapacityPolicy.lowerBound(), teamCapacityPolicy.upperBound(), appliedValue);
         }
 

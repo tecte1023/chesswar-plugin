@@ -5,11 +5,7 @@ import com.google.inject.AbstractModule;
 import com.google.inject.multibindings.Multibinder;
 import dev.tecte.chessWar.infrastructure.command.CommandConfigurer;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
-import dev.tecte.chessWar.team.domain.policy.DefaultTeamCapacityPolicy;
-import dev.tecte.chessWar.team.domain.policy.DefaultTeamMembershipPolicy;
-import dev.tecte.chessWar.team.domain.policy.TeamCapacityPolicy;
-import dev.tecte.chessWar.team.domain.policy.TeamCapacitySpec;
-import dev.tecte.chessWar.team.domain.policy.TeamMembershipPolicy;
+import dev.tecte.chessWar.team.domain.model.TeamCapacityPolicy;
 import dev.tecte.chessWar.team.infrastructure.command.TeamCommand;
 import dev.tecte.chessWar.team.infrastructure.command.TeamCommandConfigurer;
 import dev.tecte.chessWar.team.infrastructure.listener.TeamJoinListener;
@@ -25,9 +21,7 @@ import org.bukkit.scoreboard.Scoreboard;
 public class TeamModule extends AbstractModule {
     @Override
     protected void configure() {
-        bind(TeamCapacitySpec.class).toInstance(TeamCapacitySpec.defaultSpec());
-        bind(TeamCapacityPolicy.class).to(DefaultTeamCapacityPolicy.class);
-        bind(TeamMembershipPolicy.class).to(DefaultTeamMembershipPolicy.class);
+        bind(TeamCapacityPolicy.class).toInstance(TeamCapacityPolicy.defaultPolicy());
         bind(TeamRepository.class).to(ScoreboardTeamRepository.class);
         bind(Scoreboard.class).toInstance(Bukkit.getScoreboardManager().getMainScoreboard());
 
