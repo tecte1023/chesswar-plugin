@@ -22,6 +22,6 @@ public class TeamException extends BusinessException {
      */
     @NonNull
     public static TeamException capacityExceeded(@NonNull TeamColor teamColor) {
-        return new TeamException(teamColor.getName() + "은 이미 가득 찼습니다.");
+        return new TeamException(teamColor.displayName() + "은 이미 가득 찼습니다.");
     }
 }

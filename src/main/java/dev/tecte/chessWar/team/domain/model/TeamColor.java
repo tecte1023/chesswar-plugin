@@ -3,6 +3,7 @@ package dev.tecte.chessWar.team.domain.model;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.Arrays;
@@ -15,6 +16,7 @@ import java.util.stream.Collectors;
  * 체스 게임의 팀 색상을 나타내는 열거형입니다.
  */
 @Getter
+@Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum TeamColor {
     WHITE("백팀", NamedTextColor.WHITE),
@@ -23,7 +25,7 @@ public enum TeamColor {
     private static final Map<String, TeamColor> LOOKUP = Arrays.stream(values())
             .collect(Collectors.toUnmodifiableMap(TeamColor::name, Function.identity()));
 
-    private final String name;
+    private final String displayName;
     private final NamedTextColor textColor;
 
     /**

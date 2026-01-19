@@ -43,7 +43,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
                 Component.empty(),
                 buildTitle(piece),
                 Component.empty(),
-                Component.text(piece.spec().type().getDescription(), NamedTextColor.WHITE),
+                Component.text(piece.spec().type().description(), NamedTextColor.WHITE),
                 Component.empty(),
                 buildStats(activeMob),
                 buildRangeInfo(piece),
@@ -81,7 +81,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     private Component buildRangeInfo(@NonNull UnitPiece piece) {
         return Component.text()
                 .append(Component.text("공격 및 이동 범위: ", NamedTextColor.GRAY))
-                .append(Component.text(piece.spec().type().getRangeDescription(), NamedTextColor.AQUA))
+                .append(Component.text(piece.spec().type().rangeDescription(), NamedTextColor.AQUA))
                 .build();
     }
 
