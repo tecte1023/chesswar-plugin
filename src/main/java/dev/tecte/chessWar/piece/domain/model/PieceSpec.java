@@ -37,7 +37,7 @@ public record PieceSpec(PieceType type, TeamColor teamColor) {
      */
     @NonNull
     public String name() {
-        return teamColor.getName() + " " + type.getDisplayName();
+        return teamColor.displayName() + " " + type.displayName();
     }
 
     /**
@@ -50,6 +50,6 @@ public record PieceSpec(PieceType type, TeamColor teamColor) {
      */
     @NonNull
     public Component displayName() {
-        return type.formattedName(Component.text(teamColor.getName())).color(teamColor.getTextColor());
+        return type.formattedName(Component.text(teamColor.displayName())).color(teamColor.textColor());
     }
 }

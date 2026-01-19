@@ -3,6 +3,7 @@ package dev.tecte.chessWar.piece.domain.model;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.jetbrains.annotations.Nullable;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
  * 체스 기물의 종류를 나타내는 열거형입니다.
  */
 @Getter
+@Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum PieceType {
     PAWN(

@@ -132,8 +132,8 @@ public class ScoreboardTeamRepository implements TeamRepository {
 
         team.setAllowFriendlyFire(false);
         team.setCanSeeFriendlyInvisibles(true);
-        team.displayName(Component.text(teamColor.getName()));
-        team.color(teamColor.getTextColor());
+        team.displayName(Component.text(teamColor.displayName()));
+        team.color(teamColor.textColor());
 
         return team;
     }

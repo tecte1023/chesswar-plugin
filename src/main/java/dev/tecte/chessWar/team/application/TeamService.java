@@ -50,7 +50,7 @@ public class TeamService {
         teamMembershipPolicy.checkIfJoinable(teamColor);
         teamRepository.addPlayer(player.getUniqueId(), teamColor);
 
-        Component successMessage = Component.text(teamColor.getName(), teamColor.getTextColor())
+        Component successMessage = Component.text(teamColor.displayName(), teamColor.textColor())
                 .append(TEAM_JOIN_SUCCESS);
 
         senderNotifier.notifySuccess(player, successMessage);
