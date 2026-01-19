@@ -1,57 +1,40 @@
 package dev.tecte.chessWar.piece.infrastructure.mythicmobs.exception;
 
-import dev.tecte.chessWar.common.exception.Loggable;
-import dev.tecte.chessWar.common.exception.Notifiable;
+import dev.tecte.chessWar.common.exception.SystemException;
 import lombok.NonNull;
-import net.kyori.adventure.text.Component;
 
 /**
- * MythicMobs 관련 작업 중 발생하는 런타임 예외입니다.
+ * MythicMobs 연동 과정에서 발생하는 인프라 계층의 시스템 예외입니다.
  * <p>
- * 주로 잘못된 mobId 매핑이나 MythicMobs 플러그인 연동 실패 시 발생하며,
- * 시스템 관리자에게 통지되어야 할 기술적 오류를 나타냅니다.
+ * 잘못된 템플릿 ID 매핑이나 플러그인 오류 등 기술적인 문제로 발생하며,
+ * 시스템 로그는 기록하지만 사용자에게 알림 메시지는 전달하지 않습니다.
  */
-public class MythicMobSpawnException extends RuntimeException implements Loggable, Notifiable {
-    private final String mobId;
-
-    private MythicMobSpawnException(String message, String mobId) {
-        super(message);
-        this.mobId = mobId;
+public class MythicMobSpawnException extends SystemException {
+    private MythicMobSpawnException(@NonNull String internalMessage) {
+        super(internalMessage);
     }
 
     /**
-     * 정의된 MythicMob을 찾을 수 없을 때 예외를 생성합니다.
+     * MythicMobs 설정에서 해당 ID의 템플릿을 찾을 수 없을 때 발생합니다.
      *
      * @param mobId 찾을 수 없는 Mob ID
-     * @return 생성된 예외
+     * @return {@link MythicMobSpawnException} 인스턴스
      */
     @NonNull
     public static MythicMobSpawnException notFound(@NonNull String mobId) {
-        return new MythicMobSpawnException(
-                String.format("MythicMob definition not found for ID: '%s'", mobId),
-                mobId
-        );
+        return new MythicMobSpawnException("MythicMob template not found [MobID: %s]".formatted(mobId));
     }
 
     /**
-     * MythicMob 스폰 결과가 null일 때(스폰 실패) 예외를 생성합니다.
+     * 플러그인 오류로 인해 엔티티 소환 결과가 null일 때 발생합니다.
      *
-     * @param mobId 스폰에 실패한 Mob ID
-     * @return 생성된 예외
+     * @param mobId 소환에 실패한 Mob ID
+     * @return {@link MythicMobSpawnException} 인스턴스
      */
     @NonNull
     public static MythicMobSpawnException spawnFailed(@NonNull String mobId) {
         return new MythicMobSpawnException(
-                String.format("Failed to spawn MythicMob entity (result was null) for ID: '%s'", mobId),
-                mobId
+                "Failed to spawn MythicMob [MobID: %s, Reason: Plugin returned null entity]".formatted(mobId)
         );
-    }
-
-    @NonNull
-    @Override
-    public Component getNotificationComponent() {
-        return Component.text("시스템 오류: 기물 데이터('")
-                .append(Component.text(mobId))
-                .append(Component.text("') 로드 실패. 관리자에게 문의하세요."));
     }
 }

@@ -3,18 +3,18 @@ package dev.tecte.chessWar.infrastructure.persistence;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
-import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceWriteException;
+import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceException;
+import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.port.persistence.YmlMapper;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 
 /**
  * YML 파일을 이용한 영속성을 구현하는 추상 리포지토리 클래스입니다.
@@ -27,10 +27,10 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractYmlRepository<K, V> implements PersistableState {
-    private final JavaPlugin plugin;
-    private final BukkitScheduler scheduler;
-    private final YmlFileManager fileManager;
     private final YmlMapper<K, V> mapper;
+    private final ExceptionDispatcher dispatcher;
+    private final YmlFileManager fileManager;
+    private final ExecutorService persistenceExecutor;
 
     protected final Map<K, V> cache = new ConcurrentHashMap<>();
 
@@ -42,12 +42,9 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     @NonNull
     protected abstract K convertKey(@NonNull String keyString);
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void load() {
-        ConfigurationSection section = fileManager.getConfig().getConfigurationSection(getDataPath());
+        ConfigurationSection section = fileManager.config().getConfigurationSection(getDataPath());
 
         if (section == null) {
             return;
@@ -56,9 +53,6 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
         section.getKeys(false).forEach(keyString -> reconstituteEntity(section, keyString));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     @HandleException
     public void persistCache() {
@@ -106,14 +100,13 @@ public abstract class AbstractYmlRepository<K, V> implements PersistableState {
     private void persistChangeAsync(@NonNull String key, @NonNull Object value) {
         final String path = getDataPath() + "." + key;
 
-        // 파일 I/O 작업은 메인 스레드를 블로킹하여 서버 전체에 렉을 유발할 수 있음
-        // 비동기 태스크로 실행하여 서버 성능에 미치는 영향을 최소화
-        scheduler.runTaskAsynchronously(plugin, () -> {
+        // 데이터 무결성(순서 보장)과 메인 스레드 성능 보호를 위해 전용 스레드에서 비동기 실행
+        persistenceExecutor.execute(() -> {
             try {
                 fileManager.set(path, value);
                 fileManager.save();
-            } catch (PersistenceWriteException e) {
-                log.error("Failed to persist asynchronous change for key '{}'", key, e);
+            } catch (PersistenceException e) {
+                dispatcher.dispatch(e, null, "Async Persistence '" + path + "'");
             }
         });
     }

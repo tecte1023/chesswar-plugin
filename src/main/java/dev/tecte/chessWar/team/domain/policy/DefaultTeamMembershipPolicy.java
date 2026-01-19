@@ -1,7 +1,7 @@
 package dev.tecte.chessWar.team.domain.policy;
 
 import dev.tecte.chessWar.team.application.port.TeamRepository;
-import dev.tecte.chessWar.team.domain.exception.TeamFullException;
+import dev.tecte.chessWar.team.domain.exception.TeamException;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -16,13 +16,10 @@ import lombok.RequiredArgsConstructor;
 public class DefaultTeamMembershipPolicy implements TeamMembershipPolicy {
     private final TeamRepository teamRepository;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void checkIfJoinable(@NonNull TeamColor teamColor) {
         if (teamRepository.getSize(teamColor) >= teamRepository.getMaxPlayers()) {
-            throw new TeamFullException(teamColor);
+            throw TeamException.capacityExceeded(teamColor);
         }
     }
 }

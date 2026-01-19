@@ -12,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -26,24 +25,27 @@ public class DefaultExceptionDispatcher implements ExceptionDispatcher {
     private final Provider<Set<ExceptionHandler>> handlersProvider;
     private final SenderNotifier notifier;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public void dispatch(@NonNull Exception e, @Nullable CommandSender sender, @NonNull String contextInfo) {
-        Set<ExceptionHandler> handlers = handlersProvider.get();
-        List<ExceptionHandler> supportingHandlers = handlers.stream()
-                .filter(handler -> handler.supports(e))
-                .toList();
+    public void dispatch(
+            @NonNull Exception e,
+            @Nullable CommandSender sender,
+            @NonNull String contextInfo
+    ) {
+        boolean handled = false;
 
-        if (supportingHandlers.isEmpty()) {
+        for (ExceptionHandler handler : handlersProvider.get()) {
+            if (handler.supports(e)) {
+                handler.handle(e, sender);
+                handled = true;
+            }
+        }
+
+        if (!handled) {
             log.error("Unhandled exception caught in {}:", contextInfo, e);
 
             if (sender != null) {
                 notifier.notifyError(sender, "알 수 없는 오류가 발생했습니다.");
             }
-        } else {
-            supportingHandlers.forEach(handler -> handler.handle(e, sender));
         }
     }
 }

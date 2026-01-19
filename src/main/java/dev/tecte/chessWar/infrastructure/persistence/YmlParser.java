@@ -160,7 +160,7 @@ public class YmlParser {
         try {
             return UUID.fromString(value);
         } catch (IllegalArgumentException e) {
-            throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), "UUID", value);
+            throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), UUID.class.getSimpleName(), value);
         }
     }
 
@@ -180,7 +180,7 @@ public class YmlParser {
             try {
                 return UUID.fromString(v);
             } catch (IllegalArgumentException e) {
-                throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), "UUID", v);
+                throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), UUID.class.getSimpleName(), v);
             }
         });
     }

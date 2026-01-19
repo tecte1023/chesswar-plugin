@@ -3,18 +3,18 @@ package dev.tecte.chessWar.infrastructure.persistence;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
-import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceWriteException;
+import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceException;
+import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 
 /**
  * YML 파일을 이용해 단일 엔티티의 영속성을 구현하는 추상 리포지토리 클래스입니다.
@@ -27,21 +27,18 @@ import java.util.Optional;
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractSingleYmlRepository<V> implements PersistableState {
     private final SingleYmlMapper<V> mapper;
+    private final ExceptionDispatcher dispatcher;
     private final YmlFileManager fileManager;
-    private final BukkitScheduler scheduler;
-    private final JavaPlugin plugin;
+    private final ExecutorService persistenceExecutor;
 
     private V cache;
 
     @NonNull
     protected abstract String getDataPath();
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void load() {
-        ConfigurationSection section = fileManager.getConfig().getConfigurationSection(getDataPath());
+        ConfigurationSection section = fileManager.config().getConfigurationSection(getDataPath());
 
         if (section == null) {
             return;
@@ -50,9 +47,6 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
         cache = mapper.fromSection(section);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     @HandleException
     public void persistCache() {
@@ -91,12 +85,13 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     private void persistChangeAsync(@Nullable Object value) {
         String path = getDataPath();
 
-        scheduler.runTaskAsynchronously(plugin, () -> {
+        // 데이터 무결성(순서 보장)과 메인 스레드 성능 보호를 위해 전용 스레드에서 비동기 실행
+        persistenceExecutor.execute(() -> {
             try {
                 fileManager.set(path, value);
                 fileManager.save();
-            } catch (PersistenceWriteException e) {
-                log.error("Failed to persist asynchronous change for single entity at path '{}'", path, e);
+            } catch (PersistenceException e) {
+                dispatcher.dispatch(e, null, "Async Persistence '" + path + "'");
             }
         });
     }

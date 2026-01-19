@@ -19,7 +19,7 @@ public record PieceSpec(PieceType type, TeamColor teamColor) {
     }
 
     /**
-     * 기물의 스펙을 생성하는 정적 팩토리 메서드입니다。
+     * 기물의 스펙을 생성하는 정적 팩토리 메서드입니다.
      *
      * @param type      기물의 종류
      * @param teamColor 팀 색상
@@ -28,6 +28,16 @@ public record PieceSpec(PieceType type, TeamColor teamColor) {
     @NonNull
     public static PieceSpec of(@NonNull PieceType type, @NonNull TeamColor teamColor) {
         return new PieceSpec(type, teamColor);
+    }
+
+    /**
+     * 기물의 이름을 텍스트 형식으로 반환합니다.
+     *
+     * @return 팀 명칭과 기물 종류가 조합된 문자열
+     */
+    @NonNull
+    public String name() {
+        return teamColor.getName() + " " + type.getDisplayName();
     }
 
     /**

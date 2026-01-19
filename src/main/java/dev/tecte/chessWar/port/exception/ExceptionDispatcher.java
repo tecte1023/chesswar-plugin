@@ -15,5 +15,9 @@ public interface ExceptionDispatcher {
      * @param sender      명령 실행 주체
      * @param contextInfo 로그에 남길 문맥 정보
      */
-    void dispatch(@NonNull Exception e, @Nullable CommandSender sender, @NonNull String contextInfo);
+    void dispatch(
+            @NonNull Exception e,
+            @Nullable CommandSender sender,
+            @NonNull String contextInfo
+    );
 }

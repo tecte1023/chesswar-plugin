@@ -1,14 +1,14 @@
-package dev.tecte.chessWar.piece.application;
+package dev.tecte.chessWar.game.application;
 
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.game.application.port.GameRepository;
-import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
+import dev.tecte.chessWar.game.domain.exception.GameException;
+import dev.tecte.chessWar.game.domain.exception.GameSystemException;
 import dev.tecte.chessWar.game.domain.model.Game;
-import dev.tecte.chessWar.piece.application.port.PieceIdResolver;
+import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceException;
 import dev.tecte.chessWar.piece.application.port.PieceStatProvider;
 import dev.tecte.chessWar.piece.application.port.dto.PieceStatsDto;
-import dev.tecte.chessWar.piece.domain.exception.PieceNotFoundException;
-import dev.tecte.chessWar.piece.domain.exception.PieceSelectionException;
+import dev.tecte.chessWar.piece.domain.exception.PieceException;
 import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import dev.tecte.chessWar.piece.domain.model.PieceType;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
@@ -31,7 +31,6 @@ import java.util.UUID;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class PieceSelectionService {
-    private final PieceIdResolver pieceIdResolver;
     private final PieceStatProvider pieceStatProvider;
     private final GameRepository gameRepository;
     private final SenderNotifier senderNotifier;
@@ -49,29 +48,31 @@ public class PieceSelectionService {
      *
      * @param player        참전할 플레이어
      * @param targetPieceId 대상 기물의 식별자 UUID
-     * @throws GameNotFoundException   진행 중인 게임이 없을 경우
-     * @throws PieceSelectionException 기물을 찾을 수 없거나 참전 제약 사항을 위반했을 경우
+     * @throws GameException  진행 중인 게임이 없을 경우
+     * @throws PieceException 기물을 찾을 수 없거나 참전 제약 사항을 위반했을 경우
      */
     @HandleException
     public void selectPiece(@NonNull Player player, @NonNull UUID targetPieceId) {
-        Game game = gameRepository.find().orElseThrow(GameNotFoundException::noGameInProgress);
-        UnitPiece piece = game.findPiece(targetPieceId)
-                .orElseThrow(PieceNotFoundException::targetMissing);
+        Game game = gameRepository.find().orElseThrow(GameException::notFound);
+        UnitPiece piece = game.findPiece(targetPieceId).orElseThrow(PieceException::notFound);
         PieceSpec spec = piece.spec();
         PieceType type = spec.type();
 
         if (type == PieceType.PAWN) {
-            throw PieceSelectionException.pawnIsNotSelectable();
+            throw PieceException.cannotSelectPawn();
         }
 
         if (piece.isSelected()) {
-            throw PieceSelectionException.alreadySelected();
+            throw PieceException.alreadySelected();
         }
 
-        String templateId = pieceIdResolver.resolveId(spec.teamColor(), spec.type());
+        try {
+            gameRepository.save(game.updatePiece(piece.selectedBy(player.getUniqueId())));
+        } catch (PersistenceException e) {
+            throw GameSystemException.pieceSelectionFailed(targetPieceId, e);
+        }
 
-        gameRepository.save(game.updatePiece(piece.selectedBy(player.getUniqueId())));
-        applyStats(player, pieceStatProvider.getStats(templateId));
+        applyStats(player, pieceStatProvider.getStats(spec));
         restoreFullHealth(player);
         senderNotifier.notifySuccess(
                 player,

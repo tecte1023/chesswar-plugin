@@ -4,15 +4,16 @@ import co.aikar.commands.PaperCommandManager;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
+import dev.tecte.chessWar.common.exception.SystemException;
 import dev.tecte.chessWar.common.persistence.PersistableState;
-import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsSetup;
 import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
-import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceInitializationException;
+import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsSetup;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 /**
  * ChessWar 플러그인의 메인 클래스입니다.
@@ -22,11 +23,14 @@ import java.util.Set;
 @SuppressWarnings("unused")
 public final class ChessWar extends JavaPlugin {
     @Inject
-    private PaperCommandManager commandManager;
-
-    @Inject
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     private Set<PersistableState> persistableStates;
+
+    @Inject
+    private ExecutorService persistenceExecutor;
+
+    @Inject
+    private PaperCommandManager commandManager;
 
     /**
      * 플러그인이 활성화될 때 호출됩니다.
@@ -40,12 +44,10 @@ public final class ChessWar extends JavaPlugin {
         injector.injectMembers(this);
 
         if (persistableStates != null) {
-            log.info("Loading all registered state data...");
-
             try {
                 persistableStates.forEach(PersistableState::load);
-            } catch (PersistenceInitializationException e) {
-                log.error("Failed to initialize persistence layer. The plugin will be disabled.", e);
+            } catch (SystemException e) {
+                log.error("Failed to initialize system. The plugin will be disabled.", e);
                 getServer().getPluginManager().disablePlugin(this);
 
                 return;
@@ -57,12 +59,16 @@ public final class ChessWar extends JavaPlugin {
 
     /**
      * 플러그인이 비활성화될 때 호출됩니다.
-     * 캐시된 상태 데이터를 저장하고, 등록된 명령어를 해제합니다.
+     * 캐시된 상태 데이터를 저장하고, 등록된 리소스를 안전하게 해제합니다.
      */
     @Override
     public void onDisable() {
+        // 비동기 작업 취소 (메모리 상태가 더 최신이므로 persistCache()로 덮어씀)
+        if (persistenceExecutor != null) {
+            persistenceExecutor.shutdownNow();
+        }
+
         if (persistableStates != null) {
-            log.info("Saving all registered state data...");
             persistableStates.forEach(PersistableState::persistCache);
         }
 

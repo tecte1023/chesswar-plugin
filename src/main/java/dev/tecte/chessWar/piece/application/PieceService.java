@@ -6,6 +6,7 @@ import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.policy.TeamDirectionPolicy;
 import dev.tecte.chessWar.piece.application.port.PieceSpawner;
+import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
 import dev.tecte.chessWar.piece.domain.model.PieceLayout;
 import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
@@ -22,13 +23,15 @@ import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -52,42 +55,24 @@ public class PieceService {
     private final JavaPlugin plugin;
 
     /**
-     * 기물을 비동기(시차)적으로 스폰하고, 작업의 결과를 담은 Future를 반환합니다.
-     * 서버 틱마다 일정량씩 나누어 스폰하여 메인 스레드 부하를 줄입니다.
+     * 기물을 비동기(시차)적으로 소환하고, 작업의 결과를 담은 Future를 반환합니다.
+     * 서버 틱마다 일정량씩 나누어 소환하여 메인 스레드 부하를 줄입니다.
      *
-     * @param world 스폰할 월드
      * @param board 보드 정보
-     * @return 성공 시 스폰된 기물들의 맵을 담은 Future, 실패 시 예외를 담은 Future
+     * @param world 소환할 월드
+     * @return 성공 시 소환된 기물들의 맵을 담은 Future, 실패 시 예외를 담은 Future
      */
     @NonNull
-    public CompletableFuture<Map<Coordinate, UnitPiece>> spawnPieces(@NonNull World world, @NonNull Board board) {
+    public CompletableFuture<Map<Coordinate, UnitPiece>> spawnPieces(@NonNull Board board, @NonNull World world) {
         var pieceIterator = pieceLayout.pieces().entrySet().iterator();
         CompletableFuture<Map<Coordinate, UnitPiece>> future = new CompletableFuture<>();
         Map<Coordinate, UnitPiece> spawnedPieces = new HashMap<>();
 
-        gameTaskScheduler.scheduleRepeat(task -> {
-            try {
-                for (int i = 0; i < SPAWN_AMOUNT_PER_TICK; i++) {
-                    if (!pieceIterator.hasNext()) {
-                        task.cancel();
-                        future.complete(spawnedPieces);
-
-                        return;
-                    }
-
-                    var entry = pieceIterator.next();
-                    Coordinate coordinate = entry.getKey();
-                    PieceSpec spec = entry.getValue();
-                    Entity spawnedEntity = spawnPieceEntity(spec, coordinate, board, world);
-                    UnitPiece piece = UnitPiece.of(spawnedEntity.getUniqueId(), spec);
-
-                    spawnedPieces.put(coordinate, piece);
-                }
-            } catch (Exception e) {
-                task.cancel();
-                future.completeExceptionally(e);
-            }
-        }, SPAWN_TASK_INITIAL_DELAY_TICKS, SPAWN_TASK_PERIOD_TICKS);
+        gameTaskScheduler.scheduleRepeat(
+                task -> spawnBatch(task, pieceIterator, spawnedPieces, board, world, future),
+                SPAWN_TASK_INITIAL_DELAY_TICKS,
+                SPAWN_TASK_PERIOD_TICKS
+        );
 
         return future;
     }
@@ -98,14 +83,9 @@ public class PieceService {
      * @param game 현재 게임 상태
      */
     public void despawnPieces(@NonNull Game game) {
-        for (UnitPiece piece : game.pieces().values()) {
-            Entity entity = Bukkit.getEntity(piece.entityId());
-
-            if (entity != null) {
-                entity.remove();
-            }
-        }
+        game.pieces().values().forEach(piece -> pieceSpawner.despawn(piece.entityId()));
     }
+
 
     /**
      * 게임 내 모든 기물을 각 기물의 적대 팀 플레이어들에게 보이게 합니다.
@@ -137,15 +117,56 @@ public class PieceService {
             @NonNull Player player,
             @NonNull TeamColor playerTeam
     ) {
-        List<Entity> enemyEntities = findPieceEntities(game, playerTeam.opposite());
+        setEntitiesVisibility(player, findPieceEntities(game, playerTeam.opposite()), false);
+    }
 
-        setEntitiesVisibility(player, enemyEntities, false);
+
+    private void spawnBatch(
+            @NonNull BukkitRunnable task,
+            @NonNull Iterator<Map.Entry<Coordinate, PieceSpec>> iterator,
+            @NonNull Map<Coordinate, UnitPiece> spawnedPieces,
+            @NonNull Board board,
+            @NonNull World world,
+            @NonNull CompletableFuture<Map<Coordinate, UnitPiece>> future
+    ) {
+        try {
+            for (int i = 0; i < SPAWN_AMOUNT_PER_TICK; i++) {
+                if (!iterator.hasNext()) {
+                    task.cancel();
+                    future.complete(spawnedPieces);
+
+                    return;
+                }
+
+                var entry = iterator.next();
+                Coordinate coordinate = entry.getKey();
+
+                spawnedPieces.put(coordinate, spawnPiece(coordinate, entry.getValue(), board, world));
+            }
+        } catch (Exception e) {
+            task.cancel();
+            future.completeExceptionally(e);
+        }
     }
 
     @NonNull
-    private Entity spawnPieceEntity(
-            @NonNull PieceSpec spec,
+    private UnitPiece spawnPiece(
             @NonNull Coordinate coordinate,
+            @NonNull PieceSpec spec,
+            @NonNull Board board,
+            @NonNull World world
+    ) {
+        try {
+            return UnitPiece.of(spawnPieceEntity(coordinate, spec, board, world), spec);
+        } catch (Exception e) {
+            throw PieceSystemException.spawnFailed(spec, e);
+        }
+    }
+
+    @NonNull
+    private UUID spawnPieceEntity(
+            @NonNull Coordinate coordinate,
+            @NonNull PieceSpec spec,
             @NonNull Board board,
             @NonNull World world
     ) {
@@ -154,13 +175,14 @@ public class PieceService {
 
         spawnLocation.setDirection(direction);
 
-        return pieceSpawner.spawnPiece(spec, spawnLocation);
+        return pieceSpawner.spawn(spec, spawnLocation).getUniqueId();
     }
+
 
     private void applyPieceVisibility(@NonNull Game game, boolean visible) {
         for (TeamColor team : TeamColor.values()) {
-            Set<Player> players = teamService.getOnlinePlayers(team);
-            List<Entity> enemyEntities = findPieceEntities(game, team.opposite());
+            var players = teamService.getOnlinePlayers(team);
+            var enemyEntities = findPieceEntities(game, team.opposite());
 
             players.forEach(player -> setEntitiesVisibility(player, enemyEntities, visible));
         }
@@ -181,12 +203,12 @@ public class PieceService {
             @NonNull List<Entity> entities,
             boolean visible
     ) {
-        for (Entity entity : entities) {
+        entities.forEach(entity -> {
             if (visible) {
                 player.showEntity(plugin, entity);
             } else {
                 player.hideEntity(plugin, entity);
             }
-        }
+        });
     }
 }

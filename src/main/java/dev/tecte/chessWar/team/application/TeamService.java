@@ -40,7 +40,7 @@ public class TeamService {
     private final JavaPlugin plugin;
 
     /**
-     * 플레이어를 지정된 색상의 팀에 참가시킵니다。
+     * 플레이어를 지정된 색상의 팀에 참가시킵니다.
      *
      * @param player    팀에 참가할 플레이어
      * @param teamColor 참가할 팀의 색상

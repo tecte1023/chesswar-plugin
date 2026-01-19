@@ -14,19 +14,15 @@ import org.jetbrains.annotations.Nullable;
 @Slf4j(topic = "ChessWar")
 @Singleton
 public class LoggingHandler implements ExceptionHandler {
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean supports(@NonNull Exception e) {
         return e instanceof Loggable;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void handle(@NonNull Exception e, @Nullable CommandSender sender) {
-        log.warn(e.getMessage());
+        log.atLevel(((Loggable) e).getLogLevel())
+                .setCause(e)
+                .log(e.getMessage());
     }
 }

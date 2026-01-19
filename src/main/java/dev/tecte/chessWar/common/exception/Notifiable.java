@@ -8,20 +8,10 @@ import net.kyori.adventure.text.Component;
  */
 public interface Notifiable {
     /**
-     * 예외의 상세 메시지를 반환합니다. 모든 예외 클래스는 이 메서드를 구현하고 있습니다.
-     *
-     * @return 예외 메시지 문자열
-     */
-    @NonNull
-    String getMessage();
-
-    /**
      * 사용자에게 알림으로 보낼 {@link Component}를 반환합니다.
      *
-     * @return 사용자 알림용 Component
+     * @return 사용자 알림용 {@link Component}
      */
     @NonNull
-    default Component getNotificationComponent() {
-        return Component.text(getMessage());
-    }
+    Component userMessage();
 }
