@@ -78,6 +78,18 @@ public record Game(
     }
 
     /**
+     * 현재 활성화된 턴의 팀 색상을 {@link Optional}로 반환합니다.
+     * <p>
+     * 턴은 {@link GamePhase#BATTLE} 단계에서만 정의되므로, 그 외의 경우에는 비어있는 {@link Optional}이 반환됩니다.
+     *
+     * @return 현재 턴의 팀 색상을 담은 {@link Optional}, 또는 턴이 활성화되지 않았을 경우 빈 {@link Optional}
+     */
+    @NonNull
+    public Optional<TeamColor> activeTurn() {
+        return Optional.ofNullable(currentTurn);
+    }
+
+    /**
      * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
      * <p>
      * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
