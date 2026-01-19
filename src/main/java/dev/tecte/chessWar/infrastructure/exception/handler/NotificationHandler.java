@@ -18,21 +18,15 @@ import org.jetbrains.annotations.Nullable;
 public class NotificationHandler implements ExceptionHandler {
     private final SenderNotifier notifier;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean supports(@NonNull Exception e) {
         return e instanceof Notifiable;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void handle(@NonNull Exception e, @Nullable CommandSender sender) {
         if (sender != null) {
-            notifier.notifyError(sender, ((Notifiable) e).getNotificationComponent());
+            notifier.notifyError(sender, ((Notifiable) e).userMessage());
         }
     }
 }

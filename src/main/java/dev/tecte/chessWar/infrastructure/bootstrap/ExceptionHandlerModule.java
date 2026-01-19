@@ -20,17 +20,13 @@ public class ExceptionHandlerModule extends AbstractModule {
     protected void configure() {
         bind(ExceptionDispatcher.class).to(DefaultExceptionDispatcher.class);
 
-        ExceptionHandlingInterceptor interceptor = new ExceptionHandlingInterceptor();
+        var interceptor = new ExceptionHandlingInterceptor();
 
         // Interceptor는 생성자 주입이 불가능하므로 필드 주입
         requestInjection(interceptor);
-        bindInterceptor(
-                Matchers.any(),
-                Matchers.annotatedWith(HandleException.class),
-                interceptor
-        );
+        bindInterceptor(Matchers.any(), Matchers.annotatedWith(HandleException.class), interceptor);
 
-        Multibinder<ExceptionHandler> exceptionHandlerMultibinder = Multibinder.newSetBinder(binder(), ExceptionHandler.class);
+        var exceptionHandlerMultibinder = Multibinder.newSetBinder(binder(), ExceptionHandler.class);
 
         exceptionHandlerMultibinder.addBinding().to(NotificationHandler.class);
         exceptionHandlerMultibinder.addBinding().to(LoggingHandler.class);

@@ -9,7 +9,7 @@ import java.util.UUID;
 /**
  * 전장에 존재하는 일반 기물을 나타내는 불변 객체입니다.
  *
- * @param entityId 스폰된 기물 엔티티의 UUID
+ * @param entityId 소환된 기물 엔티티의 UUID
  * @param spec     기물의 정적 명세 ({@link PieceSpec})
  * @param playerId 기물을 선택한 플레이어의 UUID
  */
@@ -22,7 +22,7 @@ public record UnitPiece(UUID entityId, PieceSpec spec, UUID playerId) implements
     /**
      * 새로운 기물 인스턴스를 생성하는 정적 팩토리 메서드입니다.
      *
-     * @param entityId 스폰된 기물 엔티티의 UUID
+     * @param entityId 소환된 기물 엔티티의 UUID
      * @param spec     기물의 정적 명세
      * @param playerId 기물을 선택한 플레이어의 UUIDx
      * @return 새로운 {@link UnitPiece} 인스턴스
@@ -35,7 +35,7 @@ public record UnitPiece(UUID entityId, PieceSpec spec, UUID playerId) implements
     /**
      * 새로운 기물 인스턴스를 생성하는 정적 팩토리 메서드입니다. (플레이어 미선택 상태)
      *
-     * @param entityId 스폰된 기물 엔티티의 UUID
+     * @param entityId 소환된 기물 엔티티의 UUID
      * @param spec     기물의 정적 명세
      * @return 새로운 {@link UnitPiece} 인스턴스
      */

@@ -1,7 +1,9 @@
 package dev.tecte.chessWar.piece.infrastructure.mythicmobs;
 
+import dev.tecte.chessWar.piece.application.port.PieceIdResolver;
 import dev.tecte.chessWar.piece.application.port.PieceStatProvider;
 import dev.tecte.chessWar.piece.application.port.dto.PieceStatsDto;
+import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import io.lumine.mythic.api.mobs.MobManager;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -14,11 +16,14 @@ import lombok.RequiredArgsConstructor;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class MythicMobsPieceStatProvider implements PieceStatProvider {
+    private final PieceIdResolver pieceIdResolver;
     private final MobManager mobManager;
 
     @NonNull
     @Override
-    public PieceStatsDto getStats(@NonNull String mobId) {
+    public PieceStatsDto getStats(@NonNull PieceSpec spec) {
+        String mobId = pieceIdResolver.resolveId(spec.teamColor(), spec.type());
+
         return mobManager.getMythicMob(mobId)
                 .map(mob -> new PieceStatsDto(mob.getHealth().get(), mob.getDamage().get()))
                 .orElse(PieceStatsDto.DEFAULT);

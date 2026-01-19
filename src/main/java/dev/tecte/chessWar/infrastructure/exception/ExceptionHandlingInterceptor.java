@@ -41,7 +41,7 @@ public class ExceptionHandlingInterceptor implements MethodInterceptor {
             Method method = invocation.getMethod();
             CommandSender sender = findSenderArgument(invocation.getArguments());
 
-            dispatcher.dispatch(e, sender, "method " + method.getName());
+            dispatcher.dispatch(e, sender, "Method " + method.getName());
 
             return getFallbackReturnValue(method.getReturnType(), method.getAnnotation(HandleException.class));
         }

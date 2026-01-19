@@ -2,7 +2,7 @@ package dev.tecte.chessWar.game.domain.model;
 
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
-import dev.tecte.chessWar.game.domain.exception.InvalidGameStateException;
+import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import lombok.NonNull;
@@ -66,96 +66,15 @@ public record Game(
      * 게임을 '턴 순서 선택' 단계로 전환합니다.
      *
      * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws InvalidGameStateException 현재 단계가 {@link GamePhase#PIECE_SELECTION} 아닐 경우
+     * @throws GameException 현재 단계가 {@link GamePhase#PIECE_SELECTION} 아닐 경우
      */
     @NonNull
     public Game startTurnSelection() {
         if (phase != GamePhase.PIECE_SELECTION) {
-            throw InvalidGameStateException.forTurnOrderSelection(phase);
+            throw GameException.phaseMismatch(GamePhase.PIECE_SELECTION, phase);
         }
 
         return new Game(board, pieces, GamePhase.TURN_ORDER_SELECTION, null);
-    }
-
-    /**
-     * 게임을 '전투 중' 단계로 전환하고 시작 팀을 설정합니다.
-     *
-     * @param startingTeam 시작 팀
-     * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws InvalidGameStateException 현재 단계가 {@link GamePhase#TURN_ORDER_SELECTION}이 아닐 경우
-     */
-    @NonNull
-    public Game startBattle(@NonNull TeamColor startingTeam) {
-        if (phase != GamePhase.TURN_ORDER_SELECTION) {
-            throw InvalidGameStateException.forBattlePhase(phase);
-        }
-
-        return new Game(board, pieces, GamePhase.BATTLE, startingTeam);
-    }
-
-    /**
-     * 게임을 '종료' 단계로 전환합니다.
-     *
-     * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws InvalidGameStateException 현재 단계가 {@link GamePhase#BATTLE}이 아닐 경우
-     */
-    @NonNull
-    public Game end() {
-        if (phase != GamePhase.BATTLE) {
-            throw InvalidGameStateException.forEnding(phase);
-        }
-
-        return new Game(board, pieces, GamePhase.ENDED, null);
-    }
-
-    /**
-     * 게임을 비정상적으로 '종료' 단계로 전환합니다.
-     * 이 메서드는 현재 단계와 상관없이 게임을 종료시킬 수 있습니다.
-     *
-     * @return 상태가 변경된 새로운 {@link Game} 객체
-     */
-    @NonNull
-    public Game abort() {
-        return new Game(board, pieces, GamePhase.ENDED, null);
-    }
-
-    /**
-     * 다음 턴으로 전환합니다.
-     *
-     * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws InvalidGameStateException 게임이 {@link GamePhase#BATTLE} 상태가 아닐 경우
-     */
-    @NonNull
-    public Game switchTurn() {
-        if (phase != GamePhase.BATTLE) {
-            throw InvalidGameStateException.invalidPhaseForNextTurn(phase);
-        } else if (currentTurn == null) {
-            throw InvalidGameStateException.nullTurnForNextTurn();
-        }
-
-        return new Game(board, pieces, phase, currentTurn.opposite());
-    }
-
-    /**
-     * 현재 활성화된 턴의 팀 색상을 {@link Optional}로 반환합니다.
-     * 턴은 BATTLE 단계에서만 정의되므로, 그 외의 경우에는 비어있는 {@link Optional}이 반환됩니다.
-     *
-     * @return 현재 턴의 팀 색상을 담은 Optional, 또는 턴이 활성화되지 않았을 경우 빈 Optional
-     */
-    @NonNull
-    public Optional<TeamColor> activeTurn() {
-        return Optional.ofNullable(currentTurn);
-    }
-
-    /**
-     * 지정된 좌표의 기물 정보를 조회합니다.
-     *
-     * @param coordinate 조회할 좌표
-     * @return 해당 좌표에 기물이 있으면 {@link Optional}를, 없으면 빈 {@link Optional}을 반환
-     */
-    @NonNull
-    public Optional<UnitPiece> getPieceAt(@NonNull Coordinate coordinate) {
-        return Optional.ofNullable(pieces.get(coordinate));
     }
 
     /**
@@ -174,7 +93,7 @@ public record Game(
     }
 
     /**
-     * 주어진 기물들을 기존 기물 맵에 추가하고 새로운 Game 인스턴스를 반환합니다.
+     * 주어진 기물들을 기존 기물 맵에 추가하고 새로운 {@link Game} 인스턴스를 반환합니다.
      *
      * @param additionalPieces 추가할 기물들의 맵
      * @return 기물 맵이 업데이트된 새로운 {@link Game} 인스턴스
@@ -189,7 +108,7 @@ public record Game(
     }
 
     /**
-     * 지정된 좌표에 기물을 배치하거나 교체하고 새로운 Game 인스턴스를 반환합니다.
+     * 지정된 좌표에 기물을 배치하거나 교체하고 새로운 {@link Game} 인스턴스를 반환합니다.
      *
      * @param coordinate 기물을 배치할 좌표
      * @param piece      배치할 기물

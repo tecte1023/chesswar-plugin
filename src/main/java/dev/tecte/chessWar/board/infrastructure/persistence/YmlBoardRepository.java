@@ -4,11 +4,12 @@ import dev.tecte.chessWar.board.application.port.BoardRepository;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import dev.tecte.chessWar.infrastructure.persistence.AbstractSingleYmlRepository;
+import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitScheduler;
+
+import java.util.concurrent.ExecutorService;
 
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersistenceConstants.StatePaths;
 
@@ -20,11 +21,11 @@ public class YmlBoardRepository extends AbstractSingleYmlRepository<Board> imple
     @Inject
     public YmlBoardRepository(
             @NonNull BoardMapper mapper,
+            @NonNull ExceptionDispatcher dispatcher,
             @NonNull YmlFileManager fileManager,
-            @NonNull BukkitScheduler scheduler,
-            @NonNull JavaPlugin plugin
+            @NonNull ExecutorService persistenceExecutor
     ) {
-        super(mapper, fileManager, scheduler, plugin);
+        super(mapper, dispatcher, fileManager, persistenceExecutor);
     }
 
     @NonNull

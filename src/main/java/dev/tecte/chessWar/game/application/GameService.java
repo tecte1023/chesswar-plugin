@@ -7,8 +7,8 @@ import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
-import dev.tecte.chessWar.game.domain.exception.GameNotFoundException;
-import dev.tecte.chessWar.game.domain.exception.GameStartConditionException;
+import dev.tecte.chessWar.game.domain.exception.GameException;
+import dev.tecte.chessWar.game.domain.exception.GameSystemException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
 import dev.tecte.chessWar.piece.application.PieceService;
@@ -42,7 +42,6 @@ import java.util.Map;
 public class GameService {
     private static final int MIN_PLAYERS = 1;
     private static final long PIECE_SELECTION_DURATION_TICKS = 5 * 60 * 20;
-    private static final long POST_GAME_DURATION_TICKS = 10 * 20;
 
     private final GameNotifier gameNotifier;
     private final BoardService boardService;
@@ -57,24 +56,24 @@ public class GameService {
      * 게임 시작 조건을 확인한 후, 조건을 충족하면 게임을 시작합니다.
      *
      * @param sender 명령어를 실행한 주체
-     * @throws GameStartConditionException 게임 시작 조건을 충족하지 못했을 경우
+     * @throws GameException 게임 시작 조건을 충족하지 못했을 경우
      */
     @HandleException
     public void startGame(@NonNull CommandSender sender) {
         if (gameRepository.isGameInProgress()) {
-            throw GameStartConditionException.forGameAlreadyInProgress();
+            throw GameException.alreadyInProgress();
         }
 
-        Board board = boardService.findBoard().orElseThrow(GameStartConditionException::forBoardNotExists);
+        Board board = boardService.findBoard().orElseThrow(GameException::boardNotSetup);
         String worldName = board.worldName();
         World world = Bukkit.getWorld(worldName);
 
         if (world == null) {
-            throw GameStartConditionException.forWorldNotFound(worldName);
+            throw GameException.worldNotFound(worldName);
         }
 
         if (!teamService.areAllTeamsReadyToStart(MIN_PLAYERS)) {
-            throw GameStartConditionException.forTeamsNotReady(MIN_PLAYERS);
+            throw GameException.insufficientPlayers(MIN_PLAYERS);
         }
 
         Game game = Game.create(board);
@@ -91,7 +90,7 @@ public class GameService {
      */
     @HandleException
     public void stopGame(@NonNull CommandSender sender) {
-        Game game = gameRepository.find().orElseThrow(GameNotFoundException::noGameInProgress);
+        Game game = gameRepository.find().orElseThrow(GameException::notFound);
 
         gameNotifier.stopGuidance();
         gameTaskScheduler.shutdown();
@@ -124,7 +123,7 @@ public class GameService {
             @NonNull World world,
             @NonNull CommandSender sender
     ) {
-        pieceService.spawnPieces(world, game.board())
+        pieceService.spawnPieces(game.board(), world)
                 .thenAccept(this::registerSpawnedPieces)
                 .exceptionally(t -> {
                     onPieceSpawnFailed(t, sender);
@@ -139,7 +138,7 @@ public class GameService {
     }
 
     private void registerSpawnedPieces(@NonNull Map<Coordinate, UnitPiece> spawnedPieces) {
-        Game currentGame = gameRepository.find().orElseThrow(GameNotFoundException::duringPieceSpawning);
+        Game currentGame = gameRepository.find().orElseThrow(GameSystemException::gameStartInterrupted);
         Game updatedGame = currentGame.withPieces(spawnedPieces);
 
         gameRepository.save(updatedGame);
@@ -148,8 +147,6 @@ public class GameService {
 
     private void onPieceSpawnFailed(@NonNull Throwable t, @NonNull CommandSender sender) {
         Throwable cause = t.getCause() == null ? t : t.getCause();
-
-        // endGame();
 
         if (cause instanceof Exception e) {
             exceptionDispatcher.dispatch(e, sender, "async spawnPieces");
@@ -196,72 +193,12 @@ public class GameService {
 
     private void startTurnOrderSelectionPhase() {
         Game game = gameRepository.find()
-                .orElseThrow(() -> GameNotFoundException.duringPhaseTransition(GamePhase.TURN_ORDER_SELECTION));
+                .orElseThrow(() -> GameSystemException.gameTransitionInterrupted(GamePhase.TURN_ORDER_SELECTION));
         Game turnOrderSelectionPhaseGame = game.startTurnSelection();
 
         gameRepository.save(turnOrderSelectionPhaseGame);
         teamService.revealEnemies();
         pieceService.revealPieces(turnOrderSelectionPhaseGame);
-
-//        scheduler.runTaskLater(plugin, () -> startBattlePhase(turnOrderSelectionPhaseGame, TeamColor.WHITE), 20L);
-    }
-
-    private void startBattlePhase(@NonNull Game game, @NonNull TeamColor startingTeam) {
-        Game battlePhaseGame = game.startBattle(startingTeam);
-        gameRepository.save(battlePhaseGame);
-        log.info("Game phase changed to BATTLE. Starting turn: {}", startingTeam);
-
-        String worldName = battlePhaseGame.board().worldName();
-        World world = Bukkit.getWorld(worldName);
-        if (world == null) {
-            log.error("Failed to start battle phase: World '{}' not found.", worldName);
-            endGame();
-            return;
-        }
-
-        CommandSender console = Bukkit.getConsoleSender();
-        pieceService.spawnPieces(world, battlePhaseGame.board())
-                .thenAccept(spawnedPieces -> {
-                    gameRepository.find().ifPresent(currentGame -> {
-                        Game updatedGame = currentGame.withPieces(spawnedPieces);
-                        gameRepository.save(updatedGame);
-                        log.info("전투 단계 기물 재소환 및 게임 데이터 업데이트 완료.");
-                    });
-                })
-                .exceptionally(ex -> {
-                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                    if (cause instanceof Exception e) {
-                        exceptionDispatcher.dispatch(e, console, "async battle re-spawnPieces");
-                    } else {
-                        log.error("Critical Error (Non-Exception) during async battle re-spawnPieces", cause);
-                    }
-                    endGame();
-                    return null;
-                });
-    }
-
-    /**
-     * 게임을 종료합니다.
-     * 현재 진행 중인 게임이 있다면 {@link GamePhase#ENDED} 상태로 변경하고, 일정 시간 후 데이터를 정리합니다.
-     */
-    public void endGame() {
-        Game game = gameRepository.find().orElse(null);
-        if (game == null) {
-            return;
-        }
-
-        if (game.phase() != GamePhase.ENDED) {
-            gameRepository.save(game.end());
-            log.info("Game phase changed to ENDED.");
-        }
-
-        gameTaskScheduler.scheduleOnce(GameTaskType.GAME_CLEANUP, this::cleanupAfterGameEnd, POST_GAME_DURATION_TICKS);
-    }
-
-    private void cleanupAfterGameEnd() {
-        if (gameRepository.find().isEmpty()) return;
-
-        gameRepository.delete();
     }
 
     private boolean isFriendlyPiece(@NonNull Player player, @NonNull UnitPiece piece) {

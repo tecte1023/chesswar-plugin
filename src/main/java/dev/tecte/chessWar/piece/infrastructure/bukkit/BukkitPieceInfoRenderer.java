@@ -1,7 +1,7 @@
 package dev.tecte.chessWar.piece.infrastructure.bukkit;
 
 import dev.tecte.chessWar.piece.application.port.PieceInfoRenderer;
-import dev.tecte.chessWar.piece.domain.exception.PieceNotFoundException;
+import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import io.lumine.mythic.core.mobs.MobExecutor;
@@ -37,7 +37,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     @Override
     public void renderInfo(@NonNull Player player, @NonNull UnitPiece piece) {
         ActiveMob activeMob = mobExecutor.getActiveMob(piece.entityId())
-                .orElseThrow(PieceNotFoundException::entityMissing);
+                .orElseThrow(() -> PieceSystemException.entityMissing(piece.entityId()));
         Component infoPanel = Component.join(
                 JoinConfiguration.newlines(),
                 Component.empty(),

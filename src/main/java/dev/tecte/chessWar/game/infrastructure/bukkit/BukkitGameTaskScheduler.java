@@ -123,7 +123,7 @@ public class BukkitGameTaskScheduler implements GameTaskScheduler {
             try {
                 runnable.run();
             } catch (Exception e) {
-                log.error("Unexpected error in async game task", e);
+                log.error("Unexpected error in game task", e);
             }
         };
     }

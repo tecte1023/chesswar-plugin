@@ -12,11 +12,14 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 
+import java.util.UUID;
+
 /**
- * MythicMobs 플러그인을 사용하여 실제 엔티티를 스폰하는 {@link PieceSpawner}의 구현체입니다.
+ * MythicMobs 플러그인을 활용하여 기물을 소환하고 제거하는 {@link PieceSpawner}의 구현체입니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -26,17 +29,9 @@ public class MythicMobsPieceSpawner implements PieceSpawner {
     private final MobManager mobManager;
     private final PieceIdResolver pieceIdResolver;
 
-    /**
-     * 지정된 위치에 기물 명세에 해당하는 MythicMob을 스폰합니다.
-     *
-     * @param spec     스폰할 기물의 명세
-     * @param location 스폰될 위치
-     * @return 스폰된 Bukkit 엔티티
-     * @throws MythicMobSpawnException 해당 ID의 MythicMob을 찾을 수 없거나 스폰에 실패한 경우
-     */
     @NonNull
     @Override
-    public Entity spawnPiece(@NonNull PieceSpec spec, @NonNull Location location) {
+    public Entity spawn(@NonNull PieceSpec spec, @NonNull Location location) {
         String templateId = pieceIdResolver.resolveId(spec.teamColor(), spec.type());
         MythicMob mythicMob = mobManager.getMythicMob(templateId)
                 .orElseThrow(() -> MythicMobSpawnException.notFound(templateId));
@@ -47,5 +42,14 @@ public class MythicMobsPieceSpawner implements PieceSpawner {
         }
 
         return activeMob.getEntity().getBukkitEntity();
+    }
+
+    @Override
+    public void despawn(@NonNull UUID entityId) {
+        Entity entity = Bukkit.getEntity(entityId);
+
+        if (entity != null) {
+            entity.remove();
+        }
     }
 }
