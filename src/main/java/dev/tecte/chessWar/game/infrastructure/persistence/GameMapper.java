@@ -1,16 +1,13 @@
 package dev.tecte.chessWar.game.infrastructure.persistence;
 
-import dev.tecte.chessWar.board.application.port.BoardRepository;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.infrastructure.persistence.BoardMapper;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
-import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.piece.infrastructure.persistence.PieceMapper;
-import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -25,19 +22,22 @@ import static dev.tecte.chessWar.game.infrastructure.persistence.GamePersistence
 
 /**
  * 게임 객체와 YAML 데이터 간의 변환을 담당하는 매퍼입니다.
- * <p>
- * 전체적인 게임 데이터를 YAML 형식으로 직렬화하거나 섹션으로부터 복원합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class GameMapper implements SingleYmlMapper<Game> {
-    private final BoardRepository boardRepository;
+public class GameMapper {
+    // 기술적 중복 방지와 데이터 일관성 유지를 위해 타 도메인 매퍼를 유틸리티로 활용
     private final BoardMapper boardMapper;
     private final PieceMapper pieceMapper;
     private final YmlParser parser;
 
+    /**
+     * 게임 객체를 YML 저장 가능한 맵 형태로 변환합니다.
+     *
+     * @param entity 변환할 게임 엔티티
+     * @return 직렬화된 데이터 맵
+     */
     @NonNull
-    @Override
     public Map<String, Object> toMap(@NonNull Game entity) {
         Map<String, Object> map = new HashMap<>();
 
@@ -48,10 +48,15 @@ public class GameMapper implements SingleYmlMapper<Game> {
         return map;
     }
 
+    /**
+     * YML 섹션 데이터와 체스판 객체로부터 게임 객체를 복원합니다.
+     *
+     * @param section 데이터가 담긴 섹션
+     * @param board   게임이 진행될 체스판
+     * @return 복원된 게임 객체
+     */
     @NonNull
-    @Override
-    public Game fromSection(@NonNull ConfigurationSection section) {
-        Board board = boardRepository.find().orElseThrow(YmlMappingException::forMissingBoard);
+    public Game fromSection(@NonNull ConfigurationSection section, @NonNull Board board) {
         Map<Coordinate, UnitPiece> pieces = fromSectionPieces(parser.requireSection(section, Keys.PIECES));
         GamePhase phase = parser.requireEnum(section, Keys.PHASE, GamePhase::from);
         TeamColor currentTurn = parser.findEnum(section, Keys.CURRENT_TURN, TeamColor::from).orElse(null);

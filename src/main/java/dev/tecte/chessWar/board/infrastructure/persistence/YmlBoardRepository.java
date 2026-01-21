@@ -8,7 +8,9 @@ import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
+import org.bukkit.configuration.ConfigurationSection;
 
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersistenceConstants.StatePaths;
@@ -18,6 +20,8 @@ import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersisten
  */
 @Singleton
 public class YmlBoardRepository extends AbstractSingleYmlRepository<Board> implements BoardRepository {
+    private final BoardMapper mapper;
+
     @Inject
     public YmlBoardRepository(
             @NonNull BoardMapper mapper,
@@ -25,7 +29,20 @@ public class YmlBoardRepository extends AbstractSingleYmlRepository<Board> imple
             @NonNull YmlFileManager fileManager,
             @NonNull ExecutorService persistenceExecutor
     ) {
-        super(mapper, dispatcher, fileManager, persistenceExecutor);
+        super(dispatcher, fileManager, persistenceExecutor);
+        this.mapper = mapper;
+    }
+
+    @NonNull
+    @Override
+    protected Board deserialize(@NonNull ConfigurationSection section) {
+        return mapper.fromSection(section);
+    }
+
+    @NonNull
+    @Override
+    protected Map<String, Object> serialize(@NonNull Board entity) {
+        return mapper.toMap(entity);
     }
 
     @NonNull

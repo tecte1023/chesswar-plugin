@@ -11,7 +11,6 @@ import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
 import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
 import dev.tecte.chessWar.infrastructure.persistence.exception.YmlMappingException;
-import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -27,11 +26,11 @@ import java.util.Map;
 import static dev.tecte.chessWar.board.infrastructure.persistence.BoardPersistenceConstants.Keys;
 
 /**
- * {@link Board} 도메인 객체와 YML 파일 데이터 간의 변환을 담당하는 매퍼 클래스입니다.
+ * 체스판 객체와 YML 데이터 간의 변환을 담당하는 매퍼입니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class BoardMapper implements SingleYmlMapper<Board> {
+public class BoardMapper {
     private static final int COORDINATE_NOTATION_LENGTH = 2;
     private static final String EXPECTED_NOTATION_RANGE = "A1-H8";
 
@@ -40,8 +39,13 @@ public class BoardMapper implements SingleYmlMapper<Board> {
     private final BorderSpec borderSpec;
     private final YmlParser parser;
 
+    /**
+     * 체스판 객체를 YML 저장 가능한 맵 형태로 변환합니다.
+     *
+     * @param entity 변환할 체스판 엔티티
+     * @return 직렬화된 데이터 맵
+     */
     @NonNull
-    @Override
     public Map<String, Object> toMap(@NonNull Board entity) {
         Map<String, Object> map = new HashMap<>();
 
@@ -53,8 +57,13 @@ public class BoardMapper implements SingleYmlMapper<Board> {
         return map;
     }
 
+    /**
+     * YML 섹션 데이터로부터 체스판 객체를 복원합니다.
+     *
+     * @param section 데이터가 담긴 섹션
+     * @return 복원된 체스판 객체
+     */
     @NonNull
-    @Override
     public Board fromSection(@NonNull ConfigurationSection section) {
         String worldName = parser.requireValue(section, Keys.WORLD_NAME, String.class);
         ConfigurationSection squareGridSection = parser.requireSection(section, Keys.SQUARE_GRID);
@@ -70,11 +79,10 @@ public class BoardMapper implements SingleYmlMapper<Board> {
     }
 
     /**
-     * 좌표 객체를 표준 체스 기보 표기법 형식의 문자열로 변환합니다.
-     * 열은 알파벳으로, 행은 숫자로 변환됩니다.
+     * 좌표 객체를 표준 체스 기보 표기법(예: A1)으로 변환합니다.
      *
-     * @param coordinate 변환할 좌표 객체
-     * @return 변환된 좌표 문자열
+     * @param coordinate 변환할 좌표
+     * @return 기보 표기 문자열
      */
     @NonNull
     public String serializeCoordinate(@NonNull Coordinate coordinate) {
@@ -85,13 +93,12 @@ public class BoardMapper implements SingleYmlMapper<Board> {
     }
 
     /**
-     * 표준 체스 기보 표기법 형식의 문자열을 좌표 객체로 변환합니다.
-     * 첫 번째 글자는 열, 두 번째 글자는 행을 나타냅니다.
+     * 체스 기보 표기 문자열을 좌표 객체로 변환합니다.
      *
-     * @param key  변환할 좌표 문자열
-     * @param path 오류 발생 시 로그에 남길 YML 경로 정보
-     * @return 변환된 {@link Coordinate} 객체
-     * @throws YmlMappingException 문자열 길이가 맞지 않거나, 파싱할 수 없는 형식일 경우
+     * @param key  좌표 문자열 (예: A1)
+     * @param path 로그용 YML 경로
+     * @return 변환된 좌표 객체
+     * @throws YmlMappingException 형식이 잘못되었거나 범위를 벗어난 경우
      */
     @NonNull
     public Coordinate deserializeCoordinate(@NonNull String key, @Nullable String path) {
