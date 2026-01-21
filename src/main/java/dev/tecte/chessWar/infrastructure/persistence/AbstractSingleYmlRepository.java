@@ -5,7 +5,6 @@ import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceException;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
-import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import jakarta.inject.Inject;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.configuration.ConfigurationSection;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
@@ -26,17 +26,14 @@ import java.util.concurrent.ExecutorService;
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public abstract class AbstractSingleYmlRepository<V> implements PersistableState {
-    private final SingleYmlMapper<V> mapper;
     private final ExceptionDispatcher dispatcher;
     private final YmlFileManager fileManager;
     private final ExecutorService persistenceExecutor;
 
     private V cache;
 
-    @NonNull
-    protected abstract String getDataPath();
-
     @Override
+    @HandleException
     public void load() {
         ConfigurationSection section = fileManager.config().getConfigurationSection(getDataPath());
 
@@ -44,28 +41,11 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
             return;
         }
 
-        cache = mapper.fromSection(section);
-    }
-
-    @Override
-    @HandleException
-    public void persistCache() {
-        fileManager.set(getDataPath(), cache == null ? null : mapper.toMap(cache));
-        fileManager.save();
+        cache = deserialize(section);
     }
 
     /**
-     * 단일 엔티티를 캐시에 저장하고, 파일에 비동기적으로 영속화합니다.
-     *
-     * @param entity 저장할 엔티티
-     */
-    public void save(@NonNull V entity) {
-        cache = entity;
-        persistChangeAsync(mapper.toMap(entity));
-    }
-
-    /**
-     * 캐시된 엔티티를 Optional 형태로 안전하게 반환합니다.
+     * 캐시된 엔티티를 안전하게 반환합니다.
      *
      * @return 캐시된 엔티티가 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
      */
@@ -75,12 +55,56 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 현재 저장된 엔티티를 삭제합니다. 캐시를 비우고 영구 저장소에서도 데이터를 제거합니다.
+     * 엔티티를 캐시에 저장하고, 파일 시스템에 비동기적으로 반영합니다.
+     *
+     * @param entity 저장할 엔티티
+     */
+    public void save(@NonNull V entity) {
+        cache = entity;
+        persistChangeAsync(serialize(entity));
+    }
+
+    /**
+     * 현재 저장된 엔티티를 삭제합니다.
+     * 캐시를 비우고 영구 저장소에서도 데이터를 제거합니다.
      */
     public void delete() {
         cache = null;
         persistChangeAsync(null);
     }
+
+    @Override
+    @HandleException
+    public void persistCache() {
+        fileManager.set(getDataPath(), cache == null ? null : serialize(cache));
+        fileManager.save();
+    }
+
+    /**
+     * ConfigurationSection 데이터를 도메인 객체로 역직렬화합니다.
+     *
+     * @param section 데이터가 담긴 섹션
+     * @return 역직렬화된 도메인 객체
+     */
+    @NonNull
+    protected abstract V deserialize(@NonNull ConfigurationSection section);
+
+    /**
+     * 도메인 객체를 저장 가능한 Map 형태로 직렬화합니다.
+     *
+     * @param entity 직렬화할 도메인 객체
+     * @return 직렬화된 데이터 맵
+     */
+    @NonNull
+    protected abstract Map<String, Object> serialize(@NonNull V entity);
+
+    /**
+     * 데이터가 저장될 YML 파일 내의 경로를 반환합니다.
+     *
+     * @return 데이터 경로 문자열
+     */
+    @NonNull
+    protected abstract String getDataPath();
 
     private void persistChangeAsync(@Nullable Object value) {
         String path = getDataPath();

@@ -4,7 +4,6 @@ import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
 import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import dev.tecte.chessWar.piece.domain.model.PieceType;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
-import dev.tecte.chessWar.port.persistence.SingleYmlMapper;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -23,11 +22,16 @@ import static dev.tecte.chessWar.piece.infrastructure.persistence.PiecePersisten
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class PieceMapper implements SingleYmlMapper<UnitPiece> {
+public class PieceMapper {
     private final YmlParser parser;
 
+    /**
+     * 기물 객체를 YML 저장 가능한 맵 형태로 변환합니다.
+     *
+     * @param piece 변환할 기물 객체
+     * @return 직렬화된 데이터 맵
+     */
     @NonNull
-    @Override
     public Map<String, Object> toMap(@NonNull UnitPiece piece) {
         Map<String, Object> map = new HashMap<>();
         PieceSpec pieceSpec = piece.spec();
@@ -43,8 +47,13 @@ public class PieceMapper implements SingleYmlMapper<UnitPiece> {
         return map;
     }
 
+    /**
+     * YML 섹션 데이터로부터 기물 객체를 복원합니다.
+     *
+     * @param section 데이터가 담긴 섹션
+     * @return 복원된 기물 객체
+     */
     @NonNull
-    @Override
     public UnitPiece fromSection(@NonNull ConfigurationSection section) {
         UUID entityId = parser.requireUUID(section, Keys.ENTITY_ID);
         PieceType type = parser.requireEnum(section, Keys.PIECE_TYPE, PieceType::from);

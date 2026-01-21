@@ -4,7 +4,6 @@ import co.aikar.commands.PaperCommandManager;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
-import dev.tecte.chessWar.common.exception.SystemException;
 import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsSetup;
@@ -41,19 +40,9 @@ public final class ChessWar extends JavaPlugin {
         new MythicMobsSetup(getServer().getPluginManager(), this).run();
 
         Injector injector = Guice.createInjector(new PluginModule(this));
+
         injector.injectMembers(this);
-
-        if (persistableStates != null) {
-            try {
-                persistableStates.forEach(PersistableState::load);
-            } catch (SystemException e) {
-                log.error("Failed to initialize system. The plugin will be disabled.", e);
-                getServer().getPluginManager().disablePlugin(this);
-
-                return;
-            }
-        }
-
+        persistableStates.forEach(PersistableState::load);
         log.info("ChessWar plugin has been enabled!");
     }
 
