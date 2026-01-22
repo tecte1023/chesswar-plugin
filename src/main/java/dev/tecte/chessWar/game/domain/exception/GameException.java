@@ -34,7 +34,6 @@ public class GameException extends BusinessException {
         return new GameException("게임이 이미 진행 중입니다.");
     }
 
-
     /**
      * 체스판이 존재하지 않아 게임을 시작할 수 없을 때 발생합니다.
      *
@@ -67,7 +66,6 @@ public class GameException extends BusinessException {
         return new GameException(String.format("각 팀에 최소 %d명 이상의 플레이어가 필요합니다.", minPlayers));
     }
 
-
     /**
      * 현재 게임 단계가 요구되는 단계와 일치하지 않아 작업을 수행할 수 없을 때 발생합니다.
      *
@@ -82,5 +80,15 @@ public class GameException extends BusinessException {
                 required.displayName(),
                 current.displayName()
         ));
+    }
+
+    /**
+     * 특정 기물을 찾을 수 없을 때 발생합니다.
+     *
+     * @return 생성된 예외 객체
+     */
+    @NonNull
+    public static GameException pieceNotFound() {
+        return new GameException("해당 기물은 게임에 존재하지 않습니다.");
     }
 }

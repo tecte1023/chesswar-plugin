@@ -18,7 +18,6 @@ public final class GamePersistenceConstants {
         public final String STATE = "state";
         public final String PIECES = "pieces";
         public final String PHASE = "phase";
-        public final String CURRENT_TURN = "current-turn";
     }
 
     /**

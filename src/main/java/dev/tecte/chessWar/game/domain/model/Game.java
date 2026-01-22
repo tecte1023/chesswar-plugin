@@ -3,10 +3,11 @@ package dev.tecte.chessWar.game.domain.model;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.game.domain.exception.GameException;
+import dev.tecte.chessWar.game.domain.model.phase.PhaseState;
+import dev.tecte.chessWar.game.domain.model.phase.SelectionState;
+import dev.tecte.chessWar.game.domain.model.phase.TurnOrderState;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
-import dev.tecte.chessWar.team.domain.model.TeamColor;
 import lombok.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,57 +17,57 @@ import java.util.UUID;
 
 /**
  * 진행 중인 체스 게임의 상태를 나타내는 불변 데이터 객체입니다.
- * 게임이 진행되는 보드, 현재 보드 위에 배치된 기물들의 상태, 그리고 게임의 현재 진행 단계를 포함합니다.
  */
 public record Game(
         Board board,
         Map<Coordinate, UnitPiece> pieces,
         GamePhase phase,
-        TeamColor currentTurn
+        PhaseState state
 ) {
     public Game {
         Objects.requireNonNull(board, "Board cannot be null");
         Objects.requireNonNull(pieces, "Pieces map cannot be null");
         Objects.requireNonNull(phase, "Game phase cannot be null");
+        Objects.requireNonNull(state, "Phase state cannot be null");
 
         pieces = Map.copyOf(pieces);
     }
 
     /**
-     * 새로운 게임을 생성하기 위한 정적 팩토리 메서드입니다.
+     * 초기 상태의 게임 객체를 생성합니다.
      *
-     * @param board 게임 보드
-     * @return 초기 상태로 설정된 새로운 {@link Game} 객체
+     * @param board 체스판
+     * @return 생성된 게임 객체
      */
     @NonNull
     public static Game create(@NonNull Board board) {
-        return new Game(board, new HashMap<>(), GamePhase.initial(), null);
+        return new Game(board, new HashMap<>(), GamePhase.initial(), SelectionState.empty());
     }
 
     /**
-     * 주어진 모든 구성 요소들로 {@link Game} 객체를 생성하는 정적 팩토리 메서드입니다.
+     * 주어진 구성 요소들로 게임 객체를 생성합니다.
      *
-     * @param board       게임 보드
-     * @param pieces      기물 배치 맵
-     * @param phase       현재 게임 단계
-     * @param currentTurn 현재 턴을 진행 중인 팀 색상
-     * @return 주어진 구성 요소들로 생성된 {@link Game} 객체
+     * @param board  체스판
+     * @param pieces 기물 배치 정보
+     * @param phase  현재 게임 단계
+     * @param state  단계별 상태 데이터
+     * @return 생성된 게임 객체
      */
     @NonNull
     public static Game of(
             @NonNull Board board,
             @NonNull Map<Coordinate, UnitPiece> pieces,
             @NonNull GamePhase phase,
-            @Nullable TeamColor currentTurn
+            @NonNull PhaseState state
     ) {
-        return new Game(board, pieces, phase, currentTurn);
+        return new Game(board, pieces, phase, state);
     }
 
     /**
-     * 게임을 '턴 순서 선택' 단계로 전환합니다.
+     * 턴 순서 선택 단계로 전환된 게임 객체를 반환합니다.
      *
-     * @return 상태가 변경된 새로운 {@link Game} 객체
-     * @throws GameException 현재 단계가 {@link GamePhase#PIECE_SELECTION} 아닐 경우
+     * @return 전환된 게임 객체
+     * @throws GameException 현재 단계가 기물 선택 단계가 아닐 경우
      */
     @NonNull
     public Game startTurnSelection() {
@@ -74,28 +75,14 @@ public record Game(
             throw GameException.phaseMismatch(GamePhase.PIECE_SELECTION, phase);
         }
 
-        return new Game(board, pieces, GamePhase.TURN_ORDER_SELECTION, null);
+        return new Game(board, pieces, GamePhase.TURN_ORDER_SELECTION, new TurnOrderState());
     }
 
     /**
-     * 현재 활성화된 턴의 팀 색상을 {@link Optional}로 반환합니다.
-     * <p>
-     * 턴은 {@link GamePhase#BATTLE} 단계에서만 정의되므로, 그 외의 경우에는 비어있는 {@link Optional}이 반환됩니다.
+     * 엔티티 ID를 사용하여 게임 내 기물을 찾습니다.
      *
-     * @return 현재 턴의 팀 색상을 담은 {@link Optional}, 또는 턴이 활성화되지 않았을 경우 빈 {@link Optional}
-     */
-    @NonNull
-    public Optional<TeamColor> activeTurn() {
-        return Optional.ofNullable(currentTurn);
-    }
-
-    /**
-     * 엔티티 ID를 사용하여 게임에 포함된 기물을 찾습니다.
-     * <p>
-     * {@link #pieces()} 맵을 순회하며 해당 ID를 가진 기물을 검색합니다.
-     *
-     * @param entityId 찾을 엔티티의 UUID
-     * @return 해당하는 기물이 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
+     * @param entityId 찾을 엔티티 UUID
+     * @return 검색된 기물 정보
      */
     @NonNull
     public Optional<UnitPiece> findPiece(@NonNull UUID entityId) {
@@ -105,43 +92,11 @@ public record Game(
     }
 
     /**
-     * 주어진 기물들을 기존 기물 맵에 추가하고 새로운 {@link Game} 인스턴스를 반환합니다.
-     *
-     * @param additionalPieces 추가할 기물들의 맵
-     * @return 기물 맵이 업데이트된 새로운 {@link Game} 인스턴스
-     */
-    @NonNull
-    public Game withPieces(@NonNull Map<Coordinate, UnitPiece> additionalPieces) {
-        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
-
-        newPieces.putAll(additionalPieces);
-
-        return new Game(board, newPieces, phase, currentTurn);
-    }
-
-    /**
-     * 지정된 좌표에 기물을 배치하거나 교체하고 새로운 {@link Game} 인스턴스를 반환합니다.
-     *
-     * @param coordinate 기물을 배치할 좌표
-     * @param piece      배치할 기물
-     * @return 기물이 업데이트된 새로운 {@link Game} 인스턴스
-     */
-    @NonNull
-    public Game withPiece(@NonNull Coordinate coordinate, @NonNull UnitPiece piece) {
-        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
-
-        newPieces.put(coordinate, piece);
-
-        return new Game(board, newPieces, phase, currentTurn);
-    }
-
-    /**
-     * 특정 기물의 정보를 갱신합니다.
-     * 엔티티 ID가 일치하는 기존 기물을 찾아 새 기물 객체로 교체합니다.
+     * 기물 정보가 갱신된 게임 객체를 반환합니다.
      *
      * @param newPiece 갱신할 기물 객체
-     * @return 기물이 갱신된 새로운 {@link Game} 객체
-     * @throws IllegalArgumentException 해당 기물이 게임 내에 존재하지 않을 경우
+     * @return 갱신된 게임 객체
+     * @throws GameException 해당 기물이 존재하지 않을 경우
      */
     @NonNull
     public Game updatePiece(@NonNull UnitPiece newPiece) {
@@ -149,8 +104,39 @@ public record Game(
                 .filter(entry -> entry.getValue().entityId().equals(newPiece.entityId()))
                 .map(Map.Entry::getKey)
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Piece not found in game: " + newPiece.entityId()));
+                .orElseThrow(GameException::pieceNotFound);
 
         return withPiece(coordinate, newPiece);
+    }
+
+    /**
+     * 기물 목록이 추가된 게임 객체를 반환합니다.
+     *
+     * @param additionalPieces 추가할 기물 배치 정보
+     * @return 업데이트된 게임 객체
+     */
+    @NonNull
+    public Game withPieces(@NonNull Map<Coordinate, UnitPiece> additionalPieces) {
+        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
+
+        newPieces.putAll(additionalPieces);
+
+        return new Game(board, newPieces, phase, state);
+    }
+
+    /**
+     * 특정 위치에 기물이 배치된 게임 객체를 반환합니다.
+     *
+     * @param coordinate 기물 배치 좌표
+     * @param piece      배치할 기물
+     * @return 업데이트된 게임 객체
+     */
+    @NonNull
+    public Game withPiece(@NonNull Coordinate coordinate, @NonNull UnitPiece piece) {
+        Map<Coordinate, UnitPiece> newPieces = new HashMap<>(pieces);
+
+        newPieces.put(coordinate, piece);
+
+        return new Game(board, newPieces, phase, state);
     }
 }

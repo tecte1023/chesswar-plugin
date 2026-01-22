@@ -5,16 +5,21 @@ import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.infrastructure.persistence.BoardMapper;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.game.domain.model.phase.BattleState;
+import dev.tecte.chessWar.game.domain.model.phase.EndedState;
+import dev.tecte.chessWar.game.domain.model.phase.PhaseState;
+import dev.tecte.chessWar.game.domain.model.phase.SelectionState;
+import dev.tecte.chessWar.game.domain.model.phase.TurnOrderState;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.piece.infrastructure.persistence.PieceMapper;
-import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.configuration.ConfigurationSection;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,7 +48,7 @@ public class GameMapper {
 
         map.put(Keys.PIECES, toMapPieces(entity.pieces()));
         map.put(Keys.PHASE, entity.phase().name());
-        entity.activeTurn().ifPresent(teamColor -> map.put(Keys.CURRENT_TURN, teamColor.name()));
+        map.putAll(toMapState(entity.state()));
 
         return map;
     }
@@ -59,20 +64,41 @@ public class GameMapper {
     public Game fromSection(@NonNull ConfigurationSection section, @NonNull Board board) {
         Map<Coordinate, UnitPiece> pieces = fromSectionPieces(parser.requireSection(section, Keys.PIECES));
         GamePhase phase = parser.requireEnum(section, Keys.PHASE, GamePhase::from);
-        TeamColor currentTurn = parser.findEnum(section, Keys.CURRENT_TURN, TeamColor::from).orElse(null);
+        PhaseState state = fromSectionState(section, phase);
 
-        return Game.of(board, pieces, phase, currentTurn);
+        return Game.of(board, pieces, phase, state);
+    }
+
+    @NonNull
+    private Map<String, Object> toMapState(@NonNull PhaseState state) {
+        return switch (state) {
+            case SelectionState ignored -> Collections.emptyMap();
+            case TurnOrderState ignored -> Collections.emptyMap();
+            case BattleState ignored -> Collections.emptyMap();
+            case EndedState ignored -> Collections.emptyMap();
+        };
     }
 
     @NonNull
     private Map<String, Object> toMapPieces(@NonNull Map<Coordinate, UnitPiece> pieces) {
         Map<String, Object> map = new HashMap<>();
 
-        pieces.forEach((coordinate, piece) ->
-                map.put(boardMapper.serializeCoordinate(coordinate), pieceMapper.toMap(piece))
-        );
+        pieces.forEach((coordinate, piece) -> map.put(
+                boardMapper.serializeCoordinate(coordinate),
+                pieceMapper.toMap(piece)
+        ));
 
         return map;
+    }
+
+    @NonNull
+    private PhaseState fromSectionState(@NonNull ConfigurationSection section, @NonNull GamePhase phase) {
+        return switch (phase) {
+            case PIECE_SELECTION -> SelectionState.empty();
+            case TURN_ORDER_SELECTION -> new TurnOrderState();
+            case BATTLE -> new BattleState();
+            case ENDED -> new EndedState();
+        };
     }
 
     @NonNull
