@@ -24,8 +24,7 @@ import org.bukkit.util.Vector;
 import java.util.Optional;
 
 /**
- * 체스판과 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다.
- * 사용자의 요청을 받아 도메인 객체를 생성하고, 렌더링 및 영속성을 관리합니다.
+ * 체스판 도메인 로직을 수행하는 서비스입니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -45,7 +44,7 @@ public class BoardService {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 플레이어의 위치와 방향을 기준으로 새로운 체스판을 생성하고, 렌더링하며, 영속화합니다.
+     * 플레이어의 위치와 방향을 기준으로 새로운 체스판을 생성합니다.
      *
      * @param player 체스판을 생성할 플레이어
      */
@@ -67,16 +66,15 @@ public class BoardService {
 
         boardRenderer.render(board, world);
         boardRepository.save(board);
-        player.sendMessage(BOARD_CREATE_SUCCESS);
         senderNotifier.notifySuccess(player, BOARD_CREATE_SUCCESS);
         log.info("Player '{}' created a new chessboard at {} in world '{}'",
                 player.getName(), playerPosition, world.getName());
     }
 
     /**
-     * 저장된 체스판 데이터를 조회합니다.
+     * 저장된 체스판을 찾습니다.
      *
-     * @return 체스판이 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
+     * @return 찾은 체스판
      */
     @NonNull
     public Optional<Board> findBoard() {

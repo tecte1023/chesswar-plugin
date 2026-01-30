@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 팀 관련 비즈니스 로직을 처리하는 서비스 클래스입니다.
+ * 팀 관련 도메인 로직을 관리합니다.
  * 플레이어의 팀 참가, 탈퇴 등과 같은 유스케이스를 담당합니다.
  */
 @Singleton

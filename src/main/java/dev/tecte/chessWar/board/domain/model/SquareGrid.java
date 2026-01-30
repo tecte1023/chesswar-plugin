@@ -10,7 +10,8 @@ import org.bukkit.util.Vector;
 import java.util.Objects;
 
 /**
- * 체스판의 격자 영역을 계산하고 관리하는 클래스입니다.
+ * 체스판의 격자 영역을 정의하는 불변 객체입니다.
+ * <p>
  * 격자의 기준점(a1), 방향, 크기 정보를 바탕으로 각 칸의 위치와 영역을 계산합니다.
  *
  * @param anchor      격자의 기준점 (a1: 좌측 하단 모서리)
@@ -35,9 +36,9 @@ public record SquareGrid(
     }
 
     /**
-     * 격자의 기준점(a1) 벡터를 복제하여 반환합니다.
+     * 격자의 기준점 벡터를 반환합니다.
      *
-     * @return 기준점 벡터의 복제본
+     * @return 기준점 벡터
      */
     @NonNull
     public Vector anchor() {
@@ -45,7 +46,7 @@ public record SquareGrid(
     }
 
     /**
-     * 한 열을 오른쪽으로 이동하는 데 필요한 변위 벡터를 계산합니다.
+     * 열 이동 벡터를 반환합니다.
      *
      * @return 열 이동 벡터
      */
@@ -55,7 +56,7 @@ public record SquareGrid(
     }
 
     /**
-     * 한 행을 앞으로 이동하는 데 필요한 변위 벡터를 계산합니다.
+     * 행 이동 벡터를 반환합니다.
      *
      * @return 행 이동 벡터
      */
@@ -65,9 +66,9 @@ public record SquareGrid(
     }
 
     /**
-     * 격자 전체의 영역을 계산합니다.
+     * 격자 전체 영역을 반환합니다.
      *
-     * @return 격자의 영역
+     * @return 격자 영역
      */
     @NonNull
     public BoundingBox boundingBox() {
@@ -79,10 +80,10 @@ public record SquareGrid(
     }
 
     /**
-     * 지정된 좌표에 위치한 체스판 칸({@link Square})의 정보를 계산합니다.
+     * 해당 좌표의 칸을 반환합니다.
      *
      * @param coordinate 칸의 좌표
-     * @return 계산된 {@link Square} 객체
+     * @return 해당 좌표의 칸
      */
     @NonNull
     public Square squareAt(@NonNull Coordinate coordinate) {

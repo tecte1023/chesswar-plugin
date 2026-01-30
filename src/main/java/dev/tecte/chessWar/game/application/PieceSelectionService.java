@@ -9,9 +9,9 @@ import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceExcept
 import dev.tecte.chessWar.piece.application.port.PieceStatProvider;
 import dev.tecte.chessWar.piece.application.port.dto.PieceStatsDto;
 import dev.tecte.chessWar.piece.domain.exception.PieceException;
+import dev.tecte.chessWar.piece.domain.model.Piece;
 import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import dev.tecte.chessWar.piece.domain.model.PieceType;
-import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -26,7 +26,7 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * 게임 진행 중 플레이어의 기물 선택과 관련된 비즈니스 로직을 처리하는 서비스입니다.
+ * 기물 선택 및 참전 로직을 처리하는 서비스입니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -36,40 +36,40 @@ public class PieceSelectionService {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 플레이어가 선택한 기물로 게임에 참전 처리합니다.
+     * 플레이어가 선택한 기물로 참전합니다.
      * <p>
      * 참전 시 해당 기물의 스펙에 맞춰 플레이어의 능력치가 조정되며, 체력이 최대치로 회복됩니다.
      * <p>
-     * <b>제약 사항:</b>
+     * <b>참전 제약 사항:</b>
      * <ul>
-     *   <li>폰은 플레이어가 직접 선택할 수 없습니다.</li>
+     *   <li>선택 불가능한 기물은 선택할 수 없습니다.</li>
      *   <li>이미 다른 플레이어가 참전 중인 기물은 선택할 수 없습니다.</li>
      * </ul>
      *
-     * @param player        참전할 플레이어
-     * @param targetPieceId 대상 기물의 식별자 UUID
-     * @throws GameException  진행 중인 게임이 없을 경우
-     * @throws PieceException 기물을 찾을 수 없거나 참전 제약 사항을 위반했을 경우
+     * @param player  참전할 플레이어
+     * @param pieceId 선택할 기물의 식별자
+     * @throws GameException  진행 중인 게임이 없거나 게임에 포함되지 않은 기물일 경우
+     * @throws PieceException 참전 제약 사항을 위반한 경우
      */
     @HandleException
-    public void selectPiece(@NonNull Player player, @NonNull UUID targetPieceId) {
+    public void selectPiece(@NonNull Player player, @NonNull UUID pieceId) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
-        UnitPiece piece = game.findPiece(targetPieceId).orElseThrow(PieceException::notFound);
+        Piece piece = game.findPiece(pieceId).orElseThrow(GameException::pieceNotFound);
         PieceSpec spec = piece.spec();
         PieceType type = spec.type();
 
-        if (type == PieceType.PAWN) {
+        if (!piece.isSelectable()) {
             throw PieceException.cannotSelectPawn();
         }
 
-        if (piece.isSelected()) {
+        if (game.isPieceSelected(pieceId)) {
             throw PieceException.alreadySelected();
         }
 
         try {
-            gameRepository.save(game.updatePiece(piece.selectedBy(player.getUniqueId())));
+            gameRepository.save(game.selectPiece(player.getUniqueId(), pieceId));
         } catch (PersistenceException e) {
-            throw GameSystemException.pieceSelectionFailed(targetPieceId, e);
+            throw GameSystemException.pieceSelectionFailed(pieceId, e);
         }
 
         applyStats(player, pieceStatProvider.getStats(spec));

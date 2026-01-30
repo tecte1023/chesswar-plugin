@@ -3,7 +3,7 @@ package dev.tecte.chessWar.board.domain.model.spec;
 import lombok.NonNull;
 
 /**
- * 체스판의 각 칸의 크기(너비와 높이)를 정의하는 레코드입니다.
+ * 체스판 칸의 크기 명세를 정의하는 불변 객체입니다.
  *
  * @param width  칸의 너비
  * @param height 칸의 높이
@@ -23,7 +23,7 @@ public record SquareSpec(int width, int height) {
     }
 
     /**
-     * 기본값으로 {@link SquareSpec} 인스턴스를 생성합니다.
+     * 기본 칸 명세를 생성합니다.
      *
      * @return 기본 칸 명세
      */

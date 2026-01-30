@@ -19,7 +19,7 @@ import org.bukkit.entity.Entity;
 import java.util.UUID;
 
 /**
- * MythicMobs 플러그인을 활용하여 기물을 소환하고 제거하는 {@link PieceSpawner}의 구현체입니다.
+ * MythicMobs를 사용하여 기물을 소환하고 제거합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)

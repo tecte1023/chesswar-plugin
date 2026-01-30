@@ -7,7 +7,7 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.function.Consumer;
 
 /**
- * 게임 내 비동기 작업 및 스케줄링을 담당하는 포트 인터페이스입니다.
+ * 게임 내 비동기 작업 및 스케줄링을 수행합니다.
  */
 public interface GameTaskScheduler {
     /**

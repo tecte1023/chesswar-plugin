@@ -13,7 +13,7 @@ import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
 import dev.tecte.chessWar.piece.application.PieceService;
 import dev.tecte.chessWar.piece.application.port.PieceInfoRenderer;
-import dev.tecte.chessWar.piece.domain.model.PieceType;
+import dev.tecte.chessWar.piece.domain.model.Piece;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.team.application.TeamService;
@@ -34,7 +34,7 @@ import org.bukkit.util.Vector;
 import java.util.Map;
 
 /**
- * 게임의 생명주기와 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다
+ * 게임의 생명주기와 도메인 로직을 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -83,8 +83,7 @@ public class GameService {
     }
 
     /**
-     * 게임을 중단하고 모든 데이터를 초기화합니다.
-     * 소환된 기물들도 모두 제거됩니다.
+     * 진행 중인 게임을 중단합니다.
      *
      * @param sender 명령어를 실행한 주체
      */
@@ -94,28 +93,55 @@ public class GameService {
 
         gameNotifier.stopGuidance();
         gameTaskScheduler.shutdown();
-        pieceService.despawnPieces(game);
+        pieceService.despawnPieces(game.unitPieces());
         teamService.revealEnemies();
         gameRepository.delete();
         gameNotifier.notifyGameStop(sender);
     }
 
     /**
-     * 대상 엔티티를 검사하고, 조건이 충족되면 상세 정보를 표시합니다.
-     * <p>
-     * <b>직업 선택 단계</b>이며 자신의 팀 기물인 경우, 해당 기물의 상세 정보를 보여줍니다. (단, 폰은 제외됩니다.)
+     * 대상 기물의 상세 정보를 표시합니다.
      *
      * @param player 정보를 표시할 대상 플레이어
      * @param entity 검사 대상 엔티티
      */
     @HandleException
     public void inspectPiece(@NonNull Player player, @NonNull Entity entity) {
-        gameRepository.find()
-                .filter(game -> game.phase() == GamePhase.PIECE_SELECTION)
-                .flatMap(game -> game.findPiece(entity.getUniqueId()))
-                .filter(piece -> piece.spec().type() != PieceType.PAWN)
-                .filter(piece -> isFriendlyPiece(player, piece))
-                .ifPresent(piece -> pieceInfoRenderer.renderInfo(player, piece));
+        Game game = gameRepository.find().orElse(null);
+
+        if (game == null || game.phase() != GamePhase.PIECE_SELECTION) {
+            return;
+        }
+
+        game.findPiece(entity.getUniqueId())
+                .filter(piece -> piece instanceof UnitPiece)
+                .map(piece -> (UnitPiece) piece)
+                .filter(Piece::isSelectable)
+                .filter(unitPiece -> isFriendlyPiece(player, unitPiece))
+                .ifPresent(unitPiece -> pieceInfoRenderer.renderInfo(
+                        player,
+                        unitPiece,
+                        game.isPieceSelected(unitPiece.id())
+                ));
+    }
+
+    /**
+     * 플레이어 접속 시 게임 단계에 맞춰 시야를 업데이트합니다.
+     *
+     * @param player 접속한 플레이어
+     */
+    @HandleException
+    public void updatePlayerVisibility(@NonNull Player player) {
+        gameRepository.find().ifPresent(game -> {
+            if (game.phase() != GamePhase.PIECE_SELECTION) {
+                return;
+            }
+
+            teamService.findTeam(player).ifPresent(team -> {
+                teamService.concealEnemiesFor(player, team);
+                pieceService.concealEnemyPiecesFor(game, player, team);
+            });
+        });
     }
 
     private void startPieceSelectionPhase(
@@ -124,17 +150,19 @@ public class GameService {
             @NonNull CommandSender sender
     ) {
         pieceService.spawnPieces(game.board(), world)
-                .thenAccept(this::registerSpawnedPieces)
+                .thenAccept(spawnedPieces -> {
+                    registerSpawnedPieces(spawnedPieces);
+                    teleportPlayersToStartingPositions(game, world);
+                    teamService.concealEnemies();
+                    gameNotifier.announcePieceSelectionStart(teamService.getAllOnlinePlayers());
+                    gameNotifier.startPieceSelectionGuidance();
+                    schedulePieceSelectionPhaseEnd();
+                })
                 .exceptionally(t -> {
                     onPieceSpawnFailed(t, sender);
 
                     return null;
                 });
-        teleportPlayersToStartingPositions(game, world);
-        teamService.concealEnemies();
-        gameNotifier.announcePieceSelectionStart(teamService.getAllOnlinePlayers());
-        gameNotifier.startPieceSelectionGuidance();
-        schedulePieceSelectionPhaseEnd();
     }
 
     private void registerSpawnedPieces(@NonNull Map<Coordinate, UnitPiece> spawnedPieces) {
@@ -170,10 +198,11 @@ public class GameService {
     }
 
     private void schedulePieceSelectionPhaseEnd() {
-        gameTaskScheduler.scheduleOnce(GameTaskType.PHASE_TRANSITION, () -> {
-            gameNotifier.stopGuidance();
-            startTurnOrderSelectionPhase();
-        }, PIECE_SELECTION_DURATION_TICKS);
+        gameTaskScheduler.scheduleOnce(
+                GameTaskType.PHASE_TRANSITION,
+                gameNotifier::stopGuidance,
+                PIECE_SELECTION_DURATION_TICKS
+        );
     }
 
     @NonNull
@@ -191,19 +220,9 @@ public class GameService {
         return location;
     }
 
-    private void startTurnOrderSelectionPhase() {
-        Game game = gameRepository.find()
-                .orElseThrow(() -> GameSystemException.gameTransitionInterrupted(GamePhase.TURN_ORDER_SELECTION));
-        Game turnOrderSelectionPhaseGame = game.startTurnSelection();
-
-        gameRepository.save(turnOrderSelectionPhaseGame);
-        teamService.revealEnemies();
-        pieceService.revealPieces(turnOrderSelectionPhaseGame);
-    }
-
-    private boolean isFriendlyPiece(@NonNull Player player, @NonNull UnitPiece piece) {
+    private boolean isFriendlyPiece(@NonNull Player player, @NonNull Piece piece) {
         return teamService.findTeam(player)
-                .map(team -> team == piece.spec().teamColor())
+                .map(piece::isTeam)
                 .orElse(false);
     }
 }

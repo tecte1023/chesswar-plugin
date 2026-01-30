@@ -12,7 +12,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 /**
- * MythicMobs 플러그인과의 연동을 설정하는 클래스입니다.
+ * MythicMobs 연동을 설정합니다.
  * 플러그인 활성화 시, 기물에 대한 MythicMobs 설정 파일이 없으면 자동으로 복사합니다.
  */
 @Slf4j(topic = "ChessWar")

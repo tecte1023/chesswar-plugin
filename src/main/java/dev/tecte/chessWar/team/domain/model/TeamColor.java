@@ -29,14 +29,14 @@ public enum TeamColor {
     private final NamedTextColor textColor;
 
     /**
-     * 문자열 값으로부터 {@link TeamColor}를 찾습니다.
+     * 이름(대소문자 무관)으로 해당 팀 색상을 찾습니다.
      *
-     * @param value 팀 색상을 나타내는 문자열 (대소문자 구분 없음)
-     * @return 해당 팀 색상의 {@link TeamColor}를 담은 {@link Optional}, 없으면 빈 {@link Optional}
+     * @param name 팀 색상 이름
+     * @return 찾은 팀 색상
      */
     @NonNull
-    public static Optional<TeamColor> from(@NonNull String value) {
-        return Optional.ofNullable(LOOKUP.get(value.toUpperCase()));
+    public static Optional<TeamColor> from(@NonNull String name) {
+        return Optional.ofNullable(LOOKUP.get(name.toUpperCase()));
     }
 
     /**

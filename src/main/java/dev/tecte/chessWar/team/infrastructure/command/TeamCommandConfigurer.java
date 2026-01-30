@@ -11,7 +11,7 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 /**
- * Team 도메인의 커맨드 설정을 담당하는 클래스입니다.
+ * Team 도메인의 커맨드 설정을 수행합니다.
  * {@link CommandConfigurer} 인터페이스의 구현체로서, Team 관련 커맨드가 필요로 하는
  * 컨텍스트 리졸버(예: {@link TeamColor})나 자동완성 규칙을 {@link PaperCommandManager}에 등록합니다.
  * <p>

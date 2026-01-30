@@ -16,11 +16,11 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * 기물 선택 및 참전에 관한 명령어를 처리하는 클래스입니다.
+ * 기물 관련 명령어를 처리하는 클래스입니다.
  */
 @Singleton
-@CommandAlias(CommandConstants.ROOT)
-@Subcommand("piece")
+@CommandAlias(CommandConstants.ROOT_ALIAS)
+@Subcommand(PieceCommandConstants.PIECE)
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
 public class PieceSelectCommand extends BaseCommand {
@@ -28,20 +28,20 @@ public class PieceSelectCommand extends BaseCommand {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 대상 기물을 선택하여 전장에 참전합니다.
+     * 플레이어가 대상 기물이 되어 전장에 참전합니다.
      *
      * @param player  명령어를 실행한 플레이어
-     * @param pieceId 참전할 대상 기물의 엔티티 UUID
+     * @param pieceId 참전할 대상 기물의 식별자
      */
-    @Subcommand("select")
-    @Description("대상 기물을 선택하여 전장에 참전합니다.")
-    public void selectPiece(@NonNull Player player, @NonNull String pieceId) {
+    @Subcommand(PieceCommandConstants.SELECT)
+    @Description("플레이어가 대상 기물이 되어 전장에 참전합니다.")
+    public void select(@NonNull Player player, @NonNull String pieceId) {
         UUID uuid;
 
         try {
             uuid = UUID.fromString(pieceId);
         } catch (IllegalArgumentException e) {
-            senderNotifier.notifyError(player, "해당 기물을 찾을 수 없습니다.");
+            senderNotifier.notifyError(player, "입력하신 ID가 올바르지 않습니다.");
 
             return;
         }

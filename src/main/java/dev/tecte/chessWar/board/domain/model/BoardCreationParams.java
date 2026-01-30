@@ -5,9 +5,9 @@ import org.bukkit.util.Vector;
 import java.util.Objects;
 
 /**
- * 체스판 생성을 위한 파라미터를 담는 레코드입니다.
+ * 체스판 생성 파라미터를 정의하는 불변 객체입니다.
  *
- * @param worldName   체스판이 생성될 월드의 이름
+ * @param worldName   체스판 생성 월드의 이름
  * @param gridAnchor  격자의 기준점 (a1: 좌측 하단 모서리)
  * @param orientation 격자의 방향
  */

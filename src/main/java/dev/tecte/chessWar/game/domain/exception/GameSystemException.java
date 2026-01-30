@@ -26,11 +26,11 @@ public class GameSystemException extends NotifiableSystemException {
     }
 
     /**
-     * 기물 선택 처리에 실패했을 때 발생합니다.
+     * 기물 선택에 실패했을 때 발생합니다.
      *
-     * @param pieceId 선택 대상 기물의 UUID
-     * @param cause   원인 예외
-     * @return {@link GameSystemException}의 새 인스턴스
+     * @param pieceId 선택 대상 기물의 식별자
+     * @param cause   실패 원인
+     * @return 생성된 예외
      */
     @NonNull
     public static GameSystemException pieceSelectionFailed(@NonNull UUID pieceId, @NonNull Throwable cause) {
@@ -42,30 +42,30 @@ public class GameSystemException extends NotifiableSystemException {
     }
 
     /**
-     * 게임 시작 프로세스가 예기치 않게 중단되었을 때 발생합니다.
+     * 게임 시작이 중단되었을 때 발생합니다.
      *
-     * @return {@link GameSystemException}의 새 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameSystemException gameStartInterrupted() {
         return new GameSystemException(
                 "Game start process interrupted [Reason: Game instance missing during piece registration]",
-                "시스템 오류로 게임이 중단되었습니다."
+                "시스템 오류로 게임을 시작하는 데 실패했습니다."
         );
     }
 
     /**
-     * 게임 단계 전환 프로세스가 예기치 않게 중단되었을 때 발생합니다.
+     * 게임 단계 전환이 중단되었을 때 발생합니다.
      *
-     * @param targetPhase 전환하려는 대상 단계
-     * @return {@link GameSystemException}의 새 인스턴스
+     * @param targetPhase 전환 대상 단계
+     * @return 생성된 예외
      */
     @NonNull
     public static GameSystemException gameTransitionInterrupted(@NonNull GamePhase targetPhase) {
         return new GameSystemException(
                 "Game phase transition interrupted [Target: %s, Reason: Game instance missing]"
                         .formatted(targetPhase.name()),
-                "시스템 오류로 게임이 중단되었습니다."
+                "시스템 오류로 게임을 진행하는 데 실패했습니다."
         );
     }
 }

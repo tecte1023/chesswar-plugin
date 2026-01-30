@@ -5,7 +5,7 @@ import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import lombok.NonNull;
 
 /**
- * 기물의 스탯 정보를 제공하는 포트 인터페이스입니다.
+ * 기물의 스탯 정보를 제공합니다.
  */
 public interface PieceStatProvider {
     /**

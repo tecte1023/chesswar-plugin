@@ -3,6 +3,7 @@ package dev.tecte.chessWar.piece.infrastructure.bukkit;
 import dev.tecte.chessWar.piece.application.port.PieceInfoRenderer;
 import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
+import dev.tecte.chessWar.piece.infrastructure.command.PieceCommandConstants;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import io.lumine.mythic.core.mobs.MobExecutor;
 import jakarta.inject.Inject;
@@ -18,10 +19,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 
 /**
- * {@link PieceInfoRenderer}의 Bukkit 구현체입니다.
- * <p>
- * MythicMobs 플러그인의 API를 사용하여 활성 몹의 실시간 정보를 조회하고,
- * 플레이어의 채팅창에 기물의 상세 정보를 렌더링합니다.
+ * MythicMobs API를 사용하여 기물 정보를 채팅창에 표시합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -35,9 +33,9 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     private final MobExecutor mobExecutor;
 
     @Override
-    public void renderInfo(@NonNull Player player, @NonNull UnitPiece piece) {
-        ActiveMob activeMob = mobExecutor.getActiveMob(piece.entityId())
-                .orElseThrow(() -> PieceSystemException.entityMissing(piece.entityId()));
+    public void renderInfo(@NonNull Player player, @NonNull UnitPiece piece, boolean isSelected) {
+        ActiveMob activeMob = mobExecutor.getActiveMob(piece.id())
+                .orElseThrow(() -> PieceSystemException.entityMissing(piece.id()));
         Component infoPanel = Component.join(
                 JoinConfiguration.newlines(),
                 Component.empty(),
@@ -48,7 +46,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
                 buildStats(activeMob),
                 buildRangeInfo(piece),
                 Component.empty(),
-                buildPromotionButton(piece),
+                buildPromotionButton(piece, isSelected),
                 Component.empty()
         );
 
@@ -86,10 +84,10 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     }
 
     @NonNull
-    private Component buildPromotionButton(@NonNull UnitPiece piece) {
+    private Component buildPromotionButton(@NonNull UnitPiece piece, boolean isSelected) {
         Component button;
 
-        if (piece.isSelected()) {
+        if (isSelected) {
             button = Component.text()
                     .color(NamedTextColor.GRAY)
                     .append(Component.text("[ ⚔ "))
@@ -108,7 +106,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
                     .hoverEvent(HoverEvent.showText(
                             Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN)
                     ))
-                    .clickEvent(ClickEvent.runCommand("/chesswar piece select " + piece.entityId()))
+                    .clickEvent(ClickEvent.runCommand(PieceCommandConstants.buildSelectCommand(piece.id())))
                     .build();
         }
 

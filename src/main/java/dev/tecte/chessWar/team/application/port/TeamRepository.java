@@ -8,7 +8,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * 팀 데이터의 영속성을 관리하는 리포지토리 인터페이스입니다.
+ * 팀의 영속성을 관리합니다.
  * 팀의 상태를 조회하거나 변경하는 메서드를 정의합니다.
  */
 public interface TeamRepository {

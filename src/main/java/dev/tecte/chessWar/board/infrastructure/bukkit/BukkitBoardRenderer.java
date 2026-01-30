@@ -33,9 +33,6 @@ public class BukkitBoardRenderer implements BoardRenderer {
     private final SquareTheme squareTheme;
     private final BorderTheme borderTheme;
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void render(@NonNull Board board, @NonNull World world) {
         renderSquares(board, world);
