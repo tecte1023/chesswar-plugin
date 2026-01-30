@@ -9,7 +9,7 @@ import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link Loggable} 인터페이스를 구현한 예외를 처리하여 로그를 남기는 핸들러입니다.
+ * 로그 기록이 필요한 예외를 처리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -21,7 +21,7 @@ public class LoggingHandler implements ExceptionHandler {
 
     @Override
     public void handle(@NonNull Exception e, @Nullable CommandSender sender) {
-        log.atLevel(((Loggable) e).getLogLevel())
+        log.atLevel(((Loggable) e).logLevel())
                 .setCause(e)
                 .log(e.getMessage());
     }

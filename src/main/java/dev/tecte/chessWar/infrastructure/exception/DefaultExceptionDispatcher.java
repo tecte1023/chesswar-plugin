@@ -15,8 +15,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Set;
 
 /**
- * 예외 처리 로직의 단일 진실 공급원입니다.
- * 예외가 발생했을 때 적절한 핸들러를 찾아 실행하는 역할만 전담합니다.
+ * 예외를 핸들러에게 전달합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton

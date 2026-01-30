@@ -5,7 +5,7 @@ import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 시스템 오류 중 사용자에게 알림이 필요한 예외를 나타내는 추상 클래스입니다.
+ * 알림이 필요한 시스템 예외입니다.
  * <p>
  * 이 예외는 시스템 로그를 기록하고, 동시에 사용자에게도 알림 메시지를 전달합니다.
  * 주로 사용자의 흐름을 중단시켜야 하는 심각한 기술적 오류 상황에서 사용합니다.

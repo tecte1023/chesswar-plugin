@@ -4,13 +4,13 @@ import lombok.NonNull;
 import net.kyori.adventure.text.Component;
 
 /**
- * 이 인터페이스를 구현하는 예외는 발생 시 사용자에게 알려야 함을 나타냅니다.
+ * 사용자 알림이 필요한 예외입니다.
  */
 public interface Notifiable {
     /**
-     * 사용자에게 알림으로 보낼 {@link Component}를 반환합니다.
+     * 사용자에게 전달할 알림 메시지를 반환합니다.
      *
-     * @return 사용자 알림용 {@link Component}
+     * @return 알림 메시지
      */
     @NonNull
     Component userMessage();

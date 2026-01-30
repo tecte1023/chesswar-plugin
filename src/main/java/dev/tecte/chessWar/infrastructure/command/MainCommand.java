@@ -9,16 +9,20 @@ import jakarta.inject.Singleton;
 import lombok.NonNull;
 
 /**
- * 플러그인의 루트 명령어를 처리하는 클래스입니다.
- * 다른 서브커맨드가 없는 경우 기본적으로 도움말을 표시합니다.
+ * 루트 명령어를 처리하는 클래스입니다.
  */
 @Singleton
-@CommandAlias(CommandConstants.ROOT)
+@CommandAlias(CommandConstants.ROOT_ALIAS)
 public class MainCommand extends BaseCommand {
+    /**
+     * 도움말을 표시합니다.
+     *
+     * @param help 커맨드 도움말
+     */
     @Default
     @HelpCommand
     @SuppressWarnings("unused")
-    public void onHelp(@NonNull CommandHelp help) {
+    public void help(@NonNull CommandHelp help) {
         help.showHelp();
     }
 }

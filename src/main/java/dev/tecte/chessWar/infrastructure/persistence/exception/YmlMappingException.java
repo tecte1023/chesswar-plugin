@@ -5,10 +5,9 @@ import lombok.NonNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * YML 데이터 매핑 과정에서 발생하는 예외를 나타냅니다.
+ * YAML 데이터 매핑 관련 시스템 예외입니다.
  * <p>
- * I/O 작업은 성공했으나, 파일 내용의 누락, 타입 불일치, 범위 초과 등 데이터 무결성 문제가 있을 때 발생합니다.
- * 이 예외는 서버 설정 오류로 간주하여 로그에 상세 내용을 기록합니다.
+ * 이 예외는 시스템 로그만 기록하며, 사용자에게는 별도의 알림을 보내지 않습니다.
  */
 public class YmlMappingException extends SystemException {
     private YmlMappingException(@NonNull String internalMessage) {
@@ -20,11 +19,11 @@ public class YmlMappingException extends SystemException {
     }
 
     /**
-     * 필수 키가 없을 때 예외를 생성합니다.
+     * 키 누락 예외를 생성합니다.
      *
      * @param key  누락된 키
-     * @param path 탐색한 경로
-     * @return 생성된 예외 객체
+     * @param path 섹션 경로
+     * @return 생성된 예외
      */
     @NonNull
     public static YmlMappingException forMissingKey(@NonNull String key, @Nullable String path) {
@@ -32,13 +31,13 @@ public class YmlMappingException extends SystemException {
     }
 
     /**
-     * 값의 타입이 유효하지 않을 때 예외를 생성합니다.
+     * 타입 불일치 예외를 생성합니다.
      *
-     * @param key      키 이름
-     * @param path     탐색한 경로
-     * @param expected 기대한 타입
+     * @param key      키
+     * @param path     섹션 경로
+     * @param expected 기대 타입
      * @param actual   실제 타입
-     * @return 생성된 예외 객체
+     * @return 생성된 예외
      */
     @NonNull
     public static YmlMappingException forInvalidType(
@@ -53,12 +52,12 @@ public class YmlMappingException extends SystemException {
     }
 
     /**
-     * Enum으로 변환할 수 없는 값일 때 예외를 생성합니다.
+     * Enum 상수 불일치 예외를 생성합니다.
      *
-     * @param key   키 이름
-     * @param path  탐색한 경로
-     * @param value 변환에 실패한 값
-     * @return 생성된 예외 객체
+     * @param key   키
+     * @param path  섹션 경로
+     * @param value 잘못된 값
+     * @return 생성된 예외
      */
     @NonNull
     public static YmlMappingException forInvalidEnumValue(
@@ -70,51 +69,31 @@ public class YmlMappingException extends SystemException {
     }
 
     /**
-     * 값의 길이가 기대한 값과 다를 때 예외를 생성합니다.
+     * 형식 불일치 예외를 생성합니다.
      *
-     * @param path           탐색한 경로
-     * @param expectedLength 기대한 길이
-     * @param value          잘못된 길이의 실제 값
-     * @return 생성된 예외 객체
+     * @param value          잘못된 값
+     * @param path           섹션 경로
+     * @param expectedFormat 기대 형식
+     * @param cause          원인 예외
+     * @return 생성된 예외
      */
     @NonNull
-    public static YmlMappingException forLengthMismatch(
-            @Nullable String path,
-            int expectedLength,
-            @NonNull String value
-    ) {
-        return new YmlMappingException(
-                "Value length mismatch [Section: %s, Expected: %d, Actual: %d, Value: %s]"
-                        .formatted(path, expectedLength, value.length(), value)
-        );
-    }
-
-    /**
-     * 값이 허용된 범위를 벗어났을 때 예외를 생성합니다.
-     *
-     * @param path          탐색한 경로
-     * @param expectedRange 기대한 범위 설명
-     * @param value         범위를 벗어난 실제 값
-     * @param cause         원인이 된 예외
-     * @return 생성된 예외 객체
-     */
-    @NonNull
-    public static YmlMappingException forValueOutOfBounds(
-            @Nullable String path,
-            @NonNull String expectedRange,
+    public static YmlMappingException forInvalidFormat(
             @NonNull String value,
+            @Nullable String path,
+            @NonNull String expectedFormat,
             @Nullable Throwable cause
     ) {
         return new YmlMappingException(
-                "Value out of bounds [Section: %s, Expected: %s, Actual: %s]".formatted(path, expectedRange, value),
+                "Invalid value format [Value: %s, Section: %s, Expected: %s]".formatted(value, path, expectedFormat),
                 cause
         );
     }
 
     /**
-     * 게임을 생성하려는데 보드가 없을 때 예외를 생성합니다.
+     * 필수 체스판 데이터 누락 예외를 생성합니다.
      *
-     * @return 생성된 예외 객체
+     * @return 생성된 예외
      */
     @NonNull
     public static YmlMappingException forMissingBoard() {
