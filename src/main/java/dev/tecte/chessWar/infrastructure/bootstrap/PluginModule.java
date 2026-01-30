@@ -18,8 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
 
 /**
- * 플러그인 전체의 의존성 주입 설정을 총괄하는 최상위 Guice 모듈입니다.
- * 각 도메인 모듈을 설치하고, 플러그인 전역에서 사용될 객체들을 제공합니다.
+ * 플러그인의 최상위 의존성 주입 설정을 담당하는 Guice 모듈입니다.
  */
 @RequiredArgsConstructor
 public class PluginModule extends AbstractModule {

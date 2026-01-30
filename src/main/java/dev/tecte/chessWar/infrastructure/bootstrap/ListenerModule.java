@@ -5,9 +5,7 @@ import com.google.inject.multibindings.Multibinder;
 import org.bukkit.event.Listener;
 
 /**
- * Bukkit 이벤트 리스너의 의존성 주입 설정을 담당하는 Guice 모듈입니다.
- * {@link Multibinder}를 사용하여 플러그인 전체에 흩어져 있는 {@link Listener} 구현체들을 하나의 집합으로 묶습니다.
- * 이렇게 수집된 리스너들은 {@link ListenerRegistrar}에 의해 Bukkit 서버에 일괄 등록됩니다.
+ * 이벤트 리스너 관련 의존성 주입을 설정하는 Guice 모듈입니다.
  */
 public class ListenerModule extends AbstractModule {
     @Override

@@ -11,7 +11,7 @@ import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * {@link Notifiable} 인터페이스를 구현한 예외를 처리하여 사용자에게 메시지를 전송하는 핸들러입니다.
+ * 사용자 알림이 필요한 예외를 처리합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)

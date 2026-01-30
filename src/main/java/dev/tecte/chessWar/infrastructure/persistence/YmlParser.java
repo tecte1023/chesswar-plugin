@@ -10,20 +10,17 @@ import java.util.UUID;
 import java.util.function.Function;
 
 /**
- * YAML 파일에서 데이터를 안전하게 파싱하는 유틸리티 클래스입니다.
- * Bukkit의 {@link ConfigurationSection}에서 특정 키가 존재하지 않거나 타입이 일치하지 않을 경우,
- * {@link YmlMappingException}을 발생시킵니다.
+ * YAML 데이터를 파싱합니다.
  */
 @Singleton
 public class YmlParser {
     /**
-     * 지정된 경로에서 {@link ConfigurationSection}을 가져옵니다.
-     * 섹션이 존재하지 않으면 {@link YmlMappingException}을 발생시킵니다.
+     * 지정된 경로의 설정 섹션을 가져옵니다.
      *
-     * @param parent 부모 {@link ConfigurationSection}
-     * @param key    찾고자 하는 하위 섹션의 키
-     * @return 찾은 {@link ConfigurationSection}
-     * @throws YmlMappingException 키에 해당하는 섹션이 없을 경우
+     * @param parent 부모 섹션
+     * @param key    키
+     * @return 설정 섹션
+     * @throws YmlMappingException 섹션이 없을 경우
      */
     @NonNull
     public ConfigurationSection requireSection(@NonNull ConfigurationSection parent, @NonNull String key) {
@@ -32,15 +29,26 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 필수 값을 특정 타입으로 가져옵니다.
-     * 키가 존재하지 않거나, 값이 null이거나, 타입이 일치하지 않으면 {@link YmlMappingException}을 발생시킵니다.
+     * 지정된 경로의 설정 섹션을 선택적으로 가져옵니다.
      *
-     * @param section 값을 가져올 {@link ConfigurationSection}
-     * @param key     찾고자 하는 값의 키
-     * @param type    기대하는 값의 타입
+     * @param parent 부모 섹션
+     * @param key    키
+     * @return 찾은 설정 섹션
+     */
+    @NonNull
+    public Optional<ConfigurationSection> findSection(@NonNull ConfigurationSection parent, @NonNull String key) {
+        return Optional.ofNullable(parent.getConfigurationSection(key));
+    }
+
+    /**
+     * 지정된 경로의 필수 값을 가져옵니다.
+     *
+     * @param section 설정 섹션
+     * @param key     키
+     * @param type    값의 타입
      * @param <T>     값의 타입
      * @return 찾은 값
-     * @throws YmlMappingException 키가 없거나, 값이 null이거나, 타입이 일치하지 않을 경우
+     * @throws YmlMappingException 값이 없거나 타입이 일치하지 않을 경우
      */
     @NonNull
     public <T> T requireValue(
@@ -65,15 +73,14 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 값을 선택적으로 가져옵니다.
-     * 키가 존재하지 않거나 값이 null인 경우 빈 Optional을 반환합니다.
+     * 지정된 경로의 값을 선택적으로 가져옵니다.
      *
-     * @param section 값을 가져올 {@link ConfigurationSection}
-     * @param key     찾고자 하는 값의 키
-     * @param type    기대하는 값의 타입 클래스
+     * @param section 설정 섹션
+     * @param key     키
+     * @param type    값의 타입
      * @param <T>     값의 타입
-     * @return 값이 존재하고 타입이 일치하면 {@link Optional}에 담아 반환, 그렇지 않으면 빈 {@link Optional}
-     * @throws YmlMappingException 값이 존재하지만 지정된 타입과 일치하지 않는 경우
+     * @return 찾은 값
+     * @throws YmlMappingException 값이 존재하지만 타입이 일치하지 않을 경우
      */
     @NonNull
     public <T> Optional<T> findValue(
@@ -103,15 +110,14 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 필수 Enum 상수를 가져옵니다.
-     * 값이 존재하지 않거나 유효한 Enum 상수가 아니면 {@link YmlMappingException}을 발생시킵니다.
+     * 지정된 경로의 필수 Enum 상수를 가져옵니다.
      *
-     * @param section    값을 가져올 {@link ConfigurationSection}
-     * @param key        찾고자 하는 값의 키
-     * @param enumParser 문자열을 Optional<T>로 변환하는 팩토리 메소드
-     * @param <T>        값의 타입
+     * @param section    설정 섹션
+     * @param key        키
+     * @param enumParser 문자열 파서 함수
+     * @param <T>        Enum 타입
      * @return 찾은 Enum 상수
-     * @throws YmlMappingException 키가 없거나, 값이 유효한 Enum 상수가 아닐 경우
+     * @throws YmlMappingException 값이 없거나 유효한 Enum 상수가 아닐 경우
      */
     @NonNull
     public <T> T requireEnum(
@@ -126,14 +132,14 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 Enum 상수를 선택적으로 가져옵니다.
+     * 지정된 경로의 Enum 상수를 선택적으로 가져옵니다.
      *
-     * @param section    값을 가져올 {@link ConfigurationSection}
-     * @param key        찾고자 하는 값의 키
-     * @param enumParser 문자열을 Enum 타입으로 변환하는 파서 함수
+     * @param section    설정 섹션
+     * @param key        키
+     * @param enumParser 문자열 파서 함수
      * @param <T>        Enum 타입
-     * @return 값이 존재하고 유효한 Enum 상수면 {@link Optional}에 담아 반환, 값이 없으면 빈 {@link Optional}
-     * @throws YmlMappingException 값이 존재하지만 유효한 Enum 상수가 아닌 경우
+     * @return 찾은 Enum 상수
+     * @throws YmlMappingException 값이 존재하지만 유효한 Enum 상수가 아닐 경우
      */
     @NonNull
     public <T> Optional<T> findEnum(
@@ -146,12 +152,11 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 필수 UUID 값을 가져옵니다.
-     * 키가 없거나 형식이 올바르지 않으면 예외를 발생시킵니다.
+     * 지정된 경로의 필수 식별자를 가져옵니다.
      *
-     * @param section 값을 가져올 {@link ConfigurationSection}
-     * @param key     찾고자 하는 값의 키
-     * @return 파싱된 UUID
+     * @param section 설정 섹션
+     * @param key     키
+     * @return 식별자
      */
     @NonNull
     public UUID requireUUID(@NonNull ConfigurationSection section, @NonNull String key) {
@@ -165,14 +170,11 @@ public class YmlParser {
     }
 
     /**
-     * 지정된 경로에서 UUID 값을 선택적으로 가져옵니다.
-     * 키가 없거나 값이 null인 경우 빈 Optional을 반환합니다.
-     * 형식이 올바르지 않은 경우 예외를 발생시킵니다.
+     * 지정된 경로의 식별자를 선택적으로 가져옵니다.
      *
-     * @param section 값을 가져올 {@link ConfigurationSection}
-     * @param key     찾고자 하는 값의 키
-     * @return 파싱된 UUID를 담은 Optional, 없으면 빈 Optional
-     * @throws YmlMappingException 값이 존재하지만 UUID 형식이 아닌 경우
+     * @param section 설정 섹션
+     * @param key     키
+     * @return 식별자
      */
     @NonNull
     public Optional<UUID> findUUID(@NonNull ConfigurationSection section, @NonNull String key) {
@@ -183,5 +185,21 @@ public class YmlParser {
                 throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), UUID.class.getSimpleName(), v);
             }
         });
+    }
+
+    /**
+     * 섹션의 키 문자열을 식별자로 변환합니다.
+     *
+     * @param section 설정 섹션
+     * @param key     키
+     * @return 식별자
+     */
+    @NonNull
+    public UUID parseKeyAsUUID(@NonNull ConfigurationSection section, @NonNull String key) {
+        try {
+            return UUID.fromString(key);
+        } catch (IllegalArgumentException e) {
+            throw YmlMappingException.forInvalidType(key, section.getCurrentPath(), UUID.class.getSimpleName(), key);
+        }
     }
 }

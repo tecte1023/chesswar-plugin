@@ -20,8 +20,9 @@ import java.nio.file.StandardCopyOption;
 import static com.google.common.io.Files.touch;
 
 /**
- * YML 파일의 생성, 로드, 저장을 관리하는 클래스입니다.
- * 플러그인의 데이터 폴더 내에서 특정 YML 파일을 안전하게 다루는 기본 I/O 작업을 캡슐화합니다.
+ * YAML 파일 I/O를 관리합니다.
+ * <p>
+ * 플러그인의 데이터 폴더 내에서 특정 YAML 파일을 안전하게 다루는 기본 I/O 작업을 캡슐화합니다.
  */
 public class YmlFileManager {
     private final File file;
@@ -30,11 +31,11 @@ public class YmlFileManager {
     private final FileConfiguration config;
 
     /**
-     * 지정된 파일 이름으로 YML 파일 관리자를 생성하고 설정을 로드합니다.
+     * 지정된 파일 이름으로 YAML 파일 관리자를 생성하고 설정을 로드합니다.
      * 파일이 없으면 기본 템플릿을 복사하거나 빈 파일을 생성합니다.
      *
-     * @param plugin   JavaPlugin 인스턴스
-     * @param fileName 관리할 YML 파일 이름 (확장자 포함)
+     * @param plugin   메인 플러그인
+     * @param fileName 관리할 파일 이름 (확장자 포함)
      * @throws ConfigurationException 파일 생성이나 로드에 실패했을 경우
      */
     @Inject
@@ -44,7 +45,7 @@ public class YmlFileManager {
     }
 
     /**
-     * 파일의 특정 경로에 값을 설정합니다. (메모리상 변경)
+     * 설정 파일에 값을 기록합니다.
      *
      * @param path  값을 설정할 경로
      * @param value 설정할 값
@@ -55,7 +56,8 @@ public class YmlFileManager {
     }
 
     /**
-     * 현재 메모리에 있는 설정 값을 파일에 저장합니다.
+     * 변경 사항을 파일에 저장합니다.
+     * <p>
      * 임시 파일에 먼저 저장한 후 원본 파일로 이동하여, 저장 중 오류 발생 시 파일 손상을 방지합니다.
      *
      * @throws PersistenceException 파일 저장에 실패할 경우

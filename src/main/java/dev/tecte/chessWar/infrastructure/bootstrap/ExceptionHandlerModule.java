@@ -12,8 +12,7 @@ import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.port.exception.ExceptionHandler;
 
 /**
- * 예외 처리와 관련된 의존성 주입 설정을 담당하는 Guice 모듈입니다.
- * AOP를 활용한 예외 처리 인터셉터와, 다양한 예외 처리 핸들러들을 바인딩합니다.
+ * 예외 처리 관련 의존성 주입을 설정하는 Guice 모듈입니다.
  */
 public class ExceptionHandlerModule extends AbstractModule {
     @Override

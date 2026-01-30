@@ -17,11 +17,11 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 /**
- * YML 파일을 이용해 단일 엔티티의 영속성을 구현하는 추상 리포지토리 클래스입니다.
- * 제네릭 타입 V(Value)를 사용하여 특정 도메인 객체의 CRUD 기능을 재사용할 수 있도록 지원합니다.
- * 인메모리 캐싱을 통해 데이터 접근 성능을 향상시키고, 비동기 저장을 통해 메인 스레드 부하를 줄입니다.
+ * 단일 엔티티 영속성을 관리하는 추상 리포지토리입니다.
+ * <p>
+ * 인메모리 캐싱을 통해 접근 성능을 향상시키고, 비동기 저장을 통해 메인 스레드 부하를 줄입니다.
  *
- * @param <V> 리포지토리에서 관리하는 엔티티의 타입
+ * @param <V> 관리하는 엔티티의 타입
  */
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -45,9 +45,9 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 캐시된 엔티티를 안전하게 반환합니다.
+     * 캐시된 엔티티를 반환합니다.
      *
-     * @return 캐시된 엔티티가 존재하면 {@link Optional}에 담아 반환하고, 없으면 빈 {@link Optional}을 반환
+     * @return 찾은 엔티티
      */
     @NonNull
     public Optional<V> find() {
@@ -55,7 +55,7 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 엔티티를 캐시에 저장하고, 파일 시스템에 비동기적으로 반영합니다.
+     * 엔티티를 저장하고 비동기적으로 반영합니다.
      *
      * @param entity 저장할 엔티티
      */
@@ -66,7 +66,6 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
 
     /**
      * 현재 저장된 엔티티를 삭제합니다.
-     * 캐시를 비우고 영구 저장소에서도 데이터를 제거합니다.
      */
     public void delete() {
         cache = null;
@@ -75,33 +74,33 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
 
     @Override
     @HandleException
-    public void persistCache() {
+    public void flush() {
         fileManager.set(getDataPath(), cache == null ? null : serialize(cache));
         fileManager.save();
     }
 
     /**
-     * ConfigurationSection 데이터를 도메인 객체로 역직렬화합니다.
+     * 데이터 섹션에서 엔티티를 역직렬화합니다.
      *
-     * @param section 데이터가 담긴 섹션
-     * @return 역직렬화된 도메인 객체
+     * @param section 데이터 섹션
+     * @return 역직렬화된 엔티티
      */
     @NonNull
     protected abstract V deserialize(@NonNull ConfigurationSection section);
 
     /**
-     * 도메인 객체를 저장 가능한 Map 형태로 직렬화합니다.
+     * 엔티티를 데이터 맵으로 직렬화합니다.
      *
-     * @param entity 직렬화할 도메인 객체
+     * @param entity 직렬화할 엔티티
      * @return 직렬화된 데이터 맵
      */
     @NonNull
     protected abstract Map<String, Object> serialize(@NonNull V entity);
 
     /**
-     * 데이터가 저장될 YML 파일 내의 경로를 반환합니다.
+     * 데이터 저장 경로를 반환합니다.
      *
-     * @return 데이터 경로 문자열
+     * @return 데이터 경로
      */
     @NonNull
     protected abstract String getDataPath();
