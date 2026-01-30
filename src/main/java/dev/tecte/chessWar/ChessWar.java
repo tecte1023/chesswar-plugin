@@ -58,7 +58,7 @@ public final class ChessWar extends JavaPlugin {
         }
 
         if (persistableStates != null) {
-            persistableStates.forEach(PersistableState::persistCache);
+            persistableStates.forEach(PersistableState::flush);
         }
 
         if (commandManager != null) {

@@ -11,8 +11,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 체스판이 놓일 방향을 나타내는 열거형입니다.
- * Bukkit의 8방향 {@link BlockFace}를 동서남북 4방향으로 단순화하여 사용합니다.
+ * 체스판의 방향을 나타내는 열거형입니다.
+ * <p>
+ * 월드의 다양한 방향을 동서남북 4방향으로 단순화하여 정의합니다.
  */
 public enum Orientation {
     NORTH(BlockFace.NORTH),
@@ -37,7 +38,7 @@ public enum Orientation {
     }
 
     /**
-     * Bukkit의 상세한 {@link BlockFace}를 4가지 기본 방향 중 하나로 변환합니다.
+     * 월드의 상세 방향을 체스판의 4가지 방향 중 하나로 변환합니다.
      *
      * @param blockFace 플레이어가 바라보는 방향
      * @return 4가지 기본 방향 중 하나
@@ -53,20 +54,20 @@ public enum Orientation {
     }
 
     /**
-     * 문자열 값으로부터 {@link Orientation}을 찾습니다.
+     * 이름(대소문자 무관)으로 해당 방향을 찾습니다.
      *
-     * @param value 방향을 나타내는 문자열 (대소문자 구분 없음)
-     * @return 해당 방향의 {@link Orientation}을 담은 {@link Optional}, 없으면 빈 {@link Optional}
+     * @param name 방향 이름
+     * @return 찾은 방향
      */
     @NonNull
-    public static Optional<Orientation> from(@NonNull String value) {
-        return Optional.ofNullable(LOOKUP.get(value.toUpperCase()));
+    public static Optional<Orientation> from(@NonNull String name) {
+        return Optional.ofNullable(LOOKUP.get(name.toUpperCase()));
     }
 
     /**
-     * 이 방향의 정면을 향하는 단위 벡터를 반환합니다.
+     * 정면 방향 벡터를 반환합니다.
      *
-     * @return 정면 방향 벡터의 복제본
+     * @return 정면 방향 벡터
      */
     @NonNull
     public Vector forward() {
@@ -74,9 +75,9 @@ public enum Orientation {
     }
 
     /**
-     * 이 방향의 후면을 향하는 단위 벡터를 반환합니다.
+     * 후면 방향 벡터를 반환합니다.
      *
-     * @return 후면 방향 벡터의 복제본
+     * @return 후면 방향 벡터
      */
     @NonNull
     public Vector backward() {
@@ -84,9 +85,9 @@ public enum Orientation {
     }
 
     /**
-     * 이 방향의 왼쪽을 향하는 단위 벡터를 반환합니다.
+     * 왼쪽 방향 벡터를 반환합니다.
      *
-     * @return 왼쪽 방향 벡터의 복제본
+     * @return 왼쪽 방향 벡터
      */
     @NonNull
     public Vector left() {
@@ -94,9 +95,9 @@ public enum Orientation {
     }
 
     /**
-     * 이 방향의 오른쪽을 향하는 단위 벡터를 반환합니다.
+     * 오른쪽 방향 벡터를 반환합니다.
      *
-     * @return 오른쪽 방향 벡터의 복제본
+     * @return 오른쪽 방향 벡터
      */
     @NonNull
     public Vector right() {

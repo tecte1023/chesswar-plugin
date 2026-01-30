@@ -29,8 +29,8 @@ public class PieceSystemException extends NotifiableSystemException {
      * 기물 소환에 실패했을 때 발생합니다.
      *
      * @param spec  소환을 시도한 기물의 명세
-     * @param cause 실패 원인 예외
-     * @return {@link PieceSystemException} 인스턴스
+     * @param cause 실패 원인
+     * @return 생성된 예외
      */
     @NonNull
     public static PieceSystemException spawnFailed(@NonNull PieceSpec spec, @NonNull Throwable cause) {
@@ -42,10 +42,10 @@ public class PieceSystemException extends NotifiableSystemException {
     }
 
     /**
-     * 데이터상으로는 존재하지만 실제 월드 엔티티를 찾을 수 없을 때 발생합니다.
+     * 데이터 불일치로 인해 엔티티를 찾을 수 없을 때 발생합니다.
      *
-     * @param entityId 찾을 수 없는 엔티티의 UUID
-     * @return {@link PieceSystemException} 인스턴스
+     * @param entityId 찾을 수 없는 엔티티의 식별자
+     * @return 생성된 예외
      */
     @NonNull
     public static PieceSystemException entityMissing(@NonNull UUID entityId) {

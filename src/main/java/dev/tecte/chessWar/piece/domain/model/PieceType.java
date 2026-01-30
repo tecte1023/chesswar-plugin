@@ -72,14 +72,14 @@ public enum PieceType {
     private final String rangeDescription;
 
     /**
-     * 문자열 이름(대소문자 무관)으로 해당 기물 타입을 조회합니다.
+     * 이름(대소문자 무관)으로 해당 기물 타입을 찾습니다.
      *
-     * @param value 조회할 기물 타입의 이름
-     * @return 해당 이름과 일치하는 {@link PieceType}을 담은 {@link Optional}, 없으면 빈 {@link Optional}
+     * @param name 기물 타입 이름
+     * @return 찾은 기물 타입
      */
     @NonNull
-    public static Optional<PieceType> from(@NonNull String value) {
-        return Optional.ofNullable(LOOKUP.get(value.toUpperCase()));
+    public static Optional<PieceType> from(@NonNull String name) {
+        return Optional.ofNullable(LOOKUP.get(name.toUpperCase()));
     }
 
     /**

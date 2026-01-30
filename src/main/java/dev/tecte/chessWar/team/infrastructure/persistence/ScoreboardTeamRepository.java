@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * {@link TeamRepository}의 Bukkit Scoreboard API 기반 구현체입니다.
+ * Scoreboard를 사용하여 팀 영속성을 관리합니다.
  * 팀 데이터를 Minecraft Scoreboard에 저장하고 관리합니다.
  */
 @Slf4j(topic = "ChessWar")

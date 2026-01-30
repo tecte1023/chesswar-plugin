@@ -14,19 +14,9 @@ public class PieceException extends BusinessException {
     }
 
     /**
-     * 기물 선택 과정에서 해당 기물을 찾을 수 없을 때 발생합니다.
-     *
-     * @return {@link PieceException} 인스턴스
-     */
-    @NonNull
-    public static PieceException notFound() {
-        return new PieceException("선택하려는 기물이 존재하지 않거나 찾을 수 없습니다.");
-    }
-
-    /**
      * 폰을 참전 대상으로 선택했을 때 발생합니다.
      *
-     * @return {@link PieceException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static PieceException cannotSelectPawn() {
@@ -36,7 +26,7 @@ public class PieceException extends BusinessException {
     /**
      * 이미 다른 플레이어가 참전 중인 기물을 선택하려 할 때 발생합니다.
      *
-     * @return {@link PieceException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static PieceException alreadySelected() {

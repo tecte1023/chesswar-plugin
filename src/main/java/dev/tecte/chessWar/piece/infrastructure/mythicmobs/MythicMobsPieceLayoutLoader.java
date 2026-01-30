@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * MythicMobs API를 활용하여 체스판의 초기 기물 배치를 로드하는 클래스입니다.
+ * 초기 기물 배치를 로드합니다.
  * 이 구현체는 표준 체스 규칙에 따른 기물 배치를 MythicMobs의 몹 정보와 매핑하여 생성합니다.
  */
 @Slf4j(topic = "ChessWar")

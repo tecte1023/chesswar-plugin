@@ -8,7 +8,7 @@ import lombok.NonNull;
 import org.bukkit.util.Vector;
 
 /**
- * 도메인 서비스로서, 팀의 방향과 관련된 정책(규칙)을 결정합니다.
+ * 팀의 방향과 관련된 정책을 결정합니다.
  */
 @Singleton
 public class TeamDirectionPolicy {

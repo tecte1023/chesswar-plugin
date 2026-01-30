@@ -8,7 +8,7 @@ import org.bukkit.entity.Entity;
 import java.util.UUID;
 
 /**
- * 체스 기물의 소환과 제거를 담당하는 포트 인터페이스입니다.
+ * 체스 기물을 소환하거나 제거합니다.
  */
 public interface PieceSpawner {
     /**

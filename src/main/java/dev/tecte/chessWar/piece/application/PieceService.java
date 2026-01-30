@@ -7,6 +7,7 @@ import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.policy.TeamDirectionPolicy;
 import dev.tecte.chessWar.piece.application.port.PieceSpawner;
 import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
+import dev.tecte.chessWar.piece.domain.model.Piece;
 import dev.tecte.chessWar.piece.domain.model.PieceLayout;
 import dev.tecte.chessWar.piece.domain.model.PieceSpec;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
@@ -26,6 +27,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -36,8 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * 기물 도메인의 전체 생명주기를 관리하고,
- * 게임 진행에 필요한 기물 관련 비즈니스 로직을 처리하는 서비스입니다.
+ * 기물의 생명주기와 비즈니스 로직을 처리하는 서비스입니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -55,12 +56,13 @@ public class PieceService {
     private final JavaPlugin plugin;
 
     /**
-     * 기물을 비동기(시차)적으로 소환하고, 작업의 결과를 담은 Future를 반환합니다.
+     * 시차를 두어 기물을 비동기적으로 소환합니다.
+     * <p>
      * 서버 틱마다 일정량씩 나누어 소환하여 메인 스레드 부하를 줄입니다.
      *
-     * @param board 보드 정보
+     * @param board 체스판
      * @param world 소환할 월드
-     * @return 성공 시 소환된 기물들의 맵을 담은 Future, 실패 시 예외를 담은 Future
+     * @return 소환된 기물 배치
      */
     @NonNull
     public CompletableFuture<Map<Coordinate, UnitPiece>> spawnPieces(@NonNull Board board, @NonNull World world) {
@@ -78,17 +80,16 @@ public class PieceService {
     }
 
     /**
-     * 게임에 존재하는 모든 기물을 제거합니다.
+     * 주어진 기물 목록의 모든 기물을 제거합니다.
      *
-     * @param game 현재 게임 상태
+     * @param pieces 제거할 기물 목록
      */
-    public void despawnPieces(@NonNull Game game) {
-        game.pieces().values().forEach(piece -> pieceSpawner.despawn(piece.entityId()));
+    public void despawnPieces(@NonNull Collection<UnitPiece> pieces) {
+        pieces.forEach(piece -> pieceSpawner.despawn(piece.id()));
     }
 
-
     /**
-     * 게임 내 모든 기물을 각 기물의 적대 팀 플레이어들에게 보이게 합니다.
+     * 모든 플레이어가 적대 팀의 기물을 볼 수 있게 합니다.
      *
      * @param game 현재 게임 상태
      */
@@ -97,7 +98,7 @@ public class PieceService {
     }
 
     /**
-     * 게임 내 모든 기물을 각 기물의 적대 팀 플레이어들에게 보이지 않게 숨깁니다.
+     * 모든 플레이어가 적대 팀의 기물을 볼 수 없게 합니다.
      *
      * @param game 현재 게임 상태
      */
@@ -106,11 +107,11 @@ public class PieceService {
     }
 
     /**
-     * 특정 플레이어에게 적대 팀의 기물들을 숨깁니다.
+     * 특정 플레이어가 적대 팀의 기물을 볼 수 없게 합니다.
      *
      * @param game       현재 게임 상태
      * @param player     대상 플레이어
-     * @param playerTeam 대상 플레이어의 팀 (이 팀의 적대 팀 기물을 숨김)
+     * @param playerTeam 대상 플레이어의 팀
      */
     public void concealEnemyPiecesFor(
             @NonNull Game game,
@@ -119,7 +120,6 @@ public class PieceService {
     ) {
         setEntitiesVisibility(player, findPieceEntities(game, playerTeam.opposite()), false);
     }
-
 
     private void spawnBatch(
             @NonNull BukkitRunnable task,
@@ -178,7 +178,6 @@ public class PieceService {
         return pieceSpawner.spawn(spec, spawnLocation).getUniqueId();
     }
 
-
     private void applyPieceVisibility(@NonNull Game game, boolean visible) {
         for (TeamColor team : TeamColor.values()) {
             var players = teamService.getOnlinePlayers(team);
@@ -190,9 +189,8 @@ public class PieceService {
 
     @NonNull
     private List<Entity> findPieceEntities(@NonNull Game game, @NonNull TeamColor teamColor) {
-        return game.pieces().values().stream()
-                .filter(piece -> piece.spec().teamColor() == teamColor)
-                .map(UnitPiece::entityId)
+        return game.findPiecesByTeam(teamColor)
+                .map(Piece::id)
                 .map(Bukkit::getEntity)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());

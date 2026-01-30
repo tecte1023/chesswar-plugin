@@ -15,7 +15,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.scoreboard.Scoreboard;
 
 /**
- * 팀 도메인의 의존성 주입 설정을 담당하는 Guice 모듈입니다.
+ * 팀 도메인의 의존성 주입을 설정하는 Guice 모듈입니다.
  * 팀의 정책, 저장소, 리스너, 명령어 설정자 등 관련된 모든 컴포넌트의 바인딩을 관리합니다.
  */
 public class TeamModule extends AbstractModule {

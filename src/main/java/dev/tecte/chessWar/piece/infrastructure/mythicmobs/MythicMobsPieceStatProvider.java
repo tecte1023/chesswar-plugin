@@ -11,7 +11,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 /**
- * MythicMobs를 통해 기물의 스탯 정보를 제공하는 어댑터 구현체입니다.
+ * MythicMobs를 통해 기물의 스탯 정보를 제공합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)

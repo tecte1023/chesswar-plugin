@@ -17,7 +17,7 @@ public class GameException extends BusinessException {
     /**
      * 진행 중인 게임이 없을 때 발생합니다.
      *
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException notFound() {
@@ -27,7 +27,7 @@ public class GameException extends BusinessException {
     /**
      * 이미 진행 중인 게임이 있을 때 발생합니다.
      *
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException alreadyInProgress() {
@@ -37,7 +37,7 @@ public class GameException extends BusinessException {
     /**
      * 체스판이 존재하지 않아 게임을 시작할 수 없을 때 발생합니다.
      *
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException boardNotSetup() {
@@ -48,7 +48,7 @@ public class GameException extends BusinessException {
      * 게임을 시작할 월드 정보를 찾을 수 없을 때 발생합니다.
      *
      * @param worldName 찾을 수 없는 월드의 이름
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException worldNotFound(@NonNull String worldName) {
@@ -59,7 +59,7 @@ public class GameException extends BusinessException {
      * 팀의 플레이어 수가 부족하여 게임을 시작할 수 없을 때 발생합니다.
      *
      * @param minPlayers 필요한 최소 플레이어 수
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException insufficientPlayers(int minPlayers) {
@@ -71,7 +71,7 @@ public class GameException extends BusinessException {
      *
      * @param required 필요한 단계
      * @param current  현재 단계
-     * @return {@link GameException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException phaseMismatch(@NonNull GamePhase required, @NonNull GamePhase current) {
@@ -83,12 +83,12 @@ public class GameException extends BusinessException {
     }
 
     /**
-     * 특정 기물을 찾을 수 없을 때 발생합니다.
+     * 게임에 포함되지 않은 기물일 때 발생합니다.
      *
-     * @return 생성된 예외 객체
+     * @return 생성된 예외
      */
     @NonNull
     public static GameException pieceNotFound() {
-        return new GameException("해당 기물은 게임에 존재하지 않습니다.");
+        return new GameException("게임에 포함되지 않은 기물입니다.");
     }
 }

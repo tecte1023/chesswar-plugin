@@ -4,7 +4,7 @@ import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 
 /**
- * 체스판의 개별 칸 하나를 나타내는 데이터 객체입니다.
+ * 체스판의 개별 칸을 나타내는 불변 객체입니다.
  *
  * @param color       칸의 색상
  * @param boundingBox 칸의 영역
@@ -16,10 +16,9 @@ public record Square(SquareColor color, BoundingBox boundingBox) {
     }
 
     /**
-     * 칸의 영역을 복제하여 반환합니다.
-     * 불변성을 보장하기 위해 내부 객체의 복사본을 반환합니다.
+     * 칸의 영역을 반환합니다.
      *
-     * @return 복제된 {@link BoundingBox} 객체
+     * @return 복제된 영역
      */
     @NonNull
     public BoundingBox boundingBox() {

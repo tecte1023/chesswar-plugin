@@ -15,6 +15,9 @@ import org.bukkit.entity.Player;
 
 import java.util.Set;
 
+/**
+ * 게임 알림 및 안내 메시지를 전송합니다.
+ */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameNotifier {
@@ -22,7 +25,7 @@ public class GameNotifier {
             Component.text("기물 선택").decorate(TextDecoration.BOLD).color(NamedTextColor.AQUA);
     private static final Component PIECE_SELECTION_GUIDE =
             Component.text("기물을 우클릭하여 참전할 기물을 선택해주세요.").color(NamedTextColor.RED);
-    private static final Component GAME_STOP_MESSAGE = Component.text("게임이 종료되었습니다.");
+    private static final Component GAME_STOP_MESSAGE = Component.text("게임이 중단되었습니다.");
 
     private static final long GUIDE_INITIAL_DELAY_TICKS = 0L;
     private static final long GUIDE_INTERVAL_TICKS = 40L;
@@ -32,16 +35,16 @@ public class GameNotifier {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 기물 선택 단계 시작을 알립니다. (타이틀 전송)
+     * 기물 선택 단계의 시작을 알립니다.
      *
-     * @param participants 알림을 받을 참가자 목록
+     * @param recipients 알림을 받을 대상
      */
-    public void announcePieceSelectionStart(@NonNull Set<Player> participants) {
-        participants.forEach(player -> senderNotifier.sendTitle(player, PIECE_SELECTION_TITLE));
+    public void announcePieceSelectionStart(@NonNull Set<Player> recipients) {
+        recipients.forEach(player -> senderNotifier.sendTitle(player, PIECE_SELECTION_TITLE));
     }
 
     /**
-     * 기물 선택 가이드를 시작합니다. (액션바 반복 전송)
+     * 기물 선택 가이드 안내를 시작합니다.
      */
     public void startPieceSelectionGuidance() {
         gameTaskScheduler.scheduleRepeat(
@@ -53,7 +56,7 @@ public class GameNotifier {
     }
 
     /**
-     * 진행 중인 가이드 태스크를 중단하고 액션바를 즉시 지웁니다.
+     * 진행 중인 가이드 안내를 중단합니다.
      */
     public void stopGuidance() {
         gameTaskScheduler.stop(GameTaskType.GUIDANCE);
@@ -61,7 +64,7 @@ public class GameNotifier {
     }
 
     /**
-     * 게임이 중단되었음을 알립니다.
+     * 게임 중단을 알립니다.
      *
      * @param recipient 알림을 받을 대상
      */

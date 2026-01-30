@@ -7,7 +7,7 @@ import org.bukkit.util.Vector;
 import java.util.Objects;
 
 /**
- * 체스판의 구조를 나타내는 불변 데이터 객체입니다.
+ * 체스판의 구조를 나타내는 불변 객체입니다.
  */
 @Builder
 public record Board(
@@ -24,10 +24,10 @@ public record Board(
     }
 
     /**
-     * 지정된 좌표에 대한 기물의 스폰 위치 벡터를 계산합니다.
+     * 해당 좌표의 스폰 위치를 계산합니다.
      *
      * @param coordinate 스폰할 칸의 좌표
-     * @return 스폰 위치를 나타내는 {@link Vector} 객체
+     * @return 스폰 위치 벡터
      */
     @NonNull
     public Vector spawnPositionVector(@NonNull Coordinate coordinate) {
@@ -38,9 +38,9 @@ public record Board(
     }
 
     /**
-     * 보드의 방향 정보를 반환합니다.
+     * 체스판의 방향을 반환합니다.
      *
-     * @return 보드의 {@link Orientation}
+     * @return 체스판 방향
      */
     @NonNull
     public Orientation orientation() {
@@ -48,9 +48,9 @@ public record Board(
     }
 
     /**
-     * 보드 전체 영역의 중심점 위치 벡터를 반환합니다.
+     * 체스판의 중심점을 반환합니다.
      *
-     * @return 보드의 중심점 {@link Vector}
+     * @return 중심점 벡터
      */
     @NonNull
     public Vector center() {

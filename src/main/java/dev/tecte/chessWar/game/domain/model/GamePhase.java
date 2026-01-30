@@ -29,23 +29,13 @@ public enum GamePhase {
             .collect(Collectors.toUnmodifiableMap(GamePhase::name, Function.identity()));
 
     /**
-     * 문자열로부터 {@link GamePhase}를 찾습니다. 대소문자를 구분하지 않습니다.
+     * 이름(대소문자 무관)으로 해당 게임 단계를 찾습니다.
      *
-     * @param value 게임 단계 이름
-     * @return 해당하는 게임 단계가 있으면 {@link Optional}로 반환, 없으면 빈 {@link Optional}
+     * @param name 게임 단계 이름
+     * @return 찾은 게임 단계
      */
     @NonNull
-    public static Optional<GamePhase> from(@NonNull String value) {
-        return Optional.ofNullable(LOOKUP.get(value.toUpperCase()));
-    }
-
-    /**
-     * 게임의 초기 단계를 반환합니다.
-     *
-     * @return 초기 게임 단계
-     */
-    @NonNull
-    public static GamePhase initial() {
-        return PIECE_SELECTION;
+    public static Optional<GamePhase> from(@NonNull String name) {
+        return Optional.ofNullable(LOOKUP.get(name.toUpperCase()));
     }
 }

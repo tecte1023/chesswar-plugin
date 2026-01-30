@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * 게임 내 스케줄링 및 비동기 태스크를 통합 관리하는 중앙 스케줄러의 Bukkit 구현체입니다.
+ * 게임 내 스케줄링 및 비동기 태스크를 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton

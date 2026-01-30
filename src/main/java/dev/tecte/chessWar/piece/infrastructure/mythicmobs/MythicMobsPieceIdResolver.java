@@ -7,7 +7,7 @@ import jakarta.inject.Singleton;
 import lombok.NonNull;
 
 /**
- * MythicMobs 플러그인의 명명 규칙을 기반으로 기물 ID를 해결하는 구현체입니다.
+ * MythicMobs 규칙 기반으로 기물 ID를 조회합니다.
  * <p>
  * 별도의 매핑 설정 없이 <b>[Team][Type]</b> 형식의 PascalCase 규칙을 따릅니다.
  * 예: WHITE 팀의 PAWN -> "WhitePawn"

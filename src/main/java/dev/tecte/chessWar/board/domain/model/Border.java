@@ -6,7 +6,7 @@ import org.bukkit.util.BoundingBox;
 import java.util.Objects;
 
 /**
- * 체스판의 테두리를 나타내는 데이터 객체입니다.
+ * 체스판의 테두리를 나타내는 불변 객체입니다.
  *
  * @param borderType  테두리의 종류
  * @param boundingBox 테두리가 차지하는 영역
@@ -34,7 +34,7 @@ public record Border(
      * @param borderType 테두리의 종류
      * @param inside     테두리가 감쌀 내부 영역
      * @param thickness  테두리의 두께
-     * @return 생성된 테두리 객체
+     * @return 생성된 테두리
      */
     @NonNull
     public static Border from(@NonNull BorderType borderType, @NonNull BoundingBox inside, int thickness) {
@@ -44,10 +44,9 @@ public record Border(
     }
 
     /**
-     * 테두리의 영역을 복제하여 반환합니다.
-     * 불변성을 보장하기 위해 내부 객체의 복사본을 반환합니다.
+     * 테두리의 영역을 반환합니다.
      *
-     * @return 복제된 {@link BoundingBox} 객체
+     * @return 복제된 영역
      */
     @NonNull
     public BoundingBox boundingBox() {

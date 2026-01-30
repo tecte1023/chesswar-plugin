@@ -3,7 +3,7 @@ package dev.tecte.chessWar.board.domain.model.spec;
 import lombok.NonNull;
 
 /**
- * 체스판 격자의 행과 열 개수를 정의하는 레코드입니다.
+ * 체스판 격자의 크기 명세를 정의하는 불변 객체입니다.
  *
  * @param rowCount 격자의 행 개수
  * @param colCount 격자의 열 개수
@@ -23,7 +23,7 @@ public record GridSpec(int rowCount, int colCount) {
     }
 
     /**
-     * 기본값으로 {@link GridSpec} 인스턴스를 생성합니다.
+     * 기본 격자 명세를 생성합니다.
      *
      * @return 기본 격자 명세
      */
