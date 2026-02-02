@@ -1,8 +1,8 @@
 package dev.tecte.chessWar.team.infrastructure.persistence;
 
 import dev.tecte.chessWar.team.application.port.TeamRepository;
-import dev.tecte.chessWar.team.domain.model.TeamColor;
 import dev.tecte.chessWar.team.domain.model.TeamCapacityPolicy;
+import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -22,7 +22,6 @@ import java.util.stream.Collectors;
 
 /**
  * Scoreboard를 사용하여 팀 영속성을 관리합니다.
- * 팀 데이터를 Minecraft Scoreboard에 저장하고 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -80,6 +79,17 @@ public class ScoreboardTeamRepository implements TeamRepository {
                 .orElseGet(() -> createTeam(teamColor));
 
         team.addEntry(playerId.toString());
+    }
+
+    @Override
+    public boolean removePlayer(@NonNull UUID playerId) {
+        Team team = scoreboard.getEntryTeam(playerId.toString());
+
+        if (team == null || parseTeamColor(team.getName()).isEmpty()) {
+            return false;
+        }
+
+        return team.removeEntry(playerId.toString());
     }
 
     @NonNull

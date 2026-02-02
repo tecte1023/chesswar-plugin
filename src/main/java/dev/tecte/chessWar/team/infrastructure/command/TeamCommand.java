@@ -26,7 +26,7 @@ public class TeamCommand extends BaseCommand {
     private final TeamService teamService;
 
     /**
-     * 플레이어가 특정 팀에 참가합니다.
+     * 팀에 참가합니다.
      *
      * @param player    명령어를 실행한 플레이어
      * @param teamColor 참가할 팀의 색상
@@ -36,5 +36,16 @@ public class TeamCommand extends BaseCommand {
     @CommandCompletion("@teamcolors")
     public void join(@NonNull Player player, @NonNull TeamColor teamColor) {
         teamService.joinTeam(player, teamColor);
+    }
+
+    /**
+     * 팀에서 나갑니다.
+     *
+     * @param player 명령어를 실행한 플레이어
+     */
+    @Subcommand("leave")
+    @Description("팀에서 나갑니다.")
+    public void leave(@NonNull Player player) {
+        teamService.leaveTeam(player);
     }
 }

@@ -18,10 +18,20 @@ public class TeamException extends BusinessException {
      * 팀 정원 초과 시 사용자 알림 예외를 생성합니다.
      *
      * @param teamColor 정원이 가득 찬 팀
-     * @return {@link TeamException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static TeamException capacityExceeded(@NonNull TeamColor teamColor) {
         return new TeamException(teamColor.displayName() + "은 이미 가득 찼습니다.");
+    }
+
+    /**
+     * 참가 중인 팀이 없을 때 발생하는 예외를 생성합니다.
+     *
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static TeamException notInTeam() {
+        return new TeamException("참가 중인 팀이 없습니다.");
     }
 }
