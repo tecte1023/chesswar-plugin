@@ -9,7 +9,7 @@ import net.kyori.adventure.title.Title;
 import org.bukkit.command.CommandSender;
 
 /**
- * 메시지를 전송합니다.
+ * Bukkit을 통해 알림 및 안내 메시지를 전송합니다.
  */
 @Singleton
 public class BukkitSenderNotifier implements SenderNotifier {

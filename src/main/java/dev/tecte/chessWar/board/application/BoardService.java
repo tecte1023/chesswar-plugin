@@ -9,14 +9,11 @@ import dev.tecte.chessWar.board.domain.model.spec.BorderSpec;
 import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
 import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
 import dev.tecte.chessWar.board.domain.service.BoardFactory;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
@@ -24,27 +21,22 @@ import org.bukkit.util.Vector;
 import java.util.Optional;
 
 /**
- * 체스판 도메인 로직을 수행하는 서비스입니다.
+ * 체스판 관련 비즈니스 로직을 처리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class BoardService {
-    private static final Component BOARD_CREATE_SUCCESS = Component.text(
-            "체스판이 생성되었습니다.",
-            NamedTextColor.WHITE
-    );
-
     private final BoardFactory boardFactory;
+    private final BoardNotifier boardNotifier;
     private final BoardRenderer boardRenderer;
     private final BoardRepository boardRepository;
     private final GridSpec gridSpec;
     private final SquareSpec squareSpec;
     private final BorderSpec borderSpec;
-    private final SenderNotifier senderNotifier;
 
     /**
-     * 플레이어의 위치와 방향을 기준으로 새로운 체스판을 생성합니다.
+     * 플레이어의 위치와 방향을 기준으로 체스판을 생성합니다.
      *
      * @param player 체스판을 생성할 플레이어
      */
@@ -66,13 +58,13 @@ public class BoardService {
 
         boardRenderer.render(board, world);
         boardRepository.save(board);
-        senderNotifier.notifySuccess(player, BOARD_CREATE_SUCCESS);
+        boardNotifier.notifyBoardCreate(player);
         log.info("Player '{}' created a new chessboard at {} in world '{}'",
                 player.getName(), playerPosition, world.getName());
     }
 
     /**
-     * 저장된 체스판을 찾습니다.
+     * 체스판을 찾습니다.
      *
      * @return 찾은 체스판
      */
