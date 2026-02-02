@@ -21,17 +21,8 @@ import java.util.Set;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameNotifier {
-    private static final Component PIECE_SELECTION_TITLE =
-            Component.text("기물 선택").decorate(TextDecoration.BOLD).color(NamedTextColor.AQUA);
-    private static final Component PIECE_SELECTION_GUIDE =
-            Component.text("기물을 우클릭하여 참전할 기물을 선택해주세요.").color(NamedTextColor.RED);
-    private static final Component GAME_STOP_MESSAGE = Component.text("게임이 중단되었습니다.");
-
-    private static final long GUIDE_INITIAL_DELAY_TICKS = 0L;
-    private static final long GUIDE_INTERVAL_TICKS = 40L;
-
-    private final GameTaskScheduler gameTaskScheduler;
     private final TeamService teamService;
+    private final GameTaskScheduler gameTaskScheduler;
     private final SenderNotifier senderNotifier;
 
     /**
@@ -40,18 +31,27 @@ public class GameNotifier {
      * @param recipients 알림을 받을 대상
      */
     public void announcePieceSelectionStart(@NonNull Set<Player> recipients) {
-        recipients.forEach(player -> senderNotifier.sendTitle(player, PIECE_SELECTION_TITLE));
+        Component title = Component.text("기물 선택")
+                .decorate(TextDecoration.BOLD)
+                .color(NamedTextColor.AQUA);
+
+        recipients.forEach(player -> senderNotifier.sendTitle(player, title));
     }
 
     /**
      * 기물 선택 가이드 안내를 시작합니다.
      */
     public void startPieceSelectionGuidance() {
+        Component guideMessage = Component.text("기물을 우클릭하여 참전할 기물을 선택해주세요.")
+                .color(NamedTextColor.RED);
+        long initialDelay = 0L;
+        long intervalTicks = 2 * 20L;
+
         gameTaskScheduler.scheduleRepeat(
                 GameTaskType.GUIDANCE,
-                () -> broadcastActionBar(PIECE_SELECTION_GUIDE),
-                GUIDE_INITIAL_DELAY_TICKS,
-                GUIDE_INTERVAL_TICKS
+                () -> broadcastActionBar(guideMessage),
+                initialDelay,
+                intervalTicks
         );
     }
 
@@ -69,7 +69,7 @@ public class GameNotifier {
      * @param recipient 알림을 받을 대상
      */
     public void notifyGameStop(@NonNull CommandSender recipient) {
-        senderNotifier.notifySuccess(recipient, GAME_STOP_MESSAGE);
+        senderNotifier.notifySuccess(recipient, "게임이 중단되었습니다.");
     }
 
     private void broadcastActionBar(Component message) {

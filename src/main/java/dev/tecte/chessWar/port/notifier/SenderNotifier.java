@@ -5,7 +5,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 
 /**
- * 메시지를 전송합니다.
+ * 사용자에게 알림 및 안내 메시지를 전송합니다.
  */
 public interface SenderNotifier {
     /**
