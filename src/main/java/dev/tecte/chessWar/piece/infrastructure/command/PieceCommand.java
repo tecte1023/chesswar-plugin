@@ -23,7 +23,7 @@ import java.util.UUID;
 @Subcommand(PieceCommandConstants.PIECE)
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
-public class PieceSelectCommand extends BaseCommand {
+public class PieceCommand extends BaseCommand {
     private final PieceSelectionService pieceSelectionService;
     private final SenderNotifier senderNotifier;
 
@@ -31,7 +31,7 @@ public class PieceSelectCommand extends BaseCommand {
      * 플레이어가 대상 기물이 되어 전장에 참전합니다.
      *
      * @param player  명령어를 실행한 플레이어
-     * @param pieceId 참전할 대상 기물의 식별자
+     * @param pieceId 참전할 대상 기물의 ID
      */
     @Subcommand(PieceCommandConstants.SELECT)
     @Description("플레이어가 대상 기물이 되어 전장에 참전합니다.")
