@@ -17,11 +17,11 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 
 /**
- * 단일 엔티티 영속성을 관리하는 추상 리포지토리입니다.
+ * 단일 도메인 객체의 영속성을 관리합니다.
  * <p>
- * 인메모리 캐싱을 통해 접근 성능을 향상시키고, 비동기 저장을 통해 메인 스레드 부하를 줄입니다.
+ * 캐싱을 통해 접근 성능을 높이고, 비동기 저장으로 메인 스레드 부하를 방지합니다.
  *
- * @param <V> 관리하는 엔티티의 타입
+ * @param <V> 관리할 도메인 객체 타입
  */
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -45,9 +45,9 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 캐시된 엔티티를 반환합니다.
+     * 캐시된 도메인 객체를 찾습니다.
      *
-     * @return 찾은 엔티티
+     * @return 찾은 객체
      */
     @NonNull
     public Optional<V> find() {
@@ -55,9 +55,9 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 엔티티를 저장하고 비동기적으로 반영합니다.
+     * 도메인 객체를 저장하고 비동기적으로 반영합니다.
      *
-     * @param entity 저장할 엔티티
+     * @param entity 저장할 객체
      */
     public void save(@NonNull V entity) {
         cache = entity;
@@ -65,7 +65,7 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 현재 저장된 엔티티를 삭제합니다.
+     * 저장된 도메인 객체를 삭제합니다.
      */
     public void delete() {
         cache = null;
@@ -80,19 +80,19 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     /**
-     * 데이터 섹션에서 엔티티를 역직렬화합니다.
+     * 도메인 객체를 역직렬화합니다.
      *
      * @param section 데이터 섹션
-     * @return 역직렬화된 엔티티
+     * @return 역직렬화된 객체
      */
     @NonNull
     protected abstract V deserialize(@NonNull ConfigurationSection section);
 
     /**
-     * 엔티티를 데이터 맵으로 직렬화합니다.
+     * 도메인 객체를 직렬화합니다.
      *
-     * @param entity 직렬화할 엔티티
-     * @return 직렬화된 데이터 맵
+     * @param entity 직렬화할 객체
+     * @return 직렬화된 맵
      */
     @NonNull
     protected abstract Map<String, Object> serialize(@NonNull V entity);

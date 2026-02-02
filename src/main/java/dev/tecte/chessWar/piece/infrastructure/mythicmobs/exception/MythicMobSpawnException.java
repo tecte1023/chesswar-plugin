@@ -18,7 +18,7 @@ public class MythicMobSpawnException extends SystemException {
      * MythicMobs 설정에서 해당 ID의 템플릿을 찾을 수 없을 때 발생합니다.
      *
      * @param mobId 찾을 수 없는 Mob ID
-     * @return {@link MythicMobSpawnException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static MythicMobSpawnException notFound(@NonNull String mobId) {
@@ -29,7 +29,7 @@ public class MythicMobSpawnException extends SystemException {
      * 플러그인 오류로 인해 엔티티 소환 결과가 null일 때 발생합니다.
      *
      * @param mobId 소환에 실패한 Mob ID
-     * @return {@link MythicMobSpawnException} 인스턴스
+     * @return 생성된 예외
      */
     @NonNull
     public static MythicMobSpawnException spawnFailed(@NonNull String mobId) {
