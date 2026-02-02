@@ -1,7 +1,6 @@
 package dev.tecte.chessWar.team.application;
 
 import dev.tecte.chessWar.common.annotation.HandleException;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.exception.TeamException;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -9,8 +8,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -23,43 +20,47 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 팀 관련 도메인 로직을 관리합니다.
- * 플레이어의 팀 참가, 탈퇴 등과 같은 유스케이스를 담당합니다.
+ * 팀 관련 비즈니스 로직을 처리합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class TeamService {
-    private static final Component TEAM_JOIN_SUCCESS = Component.text(
-            "에 참가했습니다.",
-            NamedTextColor.AQUA
-    );
-
+    private final TeamNotifier teamNotifier;
     private final TeamRepository teamRepository;
-    private final SenderNotifier senderNotifier;
     private final JavaPlugin plugin;
 
     /**
-     * 플레이어를 지정된 색상의 팀에 참가시킵니다.
+     * 플레이어를 팀에 참가시킵니다.
      *
-     * @param player    팀에 참가할 플레이어
+     * @param player    참가할 플레이어
      * @param teamColor 참가할 팀의 색상
      */
     @HandleException
     public void joinTeam(@NonNull Player player, @NonNull TeamColor teamColor) {
         checkTeamCapacity(teamColor);
         teamRepository.addPlayer(player.getUniqueId(), teamColor);
-
-        Component successMessage = Component.text(teamColor.displayName(), teamColor.textColor())
-                .append(TEAM_JOIN_SUCCESS);
-
-        senderNotifier.notifySuccess(player, successMessage);
+        teamNotifier.notifyJoin(player, teamColor);
     }
 
     /**
-     * 모든 팀이 최소 플레이어 수를 충족하는지 확인합니다.
+     * 플레이어를 팀에서 나가게 합니다.
      *
-     * @param minPlayers 각 팀이 충족해야 할 최소 플레이어 수
-     * @return 모든 팀이 최소 플레이어 수를 충족하면 true, 그렇지 않으면 false
+     * @param player 나갈 플레이어
+     */
+    @HandleException
+    public void leaveTeam(@NonNull Player player) {
+        if (!teamRepository.removePlayer(player.getUniqueId())) {
+            throw TeamException.notInTeam();
+        }
+
+        teamNotifier.notifyLeave(player);
+    }
+
+    /**
+     * 모든 팀이 최소 인원을 충족하는지 확인합니다.
+     *
+     * @param minPlayers 팀별 최소 인원
+     * @return 충족 여부
      */
     public boolean areAllTeamsReadyToStart(int minPlayers) {
         for (TeamColor color : TeamColor.values()) {
@@ -72,10 +73,10 @@ public class TeamService {
     }
 
     /**
-     * 지정된 색상 팀에 속한 모든 온라인 플레이어를 조회합니다.
+     * 해당 팀에서 접속한 모든 플레이어를 찾습니다.
      *
-     * @param teamColor 조회할 팀의 색상
-     * @return 해당 팀에 속한 모든 온라인 플레이어의 집합
+     * @param teamColor 찾을 팀의 색상
+     * @return 접속한 플레이어 목록
      */
     @NonNull
     public Set<Player> getOnlinePlayers(@NonNull TeamColor teamColor) {
@@ -86,9 +87,9 @@ public class TeamService {
     }
 
     /**
-     * 모든 팀의 온라인 플레이어를 조회합니다.
+     * 모든 팀에서 접속한 모든 플레이어를 찾습니다.
      *
-     * @return 모든 팀에 속한 온라인 플레이어의 집합
+     * @return 접속한 모든 플레이어 목록
      */
     @NonNull
     public Set<Player> getAllOnlinePlayers() {
@@ -102,21 +103,21 @@ public class TeamService {
     }
 
     /**
-     * 적 팀 플레이어를 보이게 설정합니다.
+     * 적 팀 플레이어를 보이게 합니다.
      */
     public void revealEnemies() {
         applyEnemyVisibility(true);
     }
 
     /**
-     * 적 팀 플레이어를 보이지 않게 설정합니다.
+     * 적 팀 플레이어를 숨깁니다.
      */
     public void concealEnemies() {
         applyEnemyVisibility(false);
     }
 
     /**
-     * 특정 플레이어에게 적 팀 플레이어들을 보이지 않게 숨깁니다.
+     * 플레이어에게 적 팀을 숨깁니다.
      *
      * @param player     대상 플레이어
      * @param playerTeam 대상 플레이어의 팀
@@ -131,10 +132,10 @@ public class TeamService {
     }
 
     /**
-     * 플레이어가 소속된 팀을 찾습니다.
+     * 플레이어가 속한 팀을 찾습니다.
      *
-     * @param player 조회할 플레이어
-     * @return 플레이어가 속한 팀 색상을 담은 {@link Optional}, 소속 팀이 없으면 빈 {@link Optional}
+     * @param player 찾을 플레이어
+     * @return 찾은 팀의 색상
      */
     @NonNull
     public Optional<TeamColor> findTeam(@NonNull Player player) {
@@ -142,9 +143,9 @@ public class TeamService {
     }
 
     /**
-     * 팀의 모든 온라인 플레이어를 지정된 위치로 이동시킵니다.
+     * 팀원들을 해당 위치로 이동시킵니다.
      *
-     * @param teamColor 이동할 팀의 색상
+     * @param teamColor 이동할 팀
      * @param location  이동할 위치
      */
     public void teleportTeam(@NonNull TeamColor teamColor, @NonNull Location location) {
