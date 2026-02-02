@@ -12,7 +12,7 @@ import dev.tecte.chessWar.piece.application.port.PieceSpawner;
 import dev.tecte.chessWar.piece.application.port.PieceStatProvider;
 import dev.tecte.chessWar.piece.domain.model.PieceLayout;
 import dev.tecte.chessWar.piece.infrastructure.bukkit.BukkitPieceInfoRenderer;
-import dev.tecte.chessWar.piece.infrastructure.command.PieceSelectCommand;
+import dev.tecte.chessWar.piece.infrastructure.command.PieceCommand;
 import dev.tecte.chessWar.piece.infrastructure.listener.PieceInteractionListener;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsPieceIdResolver;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsPieceLayoutLoader;
@@ -37,7 +37,7 @@ public class PieceModule extends AbstractModule {
         bind(PieceStatProvider.class).to(MythicMobsPieceStatProvider.class);
         bind(PieceIdResolver.class).to(MythicMobsPieceIdResolver.class);
 
-        Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(PieceSelectCommand.class);
+        Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(PieceCommand.class);
         Multibinder.newSetBinder(binder(), Listener.class).addBinding().to(PieceInteractionListener.class);
     }
 
