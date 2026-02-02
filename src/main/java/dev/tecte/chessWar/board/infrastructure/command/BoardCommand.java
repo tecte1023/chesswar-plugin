@@ -24,7 +24,7 @@ public class BoardCommand extends BaseCommand {
     private final BoardService boardService;
 
     /**
-     * 새로운 체스판을 생성합니다.
+     * 체스판을 생성합니다.
      *
      * @param player 명령어를 실행한 플레이어
      */

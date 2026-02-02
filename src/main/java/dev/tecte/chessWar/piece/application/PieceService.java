@@ -38,16 +38,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
- * 기물의 생명주기와 비즈니스 로직을 처리하는 서비스입니다.
+ * 기물의 생명주기와 비즈니스 로직을 처리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class PieceService {
-    private static final int SPAWN_AMOUNT_PER_TICK = 4;
-    private static final long SPAWN_TASK_INITIAL_DELAY_TICKS = 0L;
-    private static final long SPAWN_TASK_PERIOD_TICKS = 1L;
-
     private final PieceLayout pieceLayout;
     private final TeamDirectionPolicy teamDirectionPolicy;
     private final TeamService teamService;
@@ -56,9 +52,7 @@ public class PieceService {
     private final JavaPlugin plugin;
 
     /**
-     * 시차를 두어 기물을 비동기적으로 소환합니다.
-     * <p>
-     * 서버 틱마다 일정량씩 나누어 소환하여 메인 스레드 부하를 줄입니다.
+     * 체스판 위에 기물을 비동기로 소환합니다.
      *
      * @param board 체스판
      * @param world 소환할 월드
@@ -69,18 +63,22 @@ public class PieceService {
         var pieceIterator = pieceLayout.pieces().entrySet().iterator();
         CompletableFuture<Map<Coordinate, UnitPiece>> future = new CompletableFuture<>();
         Map<Coordinate, UnitPiece> spawnedPieces = new HashMap<>();
+        int piecesPerTick = 4;
+        long initialDelay = 0L;
+        long periodTicks = 1L;
 
+        // 서버 틱마다 일정량씩 나누어 소환하여 메인 스레드 부하를 줄임
         gameTaskScheduler.scheduleRepeat(
-                task -> spawnBatch(task, pieceIterator, spawnedPieces, board, world, future),
-                SPAWN_TASK_INITIAL_DELAY_TICKS,
-                SPAWN_TASK_PERIOD_TICKS
+                task -> spawnBatch(task, pieceIterator, spawnedPieces, board, world, future, piecesPerTick),
+                initialDelay,
+                periodTicks
         );
 
         return future;
     }
 
     /**
-     * 주어진 기물 목록의 모든 기물을 제거합니다.
+     * 기물들을 제거합니다.
      *
      * @param pieces 제거할 기물 목록
      */
@@ -89,7 +87,7 @@ public class PieceService {
     }
 
     /**
-     * 모든 플레이어가 적대 팀의 기물을 볼 수 있게 합니다.
+     * 적 팀 기물을 보이게 합니다.
      *
      * @param game 현재 게임 상태
      */
@@ -98,7 +96,7 @@ public class PieceService {
     }
 
     /**
-     * 모든 플레이어가 적대 팀의 기물을 볼 수 없게 합니다.
+     * 적 팀 기물을 숨깁니다.
      *
      * @param game 현재 게임 상태
      */
@@ -107,7 +105,7 @@ public class PieceService {
     }
 
     /**
-     * 특정 플레이어가 적대 팀의 기물을 볼 수 없게 합니다.
+     * 플레이어에게 적 팀 기물을 숨깁니다.
      *
      * @param game       현재 게임 상태
      * @param player     대상 플레이어
@@ -127,10 +125,11 @@ public class PieceService {
             @NonNull Map<Coordinate, UnitPiece> spawnedPieces,
             @NonNull Board board,
             @NonNull World world,
-            @NonNull CompletableFuture<Map<Coordinate, UnitPiece>> future
+            @NonNull CompletableFuture<Map<Coordinate, UnitPiece>> future,
+            int spawnAmount
     ) {
         try {
-            for (int i = 0; i < SPAWN_AMOUNT_PER_TICK; i++) {
+            for (int i = 0; i < spawnAmount; i++) {
                 if (!iterator.hasNext()) {
                     task.cancel();
                     future.complete(spawnedPieces);

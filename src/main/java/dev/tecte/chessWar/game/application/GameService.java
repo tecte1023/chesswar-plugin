@@ -34,15 +34,12 @@ import org.bukkit.util.Vector;
 import java.util.Map;
 
 /**
- * 게임의 생명주기와 도메인 로직을 관리합니다.
+ * 게임의 진행 및 생명주기를 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameService {
-    private static final int MIN_PLAYERS = 1;
-    private static final long PIECE_SELECTION_DURATION_TICKS = 5 * 60 * 20;
-
     private final GameNotifier gameNotifier;
     private final BoardService boardService;
     private final TeamService teamService;
@@ -53,9 +50,9 @@ public class GameService {
     private final ExceptionDispatcher exceptionDispatcher;
 
     /**
-     * 게임 시작 조건을 확인한 후, 조건을 충족하면 게임을 시작합니다.
+     * 게임 시작 조건을 확인한 후 게임을 시작합니다.
      *
-     * @param sender 명령어를 실행한 주체
+     * @param sender 시작을 요청한 주체
      * @throws GameException 게임 시작 조건을 충족하지 못했을 경우
      */
     @HandleException
@@ -72,8 +69,10 @@ public class GameService {
             throw GameException.worldNotFound(worldName);
         }
 
-        if (!teamService.areAllTeamsReadyToStart(MIN_PLAYERS)) {
-            throw GameException.insufficientPlayers(MIN_PLAYERS);
+        int minPlayers = 1;
+
+        if (!teamService.areAllTeamsReadyToStart(minPlayers)) {
+            throw GameException.insufficientPlayers(minPlayers);
         }
 
         Game game = Game.create(board);
@@ -85,7 +84,7 @@ public class GameService {
     /**
      * 진행 중인 게임을 중단합니다.
      *
-     * @param sender 명령어를 실행한 주체
+     * @param sender 중단을 요청한 주체
      */
     @HandleException
     public void stopGame(@NonNull CommandSender sender) {
@@ -100,10 +99,10 @@ public class GameService {
     }
 
     /**
-     * 대상 기물의 상세 정보를 표시합니다.
+     * 기물의 상세 정보를 표시합니다.
      *
-     * @param player 정보를 표시할 대상 플레이어
-     * @param entity 검사 대상 엔티티
+     * @param player 정보를 확인할 플레이어
+     * @param entity 확인할 대상
      */
     @HandleException
     public void inspectPiece(@NonNull Player player, @NonNull Entity entity) {
@@ -198,10 +197,12 @@ public class GameService {
     }
 
     private void schedulePieceSelectionPhaseEnd() {
+        long selectionDurationTicks = 5 * 60 * 20L;
+
         gameTaskScheduler.scheduleOnce(
                 GameTaskType.PHASE_TRANSITION,
                 gameNotifier::stopGuidance,
-                PIECE_SELECTION_DURATION_TICKS
+                selectionDurationTicks
         );
     }
 

@@ -26,7 +26,7 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * 기물 선택 및 참전 로직을 처리하는 서비스입니다.
+ * 기물 선택 및 참전 로직을 처리합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -36,20 +36,12 @@ public class PieceSelectionService {
     private final SenderNotifier senderNotifier;
 
     /**
-     * 플레이어가 선택한 기물로 참전합니다.
-     * <p>
-     * 참전 시 해당 기물의 스펙에 맞춰 플레이어의 능력치가 조정되며, 체력이 최대치로 회복됩니다.
-     * <p>
-     * <b>참전 제약 사항:</b>
-     * <ul>
-     *   <li>선택 불가능한 기물은 선택할 수 없습니다.</li>
-     *   <li>이미 다른 플레이어가 참전 중인 기물은 선택할 수 없습니다.</li>
-     * </ul>
+     * 기물을 선택하여 참전합니다.
      *
      * @param player  참전할 플레이어
-     * @param pieceId 선택할 기물의 식별자
+     * @param pieceId 선택할 기물의 ID
      * @throws GameException  진행 중인 게임이 없거나 게임에 포함되지 않은 기물일 경우
-     * @throws PieceException 참전 제약 사항을 위반한 경우
+     * @throws PieceException 기물이 선택 불가능하거나 이미 선택된 경우
      */
     @HandleException
     public void selectPiece(@NonNull Player player, @NonNull UUID pieceId) {

@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /**
- * YML 파일을 사용하여 단일 체스판의 영속성을 관리하는 BoardRepository 구현체입니다.
+ * YML 파일을 사용하여 체스판의 영속성을 관리합니다.
  */
 @Singleton
 public class YmlBoardRepository extends AbstractSingleYmlRepository<Board> implements BoardRepository {
