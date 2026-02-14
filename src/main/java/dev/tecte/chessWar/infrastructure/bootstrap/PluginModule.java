@@ -8,11 +8,14 @@ import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
 import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
 import dev.tecte.chessWar.infrastructure.command.MainCommand;
 import dev.tecte.chessWar.infrastructure.notifier.BukkitSenderNotifier;
+import dev.tecte.chessWar.common.event.DomainEventDispatcher;
+import dev.tecte.chessWar.infrastructure.event.BukkitEventDispatcher;
 import dev.tecte.chessWar.piece.infrastructure.bootstrap.PieceModule;
 import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import dev.tecte.chessWar.team.infrastructure.bootstrap.TeamModule;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Server;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitScheduler;
@@ -33,6 +36,7 @@ public class PluginModule extends AbstractModule {
         bind(BukkitScheduler.class).toInstance(server.getScheduler());
         bind(PluginManager.class).toInstance(server.getPluginManager());
         bind(SenderNotifier.class).to(BukkitSenderNotifier.class);
+        bind(DomainEventDispatcher.class).to(BukkitEventDispatcher.class);
 
         Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(MainCommand.class);
 

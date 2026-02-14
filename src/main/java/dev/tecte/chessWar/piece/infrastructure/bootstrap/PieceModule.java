@@ -13,6 +13,7 @@ import dev.tecte.chessWar.piece.application.port.PieceStatProvider;
 import dev.tecte.chessWar.piece.domain.model.PieceLayout;
 import dev.tecte.chessWar.piece.infrastructure.bukkit.BukkitPieceInfoRenderer;
 import dev.tecte.chessWar.piece.infrastructure.command.PieceCommand;
+import dev.tecte.chessWar.piece.infrastructure.listener.PieceDespawnListener;
 import dev.tecte.chessWar.piece.infrastructure.listener.PieceInteractionListener;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsPieceIdResolver;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsPieceLayoutLoader;
@@ -25,7 +26,7 @@ import lombok.NonNull;
 import org.bukkit.event.Listener;
 
 /**
- * 기물 도메인의 의존성 주입 설정을 담당하는 Guice 모듈입니다.
+ * 기물 도메인의 의존성을 설정합니다.
  */
 @SuppressWarnings("unused")
 public class PieceModule extends AbstractModule {
@@ -38,7 +39,11 @@ public class PieceModule extends AbstractModule {
         bind(PieceIdResolver.class).to(MythicMobsPieceIdResolver.class);
 
         Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(PieceCommand.class);
-        Multibinder.newSetBinder(binder(), Listener.class).addBinding().to(PieceInteractionListener.class);
+
+        Multibinder<Listener> listenerBinder = Multibinder.newSetBinder(binder(), Listener.class);
+
+        listenerBinder.addBinding().to(PieceInteractionListener.class);
+        listenerBinder.addBinding().to(PieceDespawnListener.class);
     }
 
     /**

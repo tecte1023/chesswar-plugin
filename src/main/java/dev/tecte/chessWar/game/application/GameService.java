@@ -5,8 +5,10 @@ import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.domain.model.Orientation;
 import dev.tecte.chessWar.common.annotation.HandleException;
+import dev.tecte.chessWar.common.event.DomainEventDispatcher;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
+import dev.tecte.chessWar.game.domain.event.GameStoppedEvent;
 import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.exception.GameSystemException;
 import dev.tecte.chessWar.game.domain.model.Game;
@@ -47,6 +49,7 @@ public class GameService {
     private final GameRepository gameRepository;
     private final GameTaskScheduler gameTaskScheduler;
     private final PieceInfoRenderer pieceInfoRenderer;
+    private final DomainEventDispatcher eventDispatcher;
     private final ExceptionDispatcher exceptionDispatcher;
 
     /**
@@ -82,20 +85,17 @@ public class GameService {
     }
 
     /**
-     * 진행 중인 게임을 중단합니다.
+     * 진행 중인 게임 세션을 종료하고 상태를 초기화합니다.
      *
-     * @param sender 중단을 요청한 주체
+     * @param sender 중단을 요청한 행위자
+     * @throws GameException 진행 중인 게임이 없을 경우
      */
     @HandleException
     public void stopGame(@NonNull CommandSender sender) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
 
-        gameNotifier.stopGuidance();
-        gameTaskScheduler.shutdown();
-        pieceService.despawnPieces(game.unitPieces());
-        teamService.revealEnemies();
         gameRepository.delete();
-        gameNotifier.notifyGameStop(sender);
+        eventDispatcher.dispatch(new GameStoppedEvent(game.unitPieces(), sender));
     }
 
     /**
