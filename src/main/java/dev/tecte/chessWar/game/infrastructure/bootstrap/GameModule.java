@@ -8,12 +8,14 @@ import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
 import dev.tecte.chessWar.game.infrastructure.bukkit.BukkitGameTaskScheduler;
 import dev.tecte.chessWar.game.infrastructure.command.GameCommand;
+import dev.tecte.chessWar.game.infrastructure.listener.GameStopNotificationListener;
+import dev.tecte.chessWar.game.infrastructure.listener.GameTaskCleanupListener;
 import dev.tecte.chessWar.game.infrastructure.listener.GameVisibilityListener;
 import dev.tecte.chessWar.game.infrastructure.persistence.YmlGameRepository;
 import org.bukkit.event.Listener;
 
 /**
- * 게임 도메인의 의존성 주입 설정을 담당하는 Guice 모듈입니다.
+ * 게임 도메인의 의존성을 설정합니다.
  */
 @SuppressWarnings("unused")
 public class GameModule extends AbstractModule {
@@ -24,6 +26,11 @@ public class GameModule extends AbstractModule {
 
         Multibinder.newSetBinder(binder(), PersistableState.class).addBinding().to(YmlGameRepository.class);
         Multibinder.newSetBinder(binder(), BaseCommand.class).addBinding().to(GameCommand.class);
-        Multibinder.newSetBinder(binder(), Listener.class).addBinding().to(GameVisibilityListener.class);
+
+        Multibinder<Listener> listenerBinder = Multibinder.newSetBinder(binder(), Listener.class);
+
+        listenerBinder.addBinding().to(GameVisibilityListener.class);
+        listenerBinder.addBinding().to(GameTaskCleanupListener.class);
+        listenerBinder.addBinding().to(GameStopNotificationListener.class);
     }
 }
