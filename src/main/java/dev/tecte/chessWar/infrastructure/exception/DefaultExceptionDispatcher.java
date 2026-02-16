@@ -40,7 +40,7 @@ public class DefaultExceptionDispatcher implements ExceptionDispatcher {
         }
 
         if (!handled) {
-            log.error("Unhandled exception caught in {}:", contextInfo, e);
+            log.atError().setCause(e).log("Unhandled exception caught in {}:", contextInfo);
 
             if (sender != null) {
                 notifier.notifyError(sender, "알 수 없는 오류가 발생했습니다.");

@@ -1,6 +1,5 @@
 package dev.tecte.chessWar.game.application;
 
-import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.exception.GameSystemException;
@@ -43,7 +42,6 @@ public class PieceSelectionService {
      * @throws GameException  진행 중인 게임이 없거나 게임에 포함되지 않은 기물일 경우
      * @throws PieceException 기물이 선택 불가능하거나 이미 선택된 경우
      */
-    @HandleException
     public void selectPiece(@NonNull Player player, @NonNull UUID pieceId) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
         Piece piece = game.findPiece(pieceId).orElseThrow(GameException::pieceNotFound);

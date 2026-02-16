@@ -1,6 +1,5 @@
 package dev.tecte.chessWar.infrastructure.persistence;
 
-import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.file.YmlFileManager;
 import dev.tecte.chessWar.infrastructure.persistence.exception.PersistenceException;
@@ -33,7 +32,6 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     private V cache;
 
     @Override
-    @HandleException
     public void load() {
         ConfigurationSection section = fileManager.config().getConfigurationSection(getDataPath());
 
@@ -73,7 +71,6 @@ public abstract class AbstractSingleYmlRepository<V> implements PersistableState
     }
 
     @Override
-    @HandleException
     public void flush() {
         fileManager.set(getDataPath(), cache == null ? null : serialize(cache));
         fileManager.save();

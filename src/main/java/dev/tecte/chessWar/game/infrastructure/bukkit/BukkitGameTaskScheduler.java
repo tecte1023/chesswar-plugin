@@ -53,7 +53,7 @@ public class BukkitGameTaskScheduler implements GameTaskScheduler {
                 try {
                     taskConsumer.accept(this);
                 } catch (Exception e) {
-                    log.error("Unexpected error in self-cancelling game task", e);
+                    log.atError().setCause(e).log("Unexpected error in self-cancelling game task");
                     this.cancel();
                 }
             }
@@ -113,7 +113,7 @@ public class BukkitGameTaskScheduler implements GameTaskScheduler {
         try {
             scheduler.cancelTask(taskId);
         } catch (Exception e) {
-            log.warn("Failed to cancel task [ID: {}]", taskId, e);
+            log.atWarn().setCause(e).log("Failed to cancel task [ID: {}]", taskId);
         }
     }
 
@@ -123,7 +123,7 @@ public class BukkitGameTaskScheduler implements GameTaskScheduler {
             try {
                 runnable.run();
             } catch (Exception e) {
-                log.error("Unexpected error in game task", e);
+                log.atError().setCause(e).log("Unexpected error in game task");
             }
         };
     }

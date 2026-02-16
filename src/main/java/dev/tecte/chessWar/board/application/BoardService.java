@@ -59,7 +59,7 @@ public class BoardService {
         boardRenderer.render(board, world);
         boardRepository.save(board);
         boardNotifier.notifyBoardCreate(player);
-        log.info("Player '{}' created a new chessboard at {} in world '{}'",
+        log.atInfo().log("Player '{}' created a new chessboard at {} in world '{}'",
                 player.getName(), playerPosition, world.getName());
     }
 

@@ -12,35 +12,27 @@ import java.io.InputStream;
 import java.nio.file.Files;
 
 /**
- * MythicMobs 연동을 설정합니다.
- * 플러그인 활성화 시, 기물에 대한 MythicMobs 설정 파일이 없으면 자동으로 복사합니다.
+ * 기물 구동을 위한 MythicMobs 인프라를 설정합니다.
  */
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor
 public class MythicMobsSetup {
-    private static final String MYTHIC_MOBS_PLUGIN_NAME = "MythicMobs";
-    private static final String MYTHIC_MOBS_TARGET_FOLDER_NAME = "Mobs";
     private static final String PIECE_DEFINITION_FILENAME = "Piece.yml";
-    private static final String PIECE_DEFINITION_RESOURCE_PATH = "mobs/" + PIECE_DEFINITION_FILENAME;
 
-    private final PluginManager pluginManager;
     private final JavaPlugin plugin;
+    private final PluginManager pluginManager;
 
     /**
-     * MythicMobs 플러그인이 설치되어 있는지 확인하고, 필요한 설정 파일을 복사합니다.
-     * 만약 `Piece.yml` 파일이 MythicMobs의 `Mobs` 폴더에 이미 존재하면 아무 작업도 수행하지 않습니다.
+     * 기물 정의 파일을 MythicMobs 엔진에 동기화합니다.
      */
     public void run() {
-        Plugin mythicMobsPlugin = pluginManager.getPlugin(MYTHIC_MOBS_PLUGIN_NAME);
+        Plugin mythicMobsPlugin = pluginManager.getPlugin("MythicMobs");
 
         if (mythicMobsPlugin == null) {
             return;
         }
 
-        File targetFile = new File(
-                new File(mythicMobsPlugin.getDataFolder(), MYTHIC_MOBS_TARGET_FOLDER_NAME),
-                PIECE_DEFINITION_FILENAME
-        );
+        File targetFile = new File(new File(mythicMobsPlugin.getDataFolder(), "Mobs"), PIECE_DEFINITION_FILENAME);
 
         if (targetFile.exists()) {
             return;
@@ -49,23 +41,24 @@ public class MythicMobsSetup {
         File targetDir = targetFile.getParentFile();
 
         if (!targetDir.exists() && !targetDir.mkdirs()) {
-            log.error("Failed to create MythicMobs Mobs directory. The plugin may not work as expected.");
+            log.atError().log("Failed to create MythicMobs Mobs directory. The plugin may not work as expected.");
 
             return;
         }
 
-        try (InputStream inputStream = plugin.getResource(PIECE_DEFINITION_RESOURCE_PATH)) {
+        String resourcePath = "mobs/" + PIECE_DEFINITION_FILENAME;
+
+        try (InputStream inputStream = plugin.getResource(resourcePath)) {
             if (inputStream == null) {
-                log.error("Could not find resource: {}. The plugin may not work as expected.",
-                        PIECE_DEFINITION_RESOURCE_PATH);
+                log.atError().log("Could not find resource: {}. The plugin may not work as expected.", resourcePath);
 
                 return;
             }
 
             Files.copy(inputStream, targetFile.toPath());
-            log.info("Successfully copied {} to MythicMobs folder.", PIECE_DEFINITION_RESOURCE_PATH);
+            log.atInfo().log("Successfully copied {} to MythicMobs folder.", resourcePath);
         } catch (IOException e) {
-            log.error("Failed to copy {} to MythicMobs folder.", PIECE_DEFINITION_RESOURCE_PATH, e);
+            log.atError().setCause(e).log("Failed to copy {} to MythicMobs folder.", resourcePath);
         }
     }
 }

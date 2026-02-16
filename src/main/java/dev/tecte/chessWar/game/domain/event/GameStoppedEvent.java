@@ -10,7 +10,7 @@ import org.bukkit.command.CommandSender;
 import java.util.List;
 
 /**
- * 게임이 중단된 사건을 기록합니다.
+ * 게임 중단 이벤트를 기록합니다.
  */
 @Getter
 @Accessors(fluent = true)
@@ -21,5 +21,11 @@ public class GameStoppedEvent extends DomainEvent {
     public GameStoppedEvent(@NonNull List<UnitPiece> unitPieces, @NonNull CommandSender stopper) {
         this.unitPieces = List.copyOf(unitPieces);
         this.stopper = stopper;
+    }
+
+    @NonNull
+    @Override
+    public CommandSender sender() {
+        return stopper;
     }
 }
