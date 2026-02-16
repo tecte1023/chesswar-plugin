@@ -4,7 +4,6 @@ import dev.tecte.chessWar.board.application.BoardService;
 import dev.tecte.chessWar.board.domain.model.Board;
 import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.board.domain.model.Orientation;
-import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.common.event.DomainEventDispatcher;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.GameTaskScheduler;
@@ -58,7 +57,6 @@ public class GameService {
      * @param sender 시작을 요청한 주체
      * @throws GameException 게임 시작 조건을 충족하지 못했을 경우
      */
-    @HandleException
     public void startGame(@NonNull CommandSender sender) {
         if (gameRepository.isGameInProgress()) {
             throw GameException.alreadyInProgress();
@@ -90,7 +88,6 @@ public class GameService {
      * @param sender 중단을 요청한 행위자
      * @throws GameException 진행 중인 게임이 없을 경우
      */
-    @HandleException
     public void stopGame(@NonNull CommandSender sender) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
 
@@ -104,7 +101,6 @@ public class GameService {
      * @param player 정보를 확인할 플레이어
      * @param entity 확인할 대상
      */
-    @HandleException
     public void inspectPiece(@NonNull Player player, @NonNull Entity entity) {
         Game game = gameRepository.find().orElse(null);
 
@@ -129,7 +125,6 @@ public class GameService {
      *
      * @param player 접속한 플레이어
      */
-    @HandleException
     public void updatePlayerVisibility(@NonNull Player player) {
         gameRepository.find().ifPresent(game -> {
             if (game.phase() != GamePhase.PIECE_SELECTION) {

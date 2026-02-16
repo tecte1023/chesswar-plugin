@@ -15,8 +15,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
 /**
- * ChessWar 플러그인의 메인 클래스입니다.
- * 플러그인의 생명주기(활성화/비활성화)를 관리하고, Guice를 사용한 의존성 주입을 설정합니다.
+ * 플러그인의 생명주기를 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @SuppressWarnings("unused")
@@ -32,31 +31,30 @@ public final class ChessWar extends JavaPlugin {
     private PaperCommandManager commandManager;
 
     /**
-     * 플러그인이 활성화될 때 호출됩니다.
-     * 기본 설정을 저장하고, 의존성 주입을 설정하며, 설정과 상태 데이터를 로드합니다.
+     * 도메인 엔진 및 인프라를 가동합니다.
      */
     @Override
     public void onEnable() {
-        new MythicMobsSetup(getServer().getPluginManager(), this).run();
+        new MythicMobsSetup(this, getServer().getPluginManager()).run();
 
         Injector injector = Guice.createInjector(new PluginModule(this));
 
         injector.injectMembers(this);
         persistableStates.forEach(PersistableState::load);
-        log.info("ChessWar plugin has been enabled!");
+        log.atInfo().log("ChessWar plugin has been enabled!");
     }
 
     /**
-     * 플러그인이 비활성화될 때 호출됩니다.
-     * 캐시된 상태 데이터를 저장하고, 등록된 리소스를 안전하게 해제합니다.
+     * 데이터 정합성을 보장하며 서비스를 종료합니다.
      */
     @Override
     public void onDisable() {
-        // 비동기 작업 취소 (메모리 상태가 더 최신이므로 persistCache()로 덮어씀)
+        // 최신 데이터 보존 및 덮어쓰기 방지를 위해 비동기 저장 중단
         if (persistenceExecutor != null) {
             persistenceExecutor.shutdownNow();
         }
 
+        // 최종 메모리 상태를 저장소에 즉시 반영
         if (persistableStates != null) {
             persistableStates.forEach(PersistableState::flush);
         }
@@ -66,6 +64,6 @@ public final class ChessWar extends JavaPlugin {
         }
 
         HandlerList.unregisterAll(this);
-        log.info("ChessWar plugin has been disabled!");
+        log.atInfo().log("ChessWar plugin has been disabled!");
     }
 }

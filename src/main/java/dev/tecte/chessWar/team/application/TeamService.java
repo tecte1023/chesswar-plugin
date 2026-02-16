@@ -1,6 +1,5 @@
 package dev.tecte.chessWar.team.application;
 
-import dev.tecte.chessWar.common.annotation.HandleException;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.exception.TeamException;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
@@ -35,7 +34,6 @@ public class TeamService {
      * @param player    참가할 플레이어
      * @param teamColor 참가할 팀의 색상
      */
-    @HandleException
     public void joinTeam(@NonNull Player player, @NonNull TeamColor teamColor) {
         checkTeamCapacity(teamColor);
         teamRepository.addPlayer(player.getUniqueId(), teamColor);
@@ -47,7 +45,6 @@ public class TeamService {
      *
      * @param player 나갈 플레이어
      */
-    @HandleException
     public void leaveTeam(@NonNull Player player) {
         if (!teamRepository.removePlayer(player.getUniqueId())) {
             throw TeamException.notInTeam();

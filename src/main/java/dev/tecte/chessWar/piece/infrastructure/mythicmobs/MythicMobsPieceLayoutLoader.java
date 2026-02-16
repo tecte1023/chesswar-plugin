@@ -19,26 +19,24 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 초기 기물 배치를 로드합니다.
- * 이 구현체는 표준 체스 규칙에 따른 기물 배치를 MythicMobs의 몹 정보와 매핑하여 생성합니다.
+ * 체스 규칙에 따른 초기 기물 배치를 로드합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class MythicMobsPieceLayoutLoader implements PieceLayoutLoader {
-    private final MobManager mobManager;
     private final PieceIdResolver pieceIdResolver;
+    private final MobManager mobManager;
 
     /**
-     * 표준 체스 규칙에 따라 초기 기물 배치를 생성하고 반환합니다.
-     * 백팀은 0, 1행에, 흑팀은 6, 7행에 배치됩니다.
+     * 표준 체스 규칙을 기반으로 양 팀의 기물 배치를 생성합니다.
      *
-     * @return 초기 기물 배치 정보가 담긴 {@link PieceLayout}
+     * @return 초기 기물 배치 정보
      */
     @NonNull
     @Override
     public PieceLayout load() {
-        log.info("Loading initial piece layout from MythicMobs...");
+        log.atInfo().log("Loading initial piece layout from MythicMobs...");
 
         Map<Coordinate, PieceSpec> pieces = new HashMap<>();
         PieceType[] backRow = {

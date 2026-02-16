@@ -13,7 +13,7 @@ import java.time.Instant;
  */
 @Getter
 @Accessors(fluent = true)
-public abstract class DomainEvent extends Event {
+public abstract class DomainEvent extends Event implements NotifiableEvent {
     private final Instant occurredAt;
 
     private static final HandlerList HANDLERS = new HandlerList();
@@ -28,6 +28,7 @@ public abstract class DomainEvent extends Event {
      * @return 핸들러 목록
      */
     @NonNull
+    @SuppressWarnings("unused")
     public static HandlerList getHandlerList() {
         return HANDLERS;
     }

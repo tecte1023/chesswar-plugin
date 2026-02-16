@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Scoreboard를 사용하여 팀 영속성을 관리합니다.
+ * 팀의 영속성 상태를 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
@@ -45,11 +45,10 @@ public class ScoreboardTeamRepository implements TeamRepository {
     public int getMaxPlayers() {
         Score score = getMaxPlayersScore();
 
-        // 스코어보드에 최대 인원 수가 설정되지 않은 경우, 정책의 기본값으로 초기화
         if (!score.isScoreSet()) {
             int maxPlayers = teamCapacityPolicy.defaultValue();
 
-            log.info("Max players not set, initializing to default value [{}].", maxPlayers);
+            log.atInfo().log("Max players not set, initializing to default value [{}].", maxPlayers);
 
             return persistMaxPlayers(maxPlayers);
         }
@@ -57,7 +56,6 @@ public class ScoreboardTeamRepository implements TeamRepository {
         int unsafeValue = score.getScore();
         int safeValue = teamCapacityPolicy.adjust(unsafeValue);
 
-        // 저장된 값이 정책을 위반하는 경우, 정책을 적용한 값으로 다시 저장
         return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
     }
 
@@ -66,8 +64,10 @@ public class ScoreboardTeamRepository implements TeamRepository {
         int appliedValue = teamCapacityPolicy.adjust(maxPlayers);
 
         if (maxPlayers != appliedValue) {
-            log.warn("Invalid max player count found [{}]. Value must be between [{}-{}]. Resetting to [{}].",
-                    maxPlayers, teamCapacityPolicy.lowerBound(), teamCapacityPolicy.upperBound(), appliedValue);
+            log.atWarn().log(
+                    "Invalid max player count found [{}]. Value must be between [{}-{}]. Resetting to [{}].",
+                    maxPlayers, teamCapacityPolicy.lowerBound(), teamCapacityPolicy.upperBound(), appliedValue
+            );
         }
 
         return persistMaxPlayers(appliedValue);
