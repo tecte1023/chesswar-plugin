@@ -2,11 +2,12 @@ package dev.tecte.chessWar.piece.infrastructure.command;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
-import co.aikar.commands.annotation.Description;
+import co.aikar.commands.annotation.Private;
 import co.aikar.commands.annotation.Subcommand;
-import dev.tecte.chessWar.game.application.PieceSelectionService;
-import dev.tecte.chessWar.infrastructure.command.CommandConstants;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
+import dev.tecte.chessWar.common.annotation.HandleException;
+import dev.tecte.chessWar.game.application.PieceSelectionCoordinator;
+import dev.tecte.chessWar.infrastructure.command.CommandRouting;
+import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -16,36 +17,34 @@ import org.bukkit.entity.Player;
 import java.util.UUID;
 
 /**
- * 기물 관련 명령어를 처리하는 클래스입니다.
+ * 기물 관련 명령어를 처리합니다.
  */
 @Singleton
-@CommandAlias(CommandConstants.ROOT_ALIAS)
-@Subcommand(PieceCommandConstants.PIECE)
+@CommandAlias(CommandRouting.ROOT_ALIAS)
+@Subcommand(PieceCommandRouting.PIECE)
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
 public class PieceCommand extends BaseCommand {
-    private final PieceSelectionService pieceSelectionService;
-    private final SenderNotifier senderNotifier;
+    private final PieceSelectionCoordinator pieceSelectionCoordinator;
 
     /**
      * 플레이어가 대상 기물이 되어 전장에 참전합니다.
      *
-     * @param player  명령어를 실행한 플레이어
-     * @param pieceId 참전할 대상 기물의 ID
+     * @param player  행위자
+     * @param pieceId 참전할 기물 ID
      */
-    @Subcommand(PieceCommandConstants.SELECT)
-    @Description("플레이어가 대상 기물이 되어 전장에 참전합니다.")
+    @Subcommand(PieceCommandRouting.SELECT)
+    @Private
+    @HandleException
     public void select(@NonNull Player player, @NonNull String pieceId) {
         UUID uuid;
 
         try {
             uuid = UUID.fromString(pieceId);
         } catch (IllegalArgumentException e) {
-            senderNotifier.notifyError(player, "입력하신 ID가 올바르지 않습니다.");
-
-            return;
+            throw PieceSystemException.invalidId(pieceId, e);
         }
 
-        pieceSelectionService.selectPiece(player, uuid);
+        pieceSelectionCoordinator.selectPiece(player, uuid);
     }
 }
