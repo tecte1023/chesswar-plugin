@@ -28,7 +28,7 @@ public class PieceSystemException extends NotifiableSystemException {
     /**
      * 기물 소환에 실패했을 때 발생합니다.
      *
-     * @param spec  소환을 시도한 기물의 명세
+     * @param spec  기물 명세
      * @param cause 실패 원인
      * @return 생성된 예외
      */
@@ -36,22 +36,38 @@ public class PieceSystemException extends NotifiableSystemException {
     public static PieceSystemException spawnFailed(@NonNull PieceSpec spec, @NonNull Throwable cause) {
         return new PieceSystemException(
                 "Failed to spawn piece [Type: %s, Team: %s]".formatted(spec.type(), spec.teamColor()),
-                "시스템 오류로 " + spec.name() + " 소환에 실패했습니다.",
+                "시스템 오류로 %s 소환에 실패했습니다.".formatted(spec.name()),
                 cause
         );
     }
 
     /**
-     * 데이터 불일치로 인해 엔티티를 찾을 수 없을 때 발생합니다.
+     * 데이터 불일치로 기물 엔티티를 찾을 수 없을 때 발생합니다.
      *
-     * @param entityId 찾을 수 없는 엔티티의 식별자
+     * @param entityId 엔티티 ID
      * @return 생성된 예외
      */
     @NonNull
-    public static PieceSystemException entityMissing(@NonNull UUID entityId) {
+    public static PieceSystemException pieceEntityMissing(@NonNull UUID entityId) {
         return new PieceSystemException(
-                "UnitPiece exists in domain memory but actual entity is missing [EntityID: %s]".formatted(entityId),
+                "Actual entity is missing for UnitPiece [EntityID: %s]".formatted(entityId),
                 "시스템 오류로 기물 정보를 가져오는 데 실패했습니다."
+        );
+    }
+
+    /**
+     * 기물 ID 형식이 올바르지 않을 때 발생합니다.
+     *
+     * @param pieceId 입력된 ID
+     * @param cause   실패 원인
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static PieceSystemException invalidId(@NonNull String pieceId, @NonNull Throwable cause) {
+        return new PieceSystemException(
+                "Invalid Piece ID format provided [Input: %s]".formatted(pieceId),
+                "시스템 오류로 기물을 선택하는 데 실패했습니다.",
+                cause
         );
     }
 }

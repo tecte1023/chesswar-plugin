@@ -1,138 +1,54 @@
 package dev.tecte.chessWar.team.application;
 
+import dev.tecte.chessWar.port.UserResolver;
 import dev.tecte.chessWar.team.application.port.TeamRepository;
 import dev.tecte.chessWar.team.domain.exception.TeamException;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
+import dev.tecte.chessWar.team.domain.policy.TeamCapacityPolicy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
-import org.bukkit.Bukkit;
-import org.bukkit.Location;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.HashSet;
-import java.util.Objects;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 팀 관련 비즈니스 로직을 처리합니다.
+ * 팀 가입, 탈퇴 및 정보 조회를 관리합니다.
  */
+@Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class TeamService {
-    private final TeamNotifier teamNotifier;
+    private final TeamCapacityPolicy teamCapacityPolicy;
     private final TeamRepository teamRepository;
-    private final JavaPlugin plugin;
+    private final UserResolver userResolver;
+    private final TeamNotifier teamNotifier;
 
     /**
-     * 플레이어를 팀에 참가시킵니다.
+     * 모든 참여자 정보를 제공합니다.
      *
-     * @param player    참가할 플레이어
-     * @param teamColor 참가할 팀의 색상
-     */
-    public void joinTeam(@NonNull Player player, @NonNull TeamColor teamColor) {
-        checkTeamCapacity(teamColor);
-        teamRepository.addPlayer(player.getUniqueId(), teamColor);
-        teamNotifier.notifyJoin(player, teamColor);
-    }
-
-    /**
-     * 플레이어를 팀에서 나가게 합니다.
-     *
-     * @param player 나갈 플레이어
-     */
-    public void leaveTeam(@NonNull Player player) {
-        if (!teamRepository.removePlayer(player.getUniqueId())) {
-            throw TeamException.notInTeam();
-        }
-
-        teamNotifier.notifyLeave(player);
-    }
-
-    /**
-     * 모든 팀이 최소 인원을 충족하는지 확인합니다.
-     *
-     * @param minPlayers 팀별 최소 인원
-     * @return 충족 여부
-     */
-    public boolean areAllTeamsReadyToStart(int minPlayers) {
-        for (TeamColor color : TeamColor.values()) {
-            if (teamRepository.getSize(color) < minPlayers) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * 해당 팀에서 접속한 모든 플레이어를 찾습니다.
-     *
-     * @param teamColor 찾을 팀의 색상
-     * @return 접속한 플레이어 목록
+     * @return 참여자 정보 맵
      */
     @NonNull
-    public Set<Player> getOnlinePlayers(@NonNull TeamColor teamColor) {
-        return teamRepository.getPlayerUUIDs(teamColor).stream()
-                .map(Bukkit::getPlayer)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-    }
-
-    /**
-     * 모든 팀에서 접속한 모든 플레이어를 찾습니다.
-     *
-     * @return 접속한 모든 플레이어 목록
-     */
-    @NonNull
-    public Set<Player> getAllOnlinePlayers() {
-        Set<Player> allPlayers = new HashSet<>();
+    public Map<UUID, TeamColor> findAllParticipants() {
+        Map<UUID, TeamColor> participants = new HashMap<>();
 
         for (TeamColor color : TeamColor.values()) {
-            allPlayers.addAll(getOnlinePlayers(color));
+            teamRepository.findAllPlayerIds(color).forEach(id -> participants.put(id, color));
         }
 
-        return allPlayers;
+        return Map.copyOf(participants);
     }
 
     /**
-     * 적 팀 플레이어를 보이게 합니다.
-     */
-    public void revealEnemies() {
-        applyEnemyVisibility(true);
-    }
-
-    /**
-     * 적 팀 플레이어를 숨깁니다.
-     */
-    public void concealEnemies() {
-        applyEnemyVisibility(false);
-    }
-
-    /**
-     * 플레이어에게 적 팀을 숨깁니다.
-     *
-     * @param player     대상 플레이어
-     * @param playerTeam 대상 플레이어의 팀
-     */
-    public void concealEnemiesFor(@NonNull Player player, @NonNull TeamColor playerTeam) {
-        Set<Player> enemyPlayers = getOnlinePlayers(playerTeam.opposite());
-
-        for (Player enemyPlayer : enemyPlayers) {
-            player.hidePlayer(plugin, enemyPlayer);
-            enemyPlayer.hidePlayer(plugin, player);
-        }
-    }
-
-    /**
-     * 플레이어가 속한 팀을 찾습니다.
-     *
-     * @param player 찾을 플레이어
-     * @return 찾은 팀의 색상
+     * 플레이어 소속 팀을 찾습니다.
      */
     @NonNull
     public Optional<TeamColor> findTeam(@NonNull Player player) {
@@ -140,35 +56,76 @@ public class TeamService {
     }
 
     /**
-     * 팀원들을 해당 위치로 이동시킵니다.
-     *
-     * @param teamColor 이동할 팀
-     * @param location  이동할 위치
+     * 팀 소속 플레이어를 찾습니다.
      */
-    public void teleportTeam(@NonNull TeamColor teamColor, @NonNull Location location) {
-        getOnlinePlayers(teamColor).forEach(player -> player.teleport(location));
+    @NonNull
+    public Set<Player> findPlayers(@NonNull TeamColor teamColor) {
+        return teamRepository.findAllPlayerIds(teamColor).stream()
+                .map(userResolver::findPlayer)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
-    private void checkTeamCapacity(@NonNull TeamColor teamColor) {
-        if (teamRepository.getSize(teamColor) >= teamRepository.getMaxPlayers()) {
-            throw TeamException.capacityExceeded(teamColor);
+    /**
+     * 최대 인원수를 제공합니다.
+     *
+     * @return 현재 최대 인원수
+     */
+    public int getMaxCapacity() {
+        int storedCapacity = teamRepository.findMaxCapacity().orElseGet(() -> {
+            int defaultCapacity = teamCapacityPolicy.defaultCapacity();
+
+            teamRepository.saveMaxCapacity(defaultCapacity);
+
+            return defaultCapacity;
+        });
+        int adjustedCapacity = teamCapacityPolicy.apply(storedCapacity);
+
+        if (storedCapacity != adjustedCapacity) {
+            teamRepository.saveMaxCapacity(adjustedCapacity);
         }
+
+        return adjustedCapacity;
     }
 
-    private void applyEnemyVisibility(boolean canSeeEnemy) {
-        Set<Player> whitePlayers = getOnlinePlayers(TeamColor.WHITE);
-        Set<Player> blackPlayers = getOnlinePlayers(TeamColor.BLACK);
-
-        for (Player whitePlayer : whitePlayers) {
-            for (Player blackPlayer : blackPlayers) {
-                if (canSeeEnemy) {
-                    whitePlayer.showPlayer(plugin, blackPlayer);
-                    blackPlayer.showPlayer(plugin, whitePlayer);
-                } else {
-                    whitePlayer.hidePlayer(plugin, blackPlayer);
-                    blackPlayer.hidePlayer(plugin, whitePlayer);
-                }
+    /**
+     * 최소 인원수 충족 여부를 확인합니다.
+     *
+     * @throws TeamException 플레이어 수 부족 시
+     */
+    public void ensureMinimumCapacityMet() {
+        for (TeamColor team : TeamColor.values()) {
+            if (teamCapacityPolicy.isLacking(teamRepository.countPlayers(team))) {
+                throw TeamException.minimumCapacityNotMet(teamCapacityPolicy.minCapacity());
             }
         }
+    }
+
+    /**
+     * 플레이어를 팀에 참가시킵니다.
+     *
+     * @param player    참가할 플레이어
+     * @param teamColor 참가할 팀
+     */
+    public void joinTeam(@NonNull Player player, @NonNull TeamColor teamColor) {
+        if (teamCapacityPolicy.isFull(teamRepository.countPlayers(teamColor))) {
+            throw TeamException.capacityExceeded(teamColor);
+        }
+
+        teamRepository.addPlayer(player.getUniqueId(), teamColor);
+        teamNotifier.informJoin(player, teamColor);
+    }
+
+    /**
+     * 플레이어를 팀에서 제외합니다.
+     *
+     * @param player 제외할 플레이어
+     */
+    public void leaveTeam(@NonNull Player player) {
+        if (!teamRepository.removePlayer(player.getUniqueId())) {
+            throw TeamException.notInTeam();
+        }
+
+        teamNotifier.informLeave(player);
     }
 }

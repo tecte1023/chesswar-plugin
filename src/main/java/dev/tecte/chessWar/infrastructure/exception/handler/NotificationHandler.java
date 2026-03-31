@@ -1,8 +1,8 @@
 package dev.tecte.chessWar.infrastructure.exception.handler;
 
 import dev.tecte.chessWar.common.exception.Notifiable;
+import dev.tecte.chessWar.port.UserNotifier;
 import dev.tecte.chessWar.port.exception.ExceptionHandler;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -16,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class NotificationHandler implements ExceptionHandler {
-    private final SenderNotifier notifier;
+    private final UserNotifier notifier;
 
     @Override
     public boolean supports(@NonNull Exception e) {
@@ -26,7 +26,7 @@ public class NotificationHandler implements ExceptionHandler {
     @Override
     public void handle(@NonNull Exception e, @Nullable CommandSender sender) {
         if (sender != null) {
-            notifier.notifyError(sender, ((Notifiable) e).userMessage());
+            notifier.informError(sender, ((Notifiable) e).userMessage());
         }
     }
 }

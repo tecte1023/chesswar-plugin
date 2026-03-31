@@ -12,14 +12,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * 게임의 진행 단계를 나타내는 열거형입니다.
+ * 게임 생명 주기의 진행 단계를 정의합니다.
  */
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum GamePhase {
+    SETUP("준비"),
     PIECE_SELECTION("기물 선택"),
-    TURN_ORDER_SELECTION("행동 순서 결정"),
+    TURN_ORDER_SELECTION("턴 순서 결정"),
     BATTLE("전투"),
     ENDED("종료");
 
@@ -29,10 +30,10 @@ public enum GamePhase {
             .collect(Collectors.toUnmodifiableMap(GamePhase::name, Function.identity()));
 
     /**
-     * 이름(대소문자 무관)으로 해당 게임 단계를 찾습니다.
+     * 이름 기반으로 게임 단계를 검색합니다.
      *
-     * @param name 게임 단계 이름
-     * @return 찾은 게임 단계
+     * @param name 단계 이름
+     * @return 찾은 단계
      */
     @NonNull
     public static Optional<GamePhase> from(@NonNull String name) {

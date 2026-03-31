@@ -10,9 +10,9 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * 기물 선택 단계에서 사용되는 불변 객체입니다.
+ * 기물 선택 단계의 점유 현황을 관리합니다.
  *
- * @param selections 플레이어 식별자와 기물 식별자 매핑
+ * @param selections 플레이어와 기물의 매핑 데이터
  */
 public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     public SelectionState {
@@ -21,10 +21,10 @@ public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     }
 
     /**
-     * 주어진 선택 정보로 상태를 생성합니다.
+     * 선택 정보를 기반으로 상태를 생성합니다.
      *
-     * @param selections 플레이어 식별자와 기물 식별자 매핑
-     * @return 생성된 상태
+     * @param selections 플레이어-기물 매핑 데이터
+     * @return 선택 상태
      */
     @NonNull
     public static SelectionState of(@NonNull Map<UUID, UUID> selections) {
@@ -32,9 +32,9 @@ public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     }
 
     /**
-     * 빈 선택 상태로 초기화된 객체를 반환합니다.
+     * 비어 있는 초기 상태를 생성합니다.
      *
-     * @return 초기화된 상태
+     * @return 초기 상태
      */
     @NonNull
     public static SelectionState empty() {
@@ -42,10 +42,10 @@ public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     }
 
     /**
-     * 선택 정보가 추가된 새로운 상태를 반환합니다.
+     * 기물 선택 정보가 추가된 새로운 상태를 제공합니다.
      *
-     * @param playerId 선택한 플레이어의 식별자
-     * @param pieceId  선택된 기물의 식별자
+     * @param playerId 플레이어 ID
+     * @param pieceId  선택된 기물 ID
      * @return 업데이트된 상태
      */
     @NonNull
@@ -58,17 +58,18 @@ public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     }
 
     /**
-     * 해당 기물이 선택되었는지 확인합니다.
+     * 해당 기물의 선택 여부를 확인합니다.
      *
-     * @param pieceId 기물의 식별자
-     * @return 선택 여부
+     * @param pieceId 기물 ID
+     * @return 기물 선택 여부
      */
     public boolean isSelected(@NonNull UUID pieceId) {
         return selections.containsValue(pieceId);
     }
 
+    @NonNull
     @Override
-    public @NonNull GamePhase phase() {
+    public GamePhase phase() {
         return GamePhase.PIECE_SELECTION;
     }
 }

@@ -2,6 +2,7 @@ package dev.tecte.chessWar.game.domain.exception;
 
 import dev.tecte.chessWar.common.exception.BusinessException;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.piece.domain.model.PieceType;
 import lombok.NonNull;
 
 /**
@@ -15,16 +16,6 @@ public class GameException extends BusinessException {
     }
 
     /**
-     * 진행 중인 게임이 없을 때 발생합니다.
-     *
-     * @return 생성된 예외
-     */
-    @NonNull
-    public static GameException notFound() {
-        return new GameException("진행 중인 게임이 없습니다.");
-    }
-
-    /**
      * 이미 진행 중인 게임이 있을 때 발생합니다.
      *
      * @return 생성된 예외
@@ -35,7 +26,17 @@ public class GameException extends BusinessException {
     }
 
     /**
-     * 체스판이 존재하지 않아 게임을 시작할 수 없을 때 발생합니다.
+     * 진행 중인 게임이 없을 때 발생합니다.
+     *
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static GameException notFound() {
+        return new GameException("진행 중인 게임이 없습니다.");
+    }
+
+    /**
+     * 체스판이 존재하지 않을 때 발생합니다.
      *
      * @return 생성된 예외
      */
@@ -47,27 +48,16 @@ public class GameException extends BusinessException {
     /**
      * 게임을 시작할 월드 정보를 찾을 수 없을 때 발생합니다.
      *
-     * @param worldName 찾을 수 없는 월드의 이름
+     * @param worldName 월드 이름
      * @return 생성된 예외
      */
     @NonNull
     public static GameException worldNotFound(@NonNull String worldName) {
-        return new GameException(String.format("게임을 시작할 월드 '%s'을(를) 찾을 수 없습니다.", worldName));
+        return new GameException("게임을 시작할 월드 '%s'을(를) 찾을 수 없습니다.".formatted(worldName));
     }
 
     /**
-     * 팀의 플레이어 수가 부족하여 게임을 시작할 수 없을 때 발생합니다.
-     *
-     * @param minPlayers 필요한 최소 플레이어 수
-     * @return 생성된 예외
-     */
-    @NonNull
-    public static GameException insufficientPlayers(int minPlayers) {
-        return new GameException(String.format("각 팀에 최소 %d명 이상의 플레이어가 필요합니다.", minPlayers));
-    }
-
-    /**
-     * 현재 게임 단계가 요구되는 단계와 일치하지 않아 작업을 수행할 수 없을 때 발생합니다.
+     * 현재 단계에서 허용되지 않는 작업일 때 발생합니다.
      *
      * @param required 필요한 단계
      * @param current  현재 단계
@@ -75,11 +65,8 @@ public class GameException extends BusinessException {
      */
     @NonNull
     public static GameException phaseMismatch(@NonNull GamePhase required, @NonNull GamePhase current) {
-        return new GameException(String.format(
-                "해당 작업은 '%s' 단계에서만 가능합니다. (현재 단계: %s)",
-                required.displayName(),
-                current.displayName()
-        ));
+        return new GameException("해당 작업은 '%s' 단계에서만 가능합니다. (현재 단계: %s)"
+                .formatted(required.displayName(), current.displayName()));
     }
 
     /**
@@ -90,5 +77,26 @@ public class GameException extends BusinessException {
     @NonNull
     public static GameException pieceNotFound() {
         return new GameException("게임에 포함되지 않은 기물입니다.");
+    }
+
+    /**
+     * 이미 선택된 기물일 때 발생합니다.
+     *
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static GameException pieceAlreadySelected() {
+        return new GameException("이미 참전 중인 기물입니다.");
+    }
+
+    /**
+     * 참전이 불가능한 기물 타입일 때 발생합니다.
+     *
+     * @param type 기물 타입
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static GameException unselectablePieceType(@NonNull PieceType type) {
+        return new GameException("%s 기물로는 참전할 수 없습니다.".formatted(type.displayName()));
     }
 }

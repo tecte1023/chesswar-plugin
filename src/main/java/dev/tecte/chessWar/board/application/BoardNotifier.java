@@ -1,6 +1,6 @@
 package dev.tecte.chessWar.board.application;
 
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
+import dev.tecte.chessWar.port.UserNotifier;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -15,14 +15,14 @@ import org.bukkit.command.CommandSender;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class BoardNotifier {
-    private final SenderNotifier senderNotifier;
+    private final UserNotifier userNotifier;
 
     /**
      * 체스판 생성 성공을 알립니다.
      *
-     * @param recipient 알림을 받을 대상
+     * @param recipient 수신자
      */
-    public void notifyBoardCreate(@NonNull CommandSender recipient) {
-        senderNotifier.notifySuccess(recipient, Component.text("체스판이 생성되었습니다.", NamedTextColor.WHITE));
+    public void informCreated(@NonNull CommandSender recipient) {
+        userNotifier.informSuccess(recipient, Component.text("체스판이 생성되었습니다.", NamedTextColor.WHITE));
     }
 }

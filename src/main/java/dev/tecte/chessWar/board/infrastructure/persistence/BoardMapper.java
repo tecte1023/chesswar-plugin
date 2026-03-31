@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 체스판과 YAML 데이터 간 변환을 수행합니다.
+ * 체스판과 YAML 데이터 간 변환을 관리합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -33,10 +33,10 @@ public class BoardMapper {
     private final YmlParser parser;
 
     /**
-     * 체스판을 YAML 데이터 맵으로 변환합니다.
+     * 체스판을 데이터 맵으로 변환합니다.
      *
      * @param board 변환할 체스판
-     * @return YAML 데이터 맵
+     * @return 변환한 데이터 맵
      */
     @NonNull
     public Map<String, Object> toMap(@NonNull Board board) {
@@ -51,7 +51,7 @@ public class BoardMapper {
     }
 
     /**
-     * YAML 데이터로부터 체스판을 복원합니다.
+     * 데이터 섹션으로부터 체스판을 복원합니다.
      *
      * @param section 데이터 섹션
      * @return 복원된 체스판
@@ -63,12 +63,12 @@ public class BoardMapper {
         ConfigurationSection innerBorderSection = parser.requireSection(section, Keys.INNER_BORDER);
         ConfigurationSection frameSection = parser.requireSection(section, Keys.FRAME);
 
-        return Board.builder()
-                .worldName(worldName)
-                .squareGrid(fromSectionSquareGrid(squareGridSection))
-                .innerBorder(fromSectionBorder(innerBorderSection, BorderType.INNER_BORDER))
-                .frame(fromSectionBorder(frameSection, BorderType.FRAME))
-                .build();
+        return Board.of(
+                worldName,
+                fromSectionSquareGrid(squareGridSection),
+                fromSectionBorder(innerBorderSection, BorderType.INNER_BORDER),
+                fromSectionBorder(frameSection, BorderType.FRAME)
+        );
     }
 
     @NonNull
@@ -95,12 +95,7 @@ public class BoardMapper {
         Vector anchor = parser.requireValue(section, Keys.ANCHOR, Vector.class);
         Orientation orientation = parser.requireEnum(section, Keys.ORIENTATION, Orientation::from);
 
-        return SquareGrid.builder()
-                .anchor(anchor)
-                .orientation(orientation)
-                .gridSpec(gridSpec)
-                .squareSpec(squareSpec)
-                .build();
+        return SquareGrid.of(anchor, orientation, gridSpec, squareSpec);
     }
 
     @NonNull
