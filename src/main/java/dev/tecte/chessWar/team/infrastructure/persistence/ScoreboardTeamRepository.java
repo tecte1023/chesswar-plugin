@@ -1,7 +1,6 @@
 package dev.tecte.chessWar.team.infrastructure.persistence;
 
 import dev.tecte.chessWar.team.application.port.TeamRepository;
-import dev.tecte.chessWar.team.domain.model.TeamCapacityPolicy;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -16,67 +15,43 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
 
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * 팀의 영속성 상태를 관리합니다.
+ * Scoreboard 기반으로 팀 정보를 관리합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class ScoreboardTeamRepository implements TeamRepository {
     private static final String PREFIX = "cw_";
-    private static final String MAX_PLAYERS_OBJECTIVE = PREFIX + "team";
-    private static final String MAX_PLAYERS_ENTRY = PREFIX + "max_players";
+    private static final String CAPACITY_OBJECTIVE = PREFIX + "team";
+    private static final String CAPACITY_ENTRY = PREFIX + "max_capacity";
 
-    private final TeamCapacityPolicy teamCapacityPolicy;
     private final Scoreboard scoreboard;
 
     @Override
-    public int getSize(@NonNull TeamColor teamColor) {
-        Team team = scoreboard.getTeam(getTeamName(teamColor));
+    public OptionalInt findMaxCapacity() {
+        Score score = getCapacityScore();
 
-        return team == null ? 0 : team.getEntries().size();
+        return score.isScoreSet() ? OptionalInt.of(score.getScore()) : OptionalInt.empty();
     }
 
     @Override
-    public int getMaxPlayers() {
-        Score score = getMaxPlayersScore();
-
-        if (!score.isScoreSet()) {
-            int maxPlayers = teamCapacityPolicy.defaultValue();
-
-            log.atInfo().log("Max players not set, initializing to default value [{}].", maxPlayers);
-
-            return persistMaxPlayers(maxPlayers);
-        }
-
-        int unsafeValue = score.getScore();
-        int safeValue = teamCapacityPolicy.adjust(unsafeValue);
-
-        return unsafeValue == safeValue ? safeValue : setMaxPlayers(unsafeValue);
-    }
-
-    @Override
-    public int setMaxPlayers(int maxPlayers) {
-        int appliedValue = teamCapacityPolicy.adjust(maxPlayers);
-
-        if (maxPlayers != appliedValue) {
-            log.atWarn().log(
-                    "Invalid max player count found [{}]. Value must be between [{}-{}]. Resetting to [{}].",
-                    maxPlayers, teamCapacityPolicy.lowerBound(), teamCapacityPolicy.upperBound(), appliedValue
-            );
-        }
-
-        return persistMaxPlayers(appliedValue);
+    public void saveMaxCapacity(int capacity) {
+        getCapacityScore().setScore(capacity);
     }
 
     @Override
     public void addPlayer(@NonNull UUID playerId, @NonNull TeamColor teamColor) {
-        Team team = Optional.ofNullable(scoreboard.getTeam(getTeamName(teamColor)))
-                .orElseGet(() -> createTeam(teamColor));
+        Team team = scoreboard.getTeam(getTeamName(teamColor));
+
+        if (team == null) {
+            team = registerTeam(teamColor);
+        }
 
         team.addEntry(playerId.toString());
     }
@@ -94,7 +69,22 @@ public class ScoreboardTeamRepository implements TeamRepository {
 
     @NonNull
     @Override
-    public Set<UUID> getPlayerUUIDs(@NonNull TeamColor teamColor) {
+    public Optional<TeamColor> findTeam(@NonNull UUID playerId) {
+        return Optional.ofNullable(scoreboard.getEntryTeam(playerId.toString()))
+                .map(Team::getName)
+                .flatMap(this::parseTeamColor);
+    }
+
+    @Override
+    public int countPlayers(@NonNull TeamColor teamColor) {
+        Team team = scoreboard.getTeam(getTeamName(teamColor));
+
+        return team == null ? 0 : team.getEntries().size();
+    }
+
+    @NonNull
+    @Override
+    public Set<UUID> findAllPlayerIds(@NonNull TeamColor teamColor) {
         Team team = scoreboard.getTeam(getTeamName(teamColor));
 
         if (team == null) {
@@ -107,51 +97,44 @@ public class ScoreboardTeamRepository implements TeamRepository {
     }
 
     @NonNull
-    @Override
-    public Optional<TeamColor> findTeam(@NonNull UUID playerId) {
-        return Optional.ofNullable(scoreboard.getEntryTeam(playerId.toString()))
-                .map(Team::getName)
-                .flatMap(this::parseTeamColor);
-    }
+    private Score getCapacityScore() {
+        Objective objective = scoreboard.getObjective(CAPACITY_OBJECTIVE);
 
-    @NonNull
-    private String getTeamName(@NonNull TeamColor teamColor) {
-        return PREFIX + teamColor.name().toLowerCase();
-    }
+        if (objective == null) {
+            objective = createObjective();
+        }
 
-    @NonNull
-    private Score getMaxPlayersScore() {
-        Objective objective = Optional.ofNullable(scoreboard.getObjective(MAX_PLAYERS_OBJECTIVE))
-                .orElseGet(this::createObjective);
-
-        return objective.getScore(MAX_PLAYERS_ENTRY);
+        return objective.getScore(CAPACITY_ENTRY);
     }
 
     @NonNull
     private Objective createObjective() {
         return scoreboard.registerNewObjective(
-                MAX_PLAYERS_OBJECTIVE,
+                CAPACITY_OBJECTIVE,
                 Criteria.DUMMY,
                 Component.text("ChessWar Team")
         );
     }
 
     @NonNull
-    private Team createTeam(@NonNull TeamColor teamColor) {
+    private Team registerTeam(@NonNull TeamColor teamColor) {
         Team team = scoreboard.registerNewTeam(getTeamName(teamColor));
 
-        team.setAllowFriendlyFire(false);
-        team.setCanSeeFriendlyInvisibles(true);
-        team.displayName(Component.text(teamColor.displayName()));
-        team.color(teamColor.textColor());
+        configureTeam(team, teamColor);
 
         return team;
     }
 
-    private int persistMaxPlayers(int value) {
-        getMaxPlayersScore().setScore(value);
+    private void configureTeam(@NonNull Team team, @NonNull TeamColor teamColor) {
+        team.displayName(Component.text(teamColor.displayName()));
+        team.color(teamColor.textColor());
+        team.setAllowFriendlyFire(false);
+        team.setCanSeeFriendlyInvisibles(true);
+    }
 
-        return value;
+    @NonNull
+    private String getTeamName(@NonNull TeamColor teamColor) {
+        return PREFIX + teamColor.name().toLowerCase();
     }
 
     @NonNull

@@ -1,28 +1,29 @@
 package dev.tecte.chessWar.infrastructure.exception;
 
+import dev.tecte.chessWar.port.UserNotifier;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import dev.tecte.chessWar.port.exception.ExceptionHandler;
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Set;
 
 /**
- * 예외를 핸들러에게 전달합니다.
+ * 발생한 예외를 적절한 핸들러에게 중계합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class DefaultExceptionDispatcher implements ExceptionDispatcher {
     private final Provider<Set<ExceptionHandler>> handlersProvider;
-    private final SenderNotifier notifier;
+    private final UserNotifier notifier;
 
     @Override
     public void dispatch(
@@ -43,7 +44,7 @@ public class DefaultExceptionDispatcher implements ExceptionDispatcher {
             log.atError().setCause(e).log("Unhandled exception caught in {}:", contextInfo);
 
             if (sender != null) {
-                notifier.notifyError(sender, "알 수 없는 오류가 발생했습니다.");
+                notifier.informError(sender, Component.text("알 수 없는 오류가 발생했습니다."));
             }
         }
     }

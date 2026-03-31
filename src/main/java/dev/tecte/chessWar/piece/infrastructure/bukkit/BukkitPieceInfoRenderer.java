@@ -3,7 +3,7 @@ package dev.tecte.chessWar.piece.infrastructure.bukkit;
 import dev.tecte.chessWar.piece.application.port.PieceInfoRenderer;
 import dev.tecte.chessWar.piece.domain.exception.PieceSystemException;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
-import dev.tecte.chessWar.piece.infrastructure.command.PieceCommandConstants;
+import dev.tecte.chessWar.piece.infrastructure.command.PieceCommandRouting;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import io.lumine.mythic.core.mobs.MobExecutor;
 import jakarta.inject.Inject;
@@ -19,7 +19,7 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.entity.Player;
 
 /**
- * MythicMobs API를 사용하여 기물 정보를 채팅창에 표시합니다.
+ * MythicMobs 기반으로 기물 정보를 표시합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -35,7 +35,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
     @Override
     public void renderInfo(@NonNull Player player, @NonNull UnitPiece piece, boolean isSelected) {
         ActiveMob activeMob = mobExecutor.getActiveMob(piece.id())
-                .orElseThrow(() -> PieceSystemException.entityMissing(piece.id()));
+                .orElseThrow(() -> PieceSystemException.pieceEntityMissing(piece.id()));
         Component infoPanel = Component.join(
                 JoinConfiguration.newlines(),
                 Component.empty(),
@@ -106,7 +106,7 @@ public class BukkitPieceInfoRenderer implements PieceInfoRenderer {
                     .hoverEvent(HoverEvent.showText(
                             Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN)
                     ))
-                    .clickEvent(ClickEvent.runCommand(PieceCommandConstants.buildSelectCommand(piece.id())))
+                    .clickEvent(ClickEvent.runCommand(PieceCommandRouting.buildSelectCommand(piece.id())))
                     .build();
         }
 

@@ -2,7 +2,6 @@ package dev.tecte.chessWar.board.domain.model;
 
 import dev.tecte.chessWar.board.domain.model.spec.GridSpec;
 import dev.tecte.chessWar.board.domain.model.spec.SquareSpec;
-import lombok.Builder;
 import lombok.NonNull;
 import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
@@ -10,16 +9,14 @@ import org.bukkit.util.Vector;
 import java.util.Objects;
 
 /**
- * 체스판의 격자 영역을 정의하는 불변 객체입니다.
- * <p>
- * 격자의 기준점(a1), 방향, 크기 정보를 바탕으로 각 칸의 위치와 영역을 계산합니다.
+ * 좌표 기반의 물리 영역 계산을 담당합니다.
+ * 기준점으로부터 논리적 좌표를 물리적 영역으로 변환합니다.
  *
- * @param anchor      격자의 기준점 (a1: 좌측 하단 모서리)
- * @param orientation 격자의 방향
- * @param gridSpec    격자 명세
- * @param squareSpec  칸 명세
+ * @param anchor      격자 기준점
+ * @param orientation 격자 배치 방향
+ * @param gridSpec    격자 크기 명세
+ * @param squareSpec  개별 칸의 물리 크기 명세
  */
-@Builder
 public record SquareGrid(
         Vector anchor,
         Orientation orientation,
@@ -36,53 +33,28 @@ public record SquareGrid(
     }
 
     /**
-     * 격자의 기준점 벡터를 반환합니다.
+     * 격자를 생성합니다.
      *
-     * @return 기준점 벡터
+     * @param anchor      격자 기준점
+     * @param orientation 격자 배치 방향
+     * @param gridSpec    행/열 개수 명세
+     * @param squareSpec  칸 물리 크기 명세
+     * @return 격자
      */
     @NonNull
-    public Vector anchor() {
-        return anchor.clone();
+    public static SquareGrid of(
+            @NonNull Vector anchor,
+            @NonNull Orientation orientation,
+            @NonNull GridSpec gridSpec,
+            @NonNull SquareSpec squareSpec
+    ) {
+        return new SquareGrid(anchor, orientation, gridSpec, squareSpec);
     }
 
     /**
-     * 열 이동 벡터를 반환합니다.
+     * 해당 좌표의 물리적 칸을 산출합니다.
      *
-     * @return 열 이동 벡터
-     */
-    @NonNull
-    public Vector colStep() {
-        return orientation.right().multiply(squareSpec.width());
-    }
-
-    /**
-     * 행 이동 벡터를 반환합니다.
-     *
-     * @return 행 이동 벡터
-     */
-    @NonNull
-    public Vector rowStep() {
-        return orientation.forward().multiply(squareSpec.height());
-    }
-
-    /**
-     * 격자 전체 영역을 반환합니다.
-     *
-     * @return 격자 영역
-     */
-    @NonNull
-    public BoundingBox boundingBox() {
-        Vector diagonalOffset = colStep().multiply(gridSpec.colCount())
-                .add(rowStep().multiply(gridSpec.rowCount()));
-        Vector diagonalCorner = anchor().add(diagonalOffset);
-
-        return BoundingBox.of(anchor(), diagonalCorner);
-    }
-
-    /**
-     * 해당 좌표의 칸을 반환합니다.
-     *
-     * @param coordinate 칸의 좌표
+     * @param coordinate 대상 좌표
      * @return 해당 좌표의 칸
      */
     @NonNull
@@ -96,8 +68,76 @@ public record SquareGrid(
         Vector diagonalCorner = squareOrigin.clone()
                 .add(colStep())
                 .add(rowStep());
-        BoundingBox boundingBox = BoundingBox.of(squareOrigin, diagonalCorner);
 
-        return new Square(color, boundingBox);
+        return new Square(color, BoundingBox.of(squareOrigin, diagonalCorner));
+    }
+
+    /**
+     * 해당 좌표의 칸 중심점을 제공합니다.
+     *
+     * @param coordinate 대상 좌표
+     * @return 칸 중심점
+     */
+    @NonNull
+    public Vector centerOf(@NonNull Coordinate coordinate) {
+        return squareAt(coordinate).boundingBox().getCenter();
+    }
+
+    /**
+     * 특정 방향으로 반 칸 이동하는 변위를 산출합니다.
+     *
+     * @param direction 이동 방향
+     * @return 이동 변위
+     */
+    @NonNull
+    public Vector halfStep(@NonNull Orientation direction) {
+        double distance = (orientation.isParallelTo(direction) ? squareSpec.height() : squareSpec.width()) / 2.0;
+
+        return direction.forward().multiply(distance);
+    }
+
+    /**
+     * 격자 전체의 물리 영역을 산출합니다.
+     *
+     * @return 격자 전체 영역
+     */
+    @NonNull
+    public BoundingBox boundingBox() {
+        Vector diagonalOffset = colStep()
+                .multiply(gridSpec.colCount())
+                .add(rowStep().multiply(gridSpec.rowCount()));
+        Vector diagonalCorner = anchor().add(diagonalOffset);
+
+        return BoundingBox.of(anchor(), diagonalCorner);
+    }
+
+    /**
+     * 열 방향 단위 이동 변위를 제공합니다.
+     *
+     * @return 열 이동 변위
+     */
+    @NonNull
+    public Vector colStep() {
+        return orientation.right().multiply(squareSpec.width());
+    }
+
+    /**
+     * 행 방향 단위 이동 변위를 제공합니다.
+     *
+     * @return 행 이동 변위
+     */
+    @NonNull
+    public Vector rowStep() {
+        return orientation.forward().multiply(squareSpec.height());
+    }
+
+    /**
+     * 격자의 기준점 정보를 제공합니다.
+     *
+     * @return 격자 기준점
+     */
+    @NonNull
+    public Vector anchor() {
+        return anchor.clone();
     }
 }

@@ -8,6 +8,7 @@ import dev.tecte.chessWar.game.domain.model.phase.BattleState;
 import dev.tecte.chessWar.game.domain.model.phase.EndedState;
 import dev.tecte.chessWar.game.domain.model.phase.PhaseState;
 import dev.tecte.chessWar.game.domain.model.phase.SelectionState;
+import dev.tecte.chessWar.game.domain.model.phase.SetupState;
 import dev.tecte.chessWar.game.domain.model.phase.TurnOrderState;
 import dev.tecte.chessWar.game.infrastructure.persistence.GamePersistenceConstants.Keys;
 import dev.tecte.chessWar.infrastructure.persistence.YmlParser;
@@ -25,7 +26,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 게임 객체와 YAML 데이터 간 변환을 수행합니다.
+ * 게임과 YAML 데이터 간 변환을 관리합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -35,10 +36,10 @@ public class GameMapper {
     private final YmlParser parser;
 
     /**
-     * 게임을 YAML 데이터 맵으로 변환합니다.
+     * 게임을 데이터 맵으로 변환합니다.
      *
      * @param game 변환할 게임
-     * @return YAML 데이터 맵
+     * @return 데이터 맵
      */
     @NonNull
     public Map<String, Object> toMap(@NonNull Game game) {
@@ -51,7 +52,7 @@ public class GameMapper {
     }
 
     /**
-     * YAML 데이터로부터 게임을 복원합니다.
+     * 데이터 섹션으로부터 게임을 복원합니다.
      *
      * @param section 데이터 섹션
      * @param board   게임이 진행될 체스판
@@ -82,6 +83,8 @@ public class GameMapper {
         map.put(Keys.CURRENT, state.phase().name());
 
         switch (state) {
+            case SetupState ignored -> {
+            }
             case SelectionState s -> map.put(Keys.SELECTIONS, toMapSelections(s));
             case TurnOrderState ignored -> {
             }
@@ -129,6 +132,7 @@ public class GameMapper {
         GamePhase phase = parser.requireEnum(section, Keys.CURRENT, GamePhase::from);
 
         return switch (phase) {
+            case SETUP -> new SetupState();
             case PIECE_SELECTION -> fromSectionSelectionState(section);
             case TURN_ORDER_SELECTION -> new TurnOrderState();
             case BATTLE -> new BattleState();

@@ -5,9 +5,9 @@ import dev.tecte.chessWar.board.domain.model.Coordinate;
 import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.model.phase.PhaseState;
 import dev.tecte.chessWar.game.domain.model.phase.SelectionState;
+import dev.tecte.chessWar.game.domain.model.phase.SetupState;
 import dev.tecte.chessWar.piece.domain.model.Piece;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
-import dev.tecte.chessWar.team.domain.model.TeamColor;
 import lombok.NonNull;
 
 import java.util.HashMap;
@@ -16,10 +16,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 /**
- * 진행 중인 체스 게임의 상태를 나타내는 불변 객체입니다.
+ * 게임 상태와 페이즈 전이를 제어하는 애그리거트 루트입니다.
+ *
+ * @param board  게임이 진행되는 체스판
+ * @param pieces 체스판의 기물 배치 현황
+ * @param state  현재 단계별 상태 데이터
  */
 public record Game(
         Board board,
@@ -35,18 +39,18 @@ public record Game(
     }
 
     /**
-     * 초기 상태의 게임을 생성합니다.
+     * 초기 준비 상태의 게임을 생성합니다.
      *
      * @param board 체스판
-     * @return 생성된 게임
+     * @return 초기화된 게임
      */
     @NonNull
     public static Game create(@NonNull Board board) {
-        return new Game(board, new HashMap<>(), SelectionState.empty());
+        return new Game(board, new HashMap<>(), SetupState.empty());
     }
 
     /**
-     * 주어진 구성 요소들로 게임을 생성합니다.
+     * 주어진 상태로 게임을 생성합니다.
      *
      * @param board  체스판
      * @param pieces 기물 배치
@@ -63,22 +67,32 @@ public record Game(
     }
 
     /**
-     * 현재 게임 단계를 반환합니다.
+     * 기물 선택 단계로 전이합니다.
      *
-     * @return 게임 단계
+     * @param spawnedPieces 배치된 기물 정보
+     * @return 업데이트된 게임
+     * @throws GameException 준비 단계가 아닐 경우
      */
     @NonNull
-    public GamePhase phase() {
-        return state.phase();
+    public Game startSelection(@NonNull Map<Coordinate, ? extends Piece> spawnedPieces) {
+        if (phase() != GamePhase.SETUP) {
+            throw GameException.phaseMismatch(GamePhase.SETUP, phase());
+        }
+
+        Map<Coordinate, Piece> newPieces = new HashMap<>(pieces);
+
+        newPieces.putAll(spawnedPieces);
+
+        return new Game(board, newPieces, SelectionState.empty());
     }
 
     /**
-     * 플레이어의 기물 선택 정보를 반영한 새로운 게임을 반환합니다.
+     * 플레이어의 기물 선택 결과를 반영합니다.
      *
-     * @param playerId 선택한 플레이어의 식별자
-     * @param pieceId  선택된 기물의 식별자
+     * @param playerId 플레이어 ID
+     * @param pieceId  기물 ID
      * @return 업데이트된 게임
-     * @throws GameException 현재 단계가 기물 선택 단계가 아닐 경우
+     * @throws GameException 단계 불일치, 기물 미발견 또는 중복 선택 시
      */
     @NonNull
     public Game selectPiece(@NonNull UUID playerId, @NonNull UUID pieceId) {
@@ -86,13 +100,42 @@ public record Game(
             throw GameException.phaseMismatch(GamePhase.PIECE_SELECTION, phase());
         }
 
+        Piece piece = findPiece(pieceId).orElseThrow(GameException::pieceNotFound);
+
+        if (!piece.isSelectable()) {
+            throw GameException.unselectablePieceType(piece.spec().type());
+        }
+
+        if (isAlreadySelected(pieceId)) {
+            throw GameException.pieceAlreadySelected();
+        }
+
         return new Game(board, pieces, ((SelectionState) state).withSelection(playerId, pieceId));
     }
 
     /**
-     * 식별자를 사용하여 게임 내 기물을 찾습니다.
+     * 현재 게임 단계를 제공합니다.
      *
-     * @param pieceId 찾을 기물 식별자
+     * @return 현재 단계
+     */
+    @NonNull
+    public GamePhase phase() {
+        return state.phase();
+    }
+
+    /**
+     * 중도 참여 가능 여부를 확인합니다.
+     *
+     * @return 참여 가능 여부
+     */
+    public boolean isJoinable() {
+        return phase() == GamePhase.PIECE_SELECTION;
+    }
+
+    /**
+     * ID 기반으로 체스판의 기물을 검색합니다.
+     *
+     * @param pieceId 기물 ID
      * @return 찾은 기물
      */
     @NonNull
@@ -103,38 +146,12 @@ public record Game(
     }
 
     /**
-     * 특정 팀에 소속된 모든 기물을 찾습니다.
+     * 특정 기물의 선택 여부를 확인합니다.
      *
-     * @param team 찾을 팀
-     * @return 찾은 기물
+     * @param pieceId 기물 ID
+     * @return 기물 선택 여부
      */
-    @NonNull
-    public Stream<Piece> findPiecesByTeam(@NonNull TeamColor team) {
-        return pieces.values().stream().filter(piece -> piece.isTeam(team));
-    }
-
-    /**
-     * 게임에 포함된 모든 일반 기물을 반환합니다.
-     *
-     * @return 일반 기물 목록
-     */
-    @NonNull
-    public List<UnitPiece> unitPieces() {
-        return pieces.values().stream()
-                .filter(piece -> piece instanceof UnitPiece)
-                .map(piece -> (UnitPiece) piece)
-                .toList();
-    }
-
-    /**
-     * 특정 기물이 플레이어에게 선택되었는지 확인합니다.
-     * <p>
-     * 기물 선택 단계에서만 유효하며, 그 외의 단계에서는 항상 false를 반환합니다.
-     *
-     * @param pieceId 기물의 식별자
-     * @return 선택 여부
-     */
-    public boolean isPieceSelected(@NonNull UUID pieceId) {
+    public boolean isAlreadySelected(@NonNull UUID pieceId) {
         if (state instanceof SelectionState selectionState) {
             return selectionState.isSelected(pieceId);
         }
@@ -143,17 +160,30 @@ public record Game(
     }
 
     /**
-     * 기물 목록이 추가된 게임을 반환합니다.
+     * 체스판에 배치된 모든 일반 기물 목록을 산출합니다.
      *
-     * @param pieces 추가할 기물 배치
-     * @return 업데이트된 게임
+     * @return 일반 기물 목록
      */
     @NonNull
-    public Game withPieces(@NonNull Map<Coordinate, ? extends Piece> pieces) {
-        Map<Coordinate, Piece> newPieces = new HashMap<>(this.pieces);
+    public List<UnitPiece> units() {
+        return pieces.values().stream()
+                .filter(piece -> piece instanceof UnitPiece)
+                .map(piece -> (UnitPiece) piece)
+                .toList();
+    }
 
-        newPieces.putAll(pieces);
-
-        return new Game(board, newPieces, state);
+    /**
+     * 좌표 기반의 일반 기물 배치 현황을 산출합니다.
+     *
+     * @return 기물 배치 현황
+     */
+    @NonNull
+    public Map<Coordinate, UnitPiece> unitPlacements() {
+        return pieces.entrySet().stream()
+                .filter(entry -> entry.getValue() instanceof UnitPiece)
+                .collect(Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey,
+                        entry -> (UnitPiece) entry.getValue())
+                );
     }
 }

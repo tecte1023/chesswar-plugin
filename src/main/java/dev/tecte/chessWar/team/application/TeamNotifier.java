@@ -1,6 +1,6 @@
 package dev.tecte.chessWar.team.application;
 
-import dev.tecte.chessWar.port.notifier.SenderNotifier;
+import dev.tecte.chessWar.port.UserNotifier;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -16,16 +16,16 @@ import org.bukkit.command.CommandSender;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class TeamNotifier {
-    private final SenderNotifier senderNotifier;
+    private final UserNotifier userNotifier;
 
     /**
      * 팀 참가 성공을 알립니다.
      *
-     * @param recipient 알림을 받을 대상
-     * @param teamColor 참가한 팀의 색상
+     * @param recipient 수신자
+     * @param teamColor 참가한 팀
      */
-    public void notifyJoin(@NonNull CommandSender recipient, @NonNull TeamColor teamColor) {
-        senderNotifier.notifySuccess(
+    public void informJoin(@NonNull CommandSender recipient, @NonNull TeamColor teamColor) {
+        userNotifier.informSuccess(
                 recipient,
                 Component.text(teamColor.displayName(), teamColor.textColor())
                         .append(Component.text("에 참가했습니다.", NamedTextColor.AQUA))
@@ -35,9 +35,9 @@ public class TeamNotifier {
     /**
      * 팀 나가기 성공을 알립니다.
      *
-     * @param recipient 알림을 받을 대상
+     * @param recipient 수신자
      */
-    public void notifyLeave(@NonNull CommandSender recipient) {
-        senderNotifier.notifySuccess(recipient, Component.text("팀에서 나갔습니다.", NamedTextColor.YELLOW));
+    public void informLeave(@NonNull CommandSender recipient) {
+        userNotifier.informSuccess(recipient, Component.text("팀에서 나갔습니다.", NamedTextColor.YELLOW));
     }
 }
