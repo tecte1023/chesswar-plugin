@@ -1,4 +1,4 @@
-package dev.tecte.chessWar.infrastructure.event;
+package dev.tecte.chessWar.infrastructure.bukkit;
 
 import dev.tecte.chessWar.common.event.DomainEvent;
 import dev.tecte.chessWar.common.event.DomainEventDispatcher;
@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.plugin.PluginManager;
 
 /**
- * 도메인 이벤트를 Bukkit 이벤트 시스템으로 전파합니다.
+ * Bukkit 기반으로 도메인 이벤트를 전파합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)

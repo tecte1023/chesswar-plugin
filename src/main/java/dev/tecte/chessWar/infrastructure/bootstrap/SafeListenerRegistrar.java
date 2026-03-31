@@ -2,6 +2,8 @@ package dev.tecte.chessWar.infrastructure.bootstrap;
 
 import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.common.event.NotifiableEvent;
+import dev.tecte.chessWar.common.identity.ProjectIdentity;
+import dev.tecte.chessWar.port.UserResolver;
 import dev.tecte.chessWar.port.exception.ExceptionDispatcher;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -16,29 +18,36 @@ import org.bukkit.plugin.PluginManager;
 
 import java.lang.reflect.Method;
 import java.util.Set;
+import java.util.UUID;
 
 /**
- * 모든 리스너를 예외 처리 안전망과 함께 등록합니다.
+ * 리스너를 예외 처리 안전망과 함께 등록합니다.
  */
 @Slf4j(topic = "ChessWar")
 @Singleton
 public class SafeListenerRegistrar {
+    private final ChessWar plugin;
+    private final PluginManager pluginManager;
+    private final UserResolver userResolver;
+    private final ExceptionDispatcher exceptionDispatcher;
+
     @Inject
     public SafeListenerRegistrar(
             @NonNull ChessWar plugin,
             @NonNull PluginManager pluginManager,
+            @NonNull UserResolver userResolver,
             @NonNull ExceptionDispatcher exceptionDispatcher,
             @NonNull Set<Listener> listeners
     ) {
-        listeners.forEach(listener -> registerSafeEvents(plugin, pluginManager, exceptionDispatcher, listener));
+        this.plugin = plugin;
+        this.pluginManager = pluginManager;
+        this.userResolver = userResolver;
+        this.exceptionDispatcher = exceptionDispatcher;
+
+        listeners.forEach(this::registerSafeEvents);
     }
 
-    private void registerSafeEvents(
-            @NonNull ChessWar plugin,
-            @NonNull PluginManager pluginManager,
-            @NonNull ExceptionDispatcher exceptionDispatcher,
-            @NonNull Listener listener
-    ) {
+    private void registerSafeEvents(@NonNull Listener listener) {
         for (Method method : listener.getClass().getMethods()) {
             EventHandler handlerAnnotation = method.getAnnotation(EventHandler.class);
 
@@ -61,7 +70,7 @@ public class SafeListenerRegistrar {
                     eventClass,
                     listener,
                     handlerAnnotation.priority(),
-                    createSafeExecutor(method, exceptionDispatcher),
+                    createSafeExecutor(method),
                     plugin,
                     handlerAnnotation.ignoreCancelled()
             );
@@ -69,13 +78,16 @@ public class SafeListenerRegistrar {
     }
 
     @NonNull
-    private EventExecutor createSafeExecutor(@NonNull Method method, @NonNull ExceptionDispatcher exceptionDispatcher) {
+    private EventExecutor createSafeExecutor(@NonNull Method method) {
         return (listener, event) -> {
             try {
                 method.invoke(listener, event);
             } catch (Exception e) {
                 Throwable cause = e.getCause() != null ? e.getCause() : e;
-                CommandSender sender = (event instanceof NotifiableEvent notifiable) ? notifiable.sender() : null;
+                UUID actorId = (event instanceof NotifiableEvent notifiable)
+                        ? notifiable.senderId()
+                        : ProjectIdentity.SYSTEM_ID;
+                CommandSender sender = userResolver.resolveSender(actorId);
 
                 if (cause instanceof Exception exception) {
                     exceptionDispatcher.dispatch(exception, sender, "Listener " + method.getName());
