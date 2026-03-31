@@ -14,14 +14,13 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 
 import java.util.Map;
-import java.util.Optional;
 
 /**
- * 플레이어가 특정 양털을 우클릭했을 때 해당 색상의 팀에 참가하도록 하는 리스너입니다.
+ * 팀 선택 상호작용의 비즈니스 처리를 개시합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class TeamJoinListener implements Listener {
+public class TeamJoinInitiator implements Listener {
     private static final Map<Material, TeamColor> TEAM_COLOR_BY_ITEM = Map.of(
             Material.WHITE_WOOL, TeamColor.WHITE,
             Material.BLACK_WOOL, TeamColor.BLACK
@@ -30,8 +29,7 @@ public class TeamJoinListener implements Listener {
     private final TeamService teamService;
 
     /**
-     * 플레이어가 상호작용 이벤트를 발생시켰을 때 호출됩니다.
-     * 플레이어가 양털을 들고 우클릭하면, 해당 색상의 팀에 참가를 시도합니다.
+     * 선택한 아이템의 속성에 맞춰 플레이어의 소속 팀을 결정합니다.
      *
      * @param event 플레이어 상호작용 이벤트
      */
@@ -45,8 +43,12 @@ public class TeamJoinListener implements Listener {
 
         Player player = event.getPlayer();
         Material itemType = player.getInventory().getItemInMainHand().getType();
+        TeamColor teamColor = TEAM_COLOR_BY_ITEM.get(itemType);
 
-        Optional.ofNullable(TEAM_COLOR_BY_ITEM.get(itemType))
-                .ifPresent(selectedTeam -> teamService.joinTeam(player, selectedTeam));
+        if (teamColor == null) {
+            return;
+        }
+
+        teamService.joinTeam(player, teamColor);
     }
 }
