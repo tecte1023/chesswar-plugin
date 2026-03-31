@@ -11,20 +11,20 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 
 /**
- * 게임 종료 시점에 전장의 기물들을 제거합니다.
+ * 게임 종료 후 전장의 물리적 정리를 책임집니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
-public class PieceDespawnListener implements Listener {
+public class GameStopPieceCleanupListener implements Listener {
     private final PieceService pieceService;
 
     /**
-     * 전장에 배치된 기물들을 소환 해제합니다.
+     * 배치된 기물 엔티티를 월드에서 제거하여 초기 상태로 복구합니다.
      *
      * @param event 게임 종료 이벤트
      */
     @EventHandler(priority = EventPriority.NORMAL)
-    public void despawnPieces(@NonNull GameStoppedEvent event) {
-        pieceService.despawnPieces(event.unitPieces());
+    public void onGameStopped(@NonNull GameStoppedEvent event) {
+        pieceService.despawnPieces(event.units());
     }
 }
