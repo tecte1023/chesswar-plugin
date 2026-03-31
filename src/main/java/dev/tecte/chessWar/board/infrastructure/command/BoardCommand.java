@@ -5,7 +5,7 @@ import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Description;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chessWar.board.application.BoardService;
-import dev.tecte.chessWar.infrastructure.command.CommandConstants;
+import dev.tecte.chessWar.infrastructure.command.CommandRouting;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -13,10 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
 
 /**
- * 체스판 관련 명령어를 처리하는 클래스입니다.
+ * 체스판 관련 명령어를 처리합니다.
  */
 @Singleton
-@CommandAlias(CommandConstants.ROOT_ALIAS)
+@CommandAlias(CommandRouting.ROOT_ALIAS)
 @Subcommand("board")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
@@ -26,7 +26,7 @@ public class BoardCommand extends BaseCommand {
     /**
      * 체스판을 생성합니다.
      *
-     * @param player 명령어를 실행한 플레이어
+     * @param player 행위자
      */
     @Subcommand("create")
     @Description("새로운 체스판을 생성합니다.")

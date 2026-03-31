@@ -5,7 +5,7 @@ import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.CommandCompletion;
 import co.aikar.commands.annotation.Description;
 import co.aikar.commands.annotation.Subcommand;
-import dev.tecte.chessWar.infrastructure.command.CommandConstants;
+import dev.tecte.chessWar.infrastructure.command.CommandRouting;
 import dev.tecte.chessWar.team.application.TeamService;
 import dev.tecte.chessWar.team.domain.model.TeamColor;
 import jakarta.inject.Inject;
@@ -15,10 +15,10 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
 
 /**
- * 팀 관련 명령어를 처리하는 클래스입니다.
+ * 팀 관련 명령어를 처리합니다.
  */
 @Singleton
-@CommandAlias(CommandConstants.ROOT_ALIAS)
+@CommandAlias(CommandRouting.ROOT_ALIAS)
 @Subcommand("team")
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 @SuppressWarnings("unused")
@@ -28,8 +28,8 @@ public class TeamCommand extends BaseCommand {
     /**
      * 팀에 참가합니다.
      *
-     * @param player    명령어를 실행한 플레이어
-     * @param teamColor 참가할 팀의 색상
+     * @param player    행위자
+     * @param teamColor 참가할 팀
      */
     @Subcommand("join")
     @Description("(흑팀/백팀)에 참가합니다.")
@@ -41,7 +41,7 @@ public class TeamCommand extends BaseCommand {
     /**
      * 팀에서 나갑니다.
      *
-     * @param player 명령어를 실행한 플레이어
+     * @param player 행위자
      */
     @Subcommand("leave")
     @Description("팀에서 나갑니다.")
