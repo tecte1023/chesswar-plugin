@@ -146,7 +146,7 @@ public record Game(
     }
 
     /**
-     * 특정 기물의 선택 여부를 확인합니다.
+     * 기물의 선택 여부를 확인합니다.
      *
      * @param pieceId 기물 ID
      * @return 기물 선택 여부
@@ -154,6 +154,20 @@ public record Game(
     public boolean isAlreadySelected(@NonNull UUID pieceId) {
         if (state instanceof SelectionState selectionState) {
             return selectionState.isSelected(pieceId);
+        }
+
+        return false;
+    }
+
+    /**
+     * 참여자가 기물을 선택했는지 확인합니다.
+     *
+     * @param playerId 플레이어 ID
+     * @return 기물 선택 완료 여부
+     */
+    public boolean hasSelectedPiece(@NonNull UUID playerId) {
+        if (state instanceof SelectionState selectionState) {
+            return selectionState.hasSelectionFor(playerId);
         }
 
         return false;
