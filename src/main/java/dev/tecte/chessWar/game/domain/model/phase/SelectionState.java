@@ -58,13 +58,23 @@ public record SelectionState(Map<UUID, UUID> selections) implements PhaseState {
     }
 
     /**
-     * 해당 기물의 선택 여부를 확인합니다.
+     * 기물의 선택 여부를 확인합니다.
      *
      * @param pieceId 기물 ID
      * @return 기물 선택 여부
      */
     public boolean isSelected(@NonNull UUID pieceId) {
         return selections.containsValue(pieceId);
+    }
+
+    /**
+     * 플레이어의 선택 완료 여부를 확인합니다.
+     *
+     * @param playerId 플레이어 ID
+     * @return 선택 완료 여부
+     */
+    public boolean hasSelectionFor(@NonNull UUID playerId) {
+        return selections.containsKey(playerId);
     }
 
     @NonNull

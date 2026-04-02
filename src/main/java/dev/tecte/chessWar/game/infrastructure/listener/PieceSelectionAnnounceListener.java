@@ -37,7 +37,8 @@ public class PieceSelectionAnnounceListener implements Listener {
         }
 
         Player player = foundPlayer.get();
-        
+
         gameAnnouncer.notifyPieceSelection(player, event.pieceSpec().type());
+        gameAnnouncer.refreshSelectionStatus(player);
     }
 }
