@@ -5,6 +5,7 @@ import dev.tecte.chessWar.game.application.port.GameTaskManager;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.piece.domain.model.PieceType;
 import dev.tecte.chessWar.port.UserNotifier;
+import dev.tecte.chessWar.team.application.TeamService;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -23,6 +24,7 @@ import java.util.Set;
 public class GameAnnouncer {
     private final GameRepository gameRepository;
     private final GameTaskManager gameTaskManager;
+    private final TeamService teamService;
     private final UserNotifier userNotifier;
 
     /**
@@ -36,16 +38,14 @@ public class GameAnnouncer {
 
     /**
      * 기물 선택 가이드를 시작합니다.
-     *
-     * @param targets 대상 참여자
      */
-    public void startSelectionGuidance(@NonNull Set<Player> targets) {
+    public void startSelectionGuidance() {
         long initialDelay = 0L;
         long intervalTicks = 2 * 20L;
 
         gameTaskManager.runRepeating(
                 GameTaskType.GUIDANCE,
-                () -> refreshSelectionStatus(targets),
+                this::refreshSelectionStatus,
                 initialDelay,
                 intervalTicks
         );
@@ -90,10 +90,10 @@ public class GameAnnouncer {
         userNotifier.informSuccess(requester, GameMessage.GAME_STOPPED.content());
     }
 
-    private void refreshSelectionStatus(@NonNull Set<Player> targets) {
+    private void refreshSelectionStatus() {
         Optional<Game> currentGame = gameRepository.find();
 
-        targets.forEach(player -> {
+        teamService.findAllOnlineParticipants().forEach(player -> {
             boolean hasSelected = currentGame
                     .map(game -> game.hasSelectedPiece(player.getUniqueId()))
                     .orElse(false);

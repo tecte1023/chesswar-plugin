@@ -38,6 +38,6 @@ public class GameSelectionStartAnnouncer implements Listener {
                 .collect(Collectors.toSet());
 
         gameAnnouncer.announceSelectionStart(targets);
-        gameAnnouncer.startSelectionGuidance(targets);
+        gameAnnouncer.startSelectionGuidance();
     }
 }
