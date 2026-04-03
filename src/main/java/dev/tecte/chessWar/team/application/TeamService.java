@@ -48,6 +48,29 @@ public class TeamService {
     }
 
     /**
+     * 모든 참여자의 식별자(ID) 목록을 제공합니다.
+     *
+     * @return 참여자 ID 집합
+     */
+    @NonNull
+    public Set<UUID> findAllParticipantIds() {
+        return findAllParticipants().keySet();
+    }
+
+    /**
+     * 현재 접속 중인 모든 참여자 객체를 제공합니다.
+     *
+     * @return 온라인 참여자 집합
+     */
+    @NonNull
+    public Set<Player> findAllOnlineParticipants() {
+        return findAllParticipantIds().stream()
+                .map(userResolver::findPlayer)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
      * 플레이어 소속 팀을 찾습니다.
      */
     @NonNull
