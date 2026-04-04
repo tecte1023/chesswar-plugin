@@ -124,15 +124,6 @@ public record Game(
     }
 
     /**
-     * 중도 참여 가능 여부를 확인합니다.
-     *
-     * @return 참여 가능 여부
-     */
-    public boolean isJoinable() {
-        return isInSelectionPhase();
-    }
-
-    /**
      * 현재 기물 선택 단계인지 확인합니다.
      *
      * @return 기물 선택 단계 여부
