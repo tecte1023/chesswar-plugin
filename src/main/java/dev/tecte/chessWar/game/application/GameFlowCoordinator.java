@@ -135,16 +135,14 @@ public class GameFlowCoordinator {
      * @param player 접속한 플레이어
      */
     public void handlePlayerJoin(@NonNull Player player) {
-        gameRepository.find().ifPresent(game ->
-                teamService.findTeam(player).ifPresent(teamColor -> {
-                    if (game.isJoinable()) {
+        teamService.findTeam(player).ifPresent(teamColor ->
+                gameRepository.find().ifPresent(game ->
                         eventDispatcher.dispatch(GameParticipantJoinedEvent.of(
                                 player.getUniqueId(),
                                 teamColor,
                                 game.unitPlacements()
-                        ));
-                    }
-                })
+                        ))
+                )
         );
     }
 }
