@@ -4,6 +4,8 @@ import co.aikar.commands.PaperCommandManager;
 import com.google.inject.Guice;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
+import dev.tecte.chessWar.common.event.ChessWarStartedEvent;
+import dev.tecte.chessWar.common.event.DomainEventDispatcher;
 import dev.tecte.chessWar.common.persistence.PersistableState;
 import dev.tecte.chessWar.infrastructure.bootstrap.PluginModule;
 import dev.tecte.chessWar.piece.infrastructure.mythicmobs.MythicMobsSetup;
@@ -20,6 +22,9 @@ import java.util.concurrent.ExecutorService;
 @Slf4j(topic = "ChessWar")
 @SuppressWarnings("unused")
 public final class ChessWar extends JavaPlugin {
+    @Inject
+    private DomainEventDispatcher eventDispatcher;
+
     @Inject
     @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
     private Set<PersistableState> persistableStates;
@@ -41,6 +46,7 @@ public final class ChessWar extends JavaPlugin {
 
         injector.injectMembers(this);
         persistableStates.forEach(PersistableState::load);
+        eventDispatcher.dispatch(ChessWarStartedEvent.of());
         log.atInfo().log("ChessWar plugin has been enabled!");
     }
 
