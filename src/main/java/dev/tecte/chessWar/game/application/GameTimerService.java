@@ -7,7 +7,6 @@ import dev.tecte.chessWar.game.application.port.GameTimerDisplay;
 import dev.tecte.chessWar.game.domain.event.GamePhaseExpiredEvent;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
 import dev.tecte.chessWar.game.domain.model.PhaseTimerSettings;
-import dev.tecte.chessWar.game.domain.model.TimerVisuals;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.NonNull;
@@ -17,6 +16,7 @@ import net.kyori.adventure.text.Component;
 
 import java.time.Duration;
 import java.util.Collection;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -32,8 +32,7 @@ public class GameTimerService {
     private final GameTimerDisplay timerDisplay;
     private final DomainEventDispatcher eventDispatcher;
 
-    private final AtomicInteger remainingSeconds = new AtomicInteger(0);
-    private GamePhase currentPhase;
+    private TimerSession currentSession;
 
     /**
      * 타이머를 시작합니다.
@@ -48,16 +47,34 @@ public class GameTimerService {
             @NonNull Collection<UUID> participantIds
     ) {
         stop();
-        currentPhase = phase;
+        currentSession = TimerSession.of(phase, settings);
 
-        Duration duration = settings.duration();
-        int total = (int) duration.toSeconds();
-        TimerVisuals visuals = settings.visuals();
-        Component initialTitle = visuals.renderTitle(phase.displayName(), duration);
+        Component initialTitle = settings.visuals().renderTitle(phase.displayName(), settings.duration());
 
-        remainingSeconds.set(total);
         timerDisplay.show(participantIds, initialTitle, BossBar.MAX_PROGRESS);
-        taskManager.runRepeating(GameTaskType.TIMER, () -> tick(total, visuals), 0L, TICKS_PER_SECOND);
+        taskManager.runRepeating(GameTaskType.TIMER, this::tick, 0L, TICKS_PER_SECOND);
+    }
+
+    /**
+     * 타이머를 복구하여 보여줍니다.
+     *
+     * @param playerId 플레이어 ID
+     */
+    public void restore(@NonNull UUID playerId) {
+        if (!isActive()) {
+            return;
+        }
+
+        timerDisplay.show(playerId);
+    }
+
+    /**
+     * 타이머 활성화 여부를 확인합니다.
+     *
+     * @return 활성화 여부
+     */
+    public boolean isActive() {
+        return currentSession != null;
     }
 
     /**
@@ -66,25 +83,54 @@ public class GameTimerService {
     public void stop() {
         taskManager.cancel(GameTaskType.TIMER);
         timerDisplay.hide();
+        currentSession = null;
     }
 
-    private void tick(int total, @NonNull TimerVisuals visuals) {
-        int left = remainingSeconds.decrementAndGet();
+    private void tick() {
+        TimerSession session = currentSession;
 
-        if (left <= 0) {
-            handleTimeout();
+        if (session == null) {
+            return;
+        }
+
+        GamePhase phase = session.phase();
+        int secondsLeft = session.remainingSeconds().decrementAndGet();
+
+        if (secondsLeft <= 0) {
+            handleTimeout(phase);
 
             return;
         }
 
-        double progress = (double) left / total;
-        Component title = visuals.renderTitle(currentPhase.displayName(), Duration.ofSeconds(left));
+        PhaseTimerSettings settings = session.settings();
+        double progress = (double) secondsLeft / settings.duration().toSeconds();
+        Component title = settings.visuals().renderTitle(phase.displayName(), Duration.ofSeconds(secondsLeft));
 
         timerDisplay.update(title, progress);
     }
 
-    private void handleTimeout() {
+    private void handleTimeout(@NonNull GamePhase phase) {
         stop();
-        eventDispatcher.dispatch(GamePhaseExpiredEvent.of(currentPhase, ProjectIdentity.SYSTEM_ID));
+        eventDispatcher.dispatch(GamePhaseExpiredEvent.of(phase, ProjectIdentity.SYSTEM_ID));
+    }
+
+    private record TimerSession(
+            @NonNull GamePhase phase,
+            @NonNull PhaseTimerSettings settings,
+            @NonNull AtomicInteger remainingSeconds
+    ) {
+        private TimerSession {
+            Objects.requireNonNull(phase, "Phase cannot be null");
+            Objects.requireNonNull(settings, "Settings cannot be null");
+            Objects.requireNonNull(remainingSeconds, "Remaining seconds cannot be null");
+        }
+
+        static TimerSession of(GamePhase phase, PhaseTimerSettings settings) {
+            return new TimerSession(
+                    phase,
+                    settings,
+                    new AtomicInteger((int) settings.duration().toSeconds())
+            );
+        }
     }
 }
