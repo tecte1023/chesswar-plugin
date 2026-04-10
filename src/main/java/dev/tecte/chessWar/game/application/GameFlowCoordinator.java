@@ -14,6 +14,7 @@ import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.exception.GameSystemException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.game.domain.policy.GamePhaseTimerPolicy;
 import dev.tecte.chessWar.piece.application.PieceService;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import dev.tecte.chessWar.port.UserResolver;
@@ -27,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,7 +38,9 @@ import java.util.UUID;
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
 public class GameFlowCoordinator {
+    private final GamePhaseTimerPolicy timerPolicy;
     private final GameRepository gameRepository;
+    private final GameTimerService timerService;
     private final BoardService boardService;
     private final TeamService teamService;
     private final PieceService pieceService;
@@ -121,12 +125,27 @@ public class GameFlowCoordinator {
         Game game = gameRepository.find()
                 .orElseThrow(() -> GameSystemException.gameTransitionInterrupted(GamePhase.PIECE_SELECTION));
 
-        gameRepository.save(game.startSelection(unitPlacements));
+        game = game.startSelection(unitPlacements);
+        gameRepository.save(game);
         eventDispatcher.dispatch(GameSelectionStartedEvent.of(
                 game,
                 participants,
                 starterId
         ));
+    }
+
+    /**
+     * 타이머를 시작합니다.
+     *
+     * @param phase          게임 단계
+     * @param participantIds 참여자 ID 목록
+     */
+    public void initiatePhaseTimer(
+            @NonNull GamePhase phase,
+            @NonNull Collection<UUID> participantIds
+    ) {
+        timerPolicy.findSettings(phase)
+                .ifPresent(settings -> timerService.start(phase, settings, participantIds));
     }
 
     /**
