@@ -7,6 +7,7 @@ import dev.tecte.chessWar.ChessWar;
 import dev.tecte.chessWar.board.infrastructure.bootstrap.BoardModule;
 import dev.tecte.chessWar.common.event.DomainEventDispatcher;
 import dev.tecte.chessWar.game.infrastructure.bootstrap.GameModule;
+import dev.tecte.chessWar.infrastructure.bukkit.BukkitBossBarManager;
 import dev.tecte.chessWar.infrastructure.bukkit.BukkitEntityResolver;
 import dev.tecte.chessWar.infrastructure.bukkit.BukkitEventDispatcher;
 import dev.tecte.chessWar.infrastructure.bukkit.BukkitTaskRunner;
@@ -42,12 +43,18 @@ public class PluginModule extends AbstractModule {
 
         bind(ChessWar.class).toInstance(plugin);
         bind(JavaPlugin.class).toInstance(plugin);
+        bind(Server.class).toInstance(server);
+
         bind(DomainEventDispatcher.class).to(BukkitEventDispatcher.class);
         bind(TaskRunner.class).to(BukkitTaskRunner.class);
+
         bind(UserNotifier.class).to(BukkitUserNotifier.class);
         bind(UserResolver.class).to(BukkitUserResolver.class);
         bind(WorldResolver.class).to(BukkitWorldResolver.class);
         bind(EntityResolver.class).to(BukkitEntityResolver.class);
+
+        bind(BukkitBossBarManager.class).asEagerSingleton();
+
         bind(ConsoleCommandSender.class).toInstance(Bukkit.getConsoleSender());
         bind(BukkitScheduler.class).toInstance(server.getScheduler());
         bind(PluginManager.class).toInstance(server.getPluginManager());
