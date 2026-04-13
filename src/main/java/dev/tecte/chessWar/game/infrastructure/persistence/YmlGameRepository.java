@@ -1,6 +1,8 @@
 package dev.tecte.chessWar.game.infrastructure.persistence;
 
 import dev.tecte.chessWar.board.application.port.BoardRepository;
+import dev.tecte.chessWar.board.domain.model.Board;
+import dev.tecte.chessWar.game.application.GameTimerService;
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.infrastructure.persistence.GamePersistenceConstants.StatePaths;
@@ -17,16 +19,18 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /**
- * YML 파일을 사용하여 게임의 영속성을 관리합니다.
+ * YAML 기반의 게임 영속성 저장소입니다.
  */
 @Singleton
 public class YmlGameRepository extends AbstractSingleYmlRepository<Game> implements GameRepository {
     private final BoardRepository boardRepository;
+    private final GameTimerService timerService;
     private final GameMapper mapper;
 
     @Inject
     public YmlGameRepository(
             @NonNull BoardRepository boardRepository,
+            @NonNull GameTimerService timerService,
             @NonNull GameMapper mapper,
             @NonNull ExceptionDispatcher dispatcher,
             @NonNull YmlFileManager fileManager,
@@ -34,6 +38,7 @@ public class YmlGameRepository extends AbstractSingleYmlRepository<Game> impleme
     ) {
         super(dispatcher, fileManager, persistenceExecutor);
         this.boardRepository = boardRepository;
+        this.timerService = timerService;
         this.mapper = mapper;
     }
 
@@ -47,13 +52,17 @@ public class YmlGameRepository extends AbstractSingleYmlRepository<Game> impleme
     protected Game deserialize(@NonNull ConfigurationSection section) {
         return boardRepository.find()
                 .map(board -> mapper.fromSection(section, board))
-                .orElseThrow(YmlMappingException::forMissingBoard);
+                .orElseThrow(() -> YmlMappingException.forMissingResource(Board.class));
     }
 
     @NonNull
     @Override
-    protected Map<String, Object> serialize(@NonNull Game entity) {
-        return mapper.toMap(entity);
+    protected Map<String, Object> serialize(@NonNull Game game) {
+        Game capturedGame = timerService.remainingTime()
+                .map(game::remaining)
+                .orElse(game);
+
+        return mapper.toMap(capturedGame);
     }
 
     @NonNull
