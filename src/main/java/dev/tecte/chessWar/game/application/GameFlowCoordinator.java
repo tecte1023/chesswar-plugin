@@ -14,6 +14,7 @@ import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.exception.GameSystemException;
 import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.game.domain.model.PhaseTimerSettings;
 import dev.tecte.chessWar.game.domain.policy.GamePhaseTimerPolicy;
 import dev.tecte.chessWar.piece.application.PieceService;
 import dev.tecte.chessWar.piece.domain.model.UnitPiece;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * 게임의 생명주기와 비즈니스 흐름을 관리합니다.
+ * 게임의 전반적인 진행 흐름을 조율합니다.
  */
 @Singleton
 @RequiredArgsConstructor(onConstructor_ = @Inject)
@@ -77,6 +78,7 @@ public class GameFlowCoordinator {
      * 게임을 중단합니다.
      *
      * @param sender 행위자
+     * @throws GameException 게임을 찾지 못했을 경우
      */
     public void stopGame(@NonNull CommandSender sender) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
@@ -91,41 +93,42 @@ public class GameFlowCoordinator {
     /**
      * 전장을 준비합니다.
      *
-     * @param board     체스판 정보
+     * @param board     체스판
      * @param starterId 행위자 ID
      */
     public void prepareBattlefield(@NonNull Board board, @NonNull UUID starterId) {
         CommandSender starter = userResolver.resolveSender(starterId);
 
         pieceService.spawnPieces(board, starter)
-                .thenAccept(unitPlacements -> {
-                    Map<UUID, TeamColor> participants = teamService.findAllParticipants();
-
-                    eventDispatcher.dispatch(PiecesSpawnedEvent.of(
-                            board,
-                            unitPlacements,
-                            participants,
-                            starterId
-                    ));
-                });
+                .thenAccept(unitPlacements -> eventDispatcher.dispatch(
+                        PiecesSpawnedEvent.of(
+                                board,
+                                unitPlacements,
+                                teamService.findAllParticipants(),
+                                starterId
+                        )
+                ));
     }
 
     /**
      * 기물 선택 단계를 시작합니다.
      *
-     * @param unitPlacements 기물 배치 정보
-     * @param participants   참여자 정보
-     * @param starterId      행위자 ID
+     * @param initialPlacements 초기 기물 배치
+     * @param participants      참여자 정보
+     * @param starterId         행위자 ID
+     * @throws GameSystemException 단계 전이 실패 시
      */
     public void startSelectionPhase(
-            @NonNull Map<Coordinate, UnitPiece> unitPlacements,
+            @NonNull Map<Coordinate, UnitPiece> initialPlacements,
             @NonNull Map<UUID, TeamColor> participants,
             @NonNull UUID starterId
     ) {
         Game game = gameRepository.find()
                 .orElseThrow(() -> GameSystemException.gameTransitionInterrupted(GamePhase.PIECE_SELECTION));
+        PhaseTimerSettings timerSettings = timerPolicy.findSettings(GamePhase.PIECE_SELECTION)
+                .orElseThrow(() -> GameSystemException.gameTransitionInterrupted(GamePhase.PIECE_SELECTION));
 
-        game = game.startSelection(unitPlacements);
+        game = game.startSelection(initialPlacements, timerSettings);
         gameRepository.save(game);
         eventDispatcher.dispatch(GameSelectionStartedEvent.of(
                 game,
@@ -135,17 +138,22 @@ public class GameFlowCoordinator {
     }
 
     /**
-     * 타이머를 시작합니다.
+     * 게임 단계에 맞는 타이머를 활성화합니다.
      *
-     * @param phase          게임 단계
+     * @param game           대상 게임
      * @param participantIds 참여자 ID 목록
      */
-    public void initiatePhaseTimer(
-            @NonNull GamePhase phase,
-            @NonNull Collection<UUID> participantIds
-    ) {
-        timerPolicy.findSettings(phase)
-                .ifPresent(settings -> timerService.start(phase, settings, participantIds));
+    public void initiatePhaseTimer(@NonNull Game game, @NonNull Collection<UUID> participantIds) {
+        game.timedState()
+                .ifPresent(timedState -> timerService.start(game.phase(), timedState, participantIds));
+    }
+
+    /**
+     * 진행 중인 게임의 타이머를 복구합니다.
+     */
+    public void resumeActiveGameTimer() {
+        gameRepository.find()
+                .ifPresent(game -> initiatePhaseTimer(game, teamService.findAllParticipantIds()));
     }
 
     /**
@@ -154,14 +162,13 @@ public class GameFlowCoordinator {
      * @param player 접속한 플레이어
      */
     public void handlePlayerJoin(@NonNull Player player) {
-        teamService.findTeam(player).ifPresent(teamColor ->
-                gameRepository.find().ifPresent(game ->
-                        eventDispatcher.dispatch(GameParticipantJoinedEvent.of(
+        teamService.findTeam(player)
+                .flatMap(teamColor -> gameRepository.find()
+                        .map(game -> GameParticipantJoinedEvent.of(
                                 player.getUniqueId(),
                                 teamColor,
                                 game.unitPlacements()
-                        ))
-                )
-        );
+                        )))
+                .ifPresent(eventDispatcher::dispatch);
     }
 }

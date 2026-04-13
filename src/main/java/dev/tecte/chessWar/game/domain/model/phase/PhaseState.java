@@ -4,11 +4,11 @@ import dev.tecte.chessWar.game.domain.model.GamePhase;
 import lombok.NonNull;
 
 /**
- * 게임 단계별 상태 정보를 정의합니다.
+ * 게임의 각 단계별 진행 상태를 나타냅니다.
  */
 public sealed interface PhaseState permits
         SetupState,
-        SelectionState,
+        TimedState,
         TurnOrderState,
         BattleState,
         EndedState {
