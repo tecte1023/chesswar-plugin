@@ -12,6 +12,7 @@ import dev.tecte.chessWar.piece.domain.model.UnitPiece;
 import lombok.NonNull;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -93,15 +94,15 @@ public record Game(
     }
 
     /**
-     * 플레이어의 기물 선택을 반영합니다.
+     * 참가자의 기물 선택을 반영합니다.
      *
-     * @param playerId 플레이어 ID
-     * @param pieceId  기물 ID
+     * @param participantId 참가자 ID
+     * @param pieceId       기물 ID
      * @return 업데이트된 게임
      * @throws GameException 단계 불일치, 기물 미발견, 선택 불가 또는 이미 선택된 경우
      */
     @NonNull
-    public Game selectPiece(@NonNull UUID playerId, @NonNull UUID pieceId) {
+    public Game selectPiece(@NonNull UUID participantId, @NonNull UUID pieceId) {
         if (!(state instanceof SelectionState selection)) {
             throw GameException.phaseMismatch(GamePhase.PIECE_SELECTION, phase());
         }
@@ -116,7 +117,7 @@ public record Game(
             throw GameException.pieceAlreadySelected();
         }
 
-        return atState(selection.select(playerId, pieceId));
+        return atState(selection.select(participantId, pieceId));
     }
 
     /**
@@ -157,6 +158,7 @@ public record Game(
      *
      * @return 기물 선택 단계 여부
      */
+    @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     public boolean isInSelectionPhase() {
         return state instanceof SelectionState;
     }
@@ -185,13 +187,23 @@ public record Game(
     }
 
     /**
-     * 플레이어의 기물 선택 완료 여부를 확인합니다.
+     * 참가자의 기물 선택 완료 여부를 확인합니다.
      *
-     * @param playerId 플레이어 ID
+     * @param participantId 참가자 ID
      * @return 선택 완료 여부
      */
-    public boolean hasSelectedPiece(@NonNull UUID playerId) {
-        return (state instanceof SelectionState selection) && selection.hasSelectionFor(playerId);
+    public boolean hasSelectedPiece(@NonNull UUID participantId) {
+        return (state instanceof SelectionState selection) && selection.hasSelectionFor(participantId);
+    }
+
+    /**
+     * 모든 참가자의 기물 선택 완료 여부를 확인합니다.
+     *
+     * @param participantIds 참가자 ID 목록
+     * @return 모든 참여자 선택 완료 여부
+     */
+    public boolean hasSelectedPiece(@NonNull Collection<UUID> participantIds) {
+        return (state instanceof SelectionState selection) && selection.hasSelectionFor(participantIds);
     }
 
     /**

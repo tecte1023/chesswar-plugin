@@ -1,7 +1,5 @@
-package dev.tecte.chessWar.game.application;
+package dev.tecte.chessWar.game.domain.model;
 
-import dev.tecte.chessWar.game.domain.model.GamePhase;
-import dev.tecte.chessWar.game.domain.model.PhaseTimerSettings;
 import lombok.NonNull;
 import net.kyori.adventure.text.Component;
 
@@ -10,21 +8,25 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * 진행 중인 타이머 세션의 상태를 나타냅니다.
+ * 타이머 세션의 상태입니다.
  *
  * @param timerSettings    타이머 설정
  * @param phase            게임 단계
  * @param remainingSeconds 남은 초
  */
-record TimerSession(
+public record TimerSession(
         PhaseTimerSettings timerSettings,
         GamePhase phase,
         AtomicInteger remainingSeconds
 ) {
-    TimerSession {
+    public TimerSession {
         Objects.requireNonNull(timerSettings, "Settings cannot be null");
         Objects.requireNonNull(phase, "Phase cannot be null");
         Objects.requireNonNull(remainingSeconds, "Remaining seconds cannot be null");
+
+        if (remainingSeconds.get() < 0) {
+            throw new IllegalArgumentException("Remaining seconds cannot be negative");
+        }
     }
 
     /**
@@ -58,6 +60,25 @@ record TimerSession(
     }
 
     /**
+     * 타이머를 제한 시간으로 단축합니다.
+     * 현재 남은 시간이 목표 시간보다 큰 경우에만 단축됩니다.
+     *
+     * @param reducedSeconds 단축 시 적용될 남은 초
+     * @return 단축 성공 여부
+     */
+    public boolean accelerateTo(int reducedSeconds) {
+        int current = remainingSeconds.get();
+
+        if (current > reducedSeconds) {
+            remainingSeconds.set(reducedSeconds);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * 현재 남은 시간을 제공합니다.
      *
      * @return 남은 시간
@@ -68,12 +89,22 @@ record TimerSession(
     }
 
     /**
+     * 단축 시 적용될 제한 시간을 제공합니다.
+     *
+     * @return 단축 제한 시간
+     */
+    @NonNull
+    public Duration reducedDuration() {
+        return timerSettings.reducedDuration();
+    }
+
+    /**
      * 타이머 진행률을 산출합니다.
      *
      * @return 진행률
      */
     public double progress() {
-        return (double) remainingSeconds.get() / timerSettings.totalSeconds();
+        return (double) remainingSeconds.get() / timerSettings.initialSeconds();
     }
 
     /**

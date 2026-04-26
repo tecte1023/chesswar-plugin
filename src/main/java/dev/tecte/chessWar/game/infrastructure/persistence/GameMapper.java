@@ -154,7 +154,7 @@ public class GameMapper {
             case SETUP -> SetupState.initial();
             case PIECE_SELECTION -> {
                 PhaseTimerSettings timerSettings = requireTimerSettings(phase, section);
-                Duration time = remainingTime.orElse(timerSettings.duration());
+                Duration time = remainingTime.orElse(timerSettings.initialDuration());
 
                 yield fromSectionSelectionState(section, timerSettings, time);
             }

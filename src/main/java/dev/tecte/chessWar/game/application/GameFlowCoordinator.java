@@ -138,6 +138,19 @@ public class GameFlowCoordinator {
     }
 
     /**
+     * 기물 선택 완료 시 타이머를 단축합니다.
+     *
+     * @throws GameSystemException 게임 정보를 찾을 수 없을 경우
+     */
+    public void accelerateSelectionTimer() {
+        Game game = gameRepository.find()
+                .orElseThrow(() -> GameSystemException.gameNotFound(GamePhase.PIECE_SELECTION));
+
+        timerService.accelerate();
+        gameRepository.save(game);
+    }
+
+    /**
      * 게임 단계에 맞는 타이머를 활성화합니다.
      *
      * @param game           대상 게임

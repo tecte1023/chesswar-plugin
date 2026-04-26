@@ -5,6 +5,7 @@ import dev.tecte.chessWar.game.domain.model.PhaseTimerSettings;
 import lombok.NonNull;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -14,7 +15,7 @@ import java.util.UUID;
 /**
  * 기물 선택 단계의 진행 상태입니다.
  *
- * @param selections    플레이어와 기물의 선택 현황
+ * @param selections    참가자와 기물의 선택 현황
  * @param timerSettings 타이머 설정
  * @param remainingTime 남은 시간
  */
@@ -56,21 +57,21 @@ public record SelectionState(
      */
     @NonNull
     public static SelectionState initial(@NonNull PhaseTimerSettings timerSettings) {
-        return new SelectionState(Collections.emptyMap(), timerSettings, timerSettings.duration());
+        return new SelectionState(Collections.emptyMap(), timerSettings, timerSettings.initialDuration());
     }
 
     /**
      * 기물을 선택한 새로운 상태를 제공합니다.
      *
-     * @param playerId 플레이어 ID
-     * @param pieceId  선택된 기물 ID
+     * @param participantId 참가자 ID
+     * @param pieceId       선택된 기물 ID
      * @return 업데이트된 상태
      */
     @NonNull
-    public SelectionState select(@NonNull UUID playerId, @NonNull UUID pieceId) {
+    public SelectionState select(@NonNull UUID participantId, @NonNull UUID pieceId) {
         Map<UUID, UUID> newSelections = new HashMap<>(selections);
 
-        newSelections.put(playerId, pieceId);
+        newSelections.put(participantId, pieceId);
 
         return new SelectionState(newSelections, timerSettings, remainingTime);
     }
@@ -92,13 +93,23 @@ public record SelectionState(
     }
 
     /**
-     * 플레이어의 기물 선택 완료 여부를 확인합니다.
+     * 참가자의 기물 선택 완료 여부를 확인합니다.
      *
-     * @param playerId 플레이어 ID
+     * @param participantId 참가자 ID
      * @return 선택 완료 여부
      */
-    public boolean hasSelectionFor(@NonNull UUID playerId) {
-        return selections.containsKey(playerId);
+    public boolean hasSelectionFor(@NonNull UUID participantId) {
+        return selections.containsKey(participantId);
+    }
+
+    /**
+     * 주어진 모든 참가자의 기물 선택 완료 여부를 확인합니다.
+     *
+     * @param participantIds 참가자 ID 목록
+     * @return 모두 선택 완료 여부
+     */
+    public boolean hasSelectionFor(@NonNull Collection<UUID> participantIds) {
+        return selections.keySet().containsAll(participantIds);
     }
 
     @NonNull

@@ -19,7 +19,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
 /**
- * YAML 기반의 게임 영속성 저장소입니다.
+ * 게임 저장소의 YAML 구현체입니다.
  */
 @Singleton
 public class YmlGameRepository extends AbstractSingleYmlRepository<Game> implements GameRepository {
@@ -47,6 +47,11 @@ public class YmlGameRepository extends AbstractSingleYmlRepository<Game> impleme
         return find().isPresent();
     }
 
+    @Override
+    public void save(@NonNull Game game) {
+        super.save(captureRealTime(game));
+    }
+
     @NonNull
     @Override
     protected Game deserialize(@NonNull ConfigurationSection section) {
@@ -58,11 +63,14 @@ public class YmlGameRepository extends AbstractSingleYmlRepository<Game> impleme
     @NonNull
     @Override
     protected Map<String, Object> serialize(@NonNull Game game) {
-        Game capturedGame = timerService.remainingTime()
+        return mapper.toMap(captureRealTime(game));
+    }
+
+    // 실시간 남은 시간을 반영하여 데이터 정합성 확보
+    private Game captureRealTime(Game game) {
+        return timerService.remainingTime()
                 .map(game::remaining)
                 .orElse(game);
-
-        return mapper.toMap(capturedGame);
     }
 
     @NonNull

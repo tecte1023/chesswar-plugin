@@ -26,6 +26,20 @@ public class GameSystemException extends NotifiableSystemException {
     }
 
     /**
+     * 진행 중인 게임 정보를 찾을 수 없을 때 발생합니다.
+     *
+     * @param phase 현재 오류가 발생한 단계
+     * @return 생성된 예외
+     */
+    @NonNull
+    public static GameSystemException gameNotFound(@NonNull GamePhase phase) {
+        return new GameSystemException(
+                "Active game instance not found [Phase: %s]".formatted(phase.name()),
+                "시스템 오류로 게임 정보를 찾을 수 없어 진행에 실패했습니다."
+        );
+    }
+
+    /**
      * 게임 단계 전환이 중단되었을 때 발생합니다.
      *
      * @param targetPhase 대상 단계

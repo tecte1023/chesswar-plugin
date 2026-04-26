@@ -2,6 +2,7 @@ package dev.tecte.chessWar.game.application;
 
 import dev.tecte.chessWar.common.event.DomainEventDispatcher;
 import dev.tecte.chessWar.game.application.port.GameRepository;
+import dev.tecte.chessWar.game.domain.event.AllParticipantsSelectedEvent;
 import dev.tecte.chessWar.game.domain.event.PieceSelectedEvent;
 import dev.tecte.chessWar.game.domain.exception.GameException;
 import dev.tecte.chessWar.game.domain.exception.GameSystemException;
@@ -57,23 +58,29 @@ public class PieceSelectionCoordinator {
     }
 
     /**
-     * 기물을 선택하여 참전을 완료합니다.
+     * 기물을 선택하여 참전합니다.
      *
-     * @param player  플레이어
+     * @param player  참가자
      * @param pieceId 기물 ID
      */
     public void selectPiece(@NonNull Player player, @NonNull UUID pieceId) {
         Game game = gameRepository.find().orElseThrow(GameException::notFound);
         Piece piece = game.findPiece(pieceId).orElseThrow(GameException::pieceNotFound);
 
+        game = game.selectPiece(player.getUniqueId(), pieceId);
+
         try {
-            gameRepository.save(game.selectPiece(player.getUniqueId(), pieceId));
+            gameRepository.save(game);
         } catch (PersistenceException e) {
             throw GameSystemException.pieceSelectionFailed(pieceId, e);
         }
 
         applyPieceStats(player, piece.spec());
         eventDispatcher.dispatch(PieceSelectedEvent.of(player.getUniqueId(), pieceId, piece.spec()));
+
+        if (game.hasSelectedPiece(teamService.findAllParticipantIds())) {
+            eventDispatcher.dispatch(AllParticipantsSelectedEvent.create());
+        }
     }
 
     /**

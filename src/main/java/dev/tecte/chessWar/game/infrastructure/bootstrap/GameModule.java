@@ -23,6 +23,8 @@ import dev.tecte.chessWar.game.infrastructure.listener.GameTimerInitiator;
 import dev.tecte.chessWar.game.infrastructure.listener.PieceInspectionInitiator;
 import dev.tecte.chessWar.game.infrastructure.listener.PieceSelectionAnnounceListener;
 import dev.tecte.chessWar.game.infrastructure.listener.PlayerJoinInitiator;
+import dev.tecte.chessWar.game.infrastructure.listener.SelectionCompletionAnnouncer;
+import dev.tecte.chessWar.game.infrastructure.listener.SelectionTimerAccelerator;
 import dev.tecte.chessWar.game.infrastructure.persistence.YmlGameRepository;
 import dev.tecte.chessWar.game.infrastructure.policy.DefaultGamePhaseTimerPolicy;
 import org.bukkit.event.Listener;
@@ -54,6 +56,8 @@ public class GameModule extends AbstractModule {
         listenerBinder.addBinding().to(PieceInspectionInitiator.class);
         listenerBinder.addBinding().to(GameSelectionStartAnnouncer.class);
         listenerBinder.addBinding().to(PieceSelectionAnnounceListener.class);
+        listenerBinder.addBinding().to(SelectionTimerAccelerator.class);
+        listenerBinder.addBinding().to(SelectionCompletionAnnouncer.class);
         listenerBinder.addBinding().to(GameStopAnnounceListener.class);
         listenerBinder.addBinding().to(GameStopTaskCleanupListener.class);
         listenerBinder.addBinding().to(GameTimerInitiator.class);
