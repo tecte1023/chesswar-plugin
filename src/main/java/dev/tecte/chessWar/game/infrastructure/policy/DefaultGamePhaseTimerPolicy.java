@@ -17,8 +17,16 @@ import java.util.Optional;
 @Singleton
 public class DefaultGamePhaseTimerPolicy implements GamePhaseTimerPolicy {
     private static final Map<GamePhase, PhaseTimerSettings> SETTINGS = Map.of(
-            GamePhase.PIECE_SELECTION, PhaseTimerSettings.of(Duration.ofMinutes(5), new TimerVisuals()),
-            GamePhase.TURN_ORDER_SELECTION, PhaseTimerSettings.of(Duration.ofMinutes(3), new TimerVisuals())
+            GamePhase.PIECE_SELECTION, PhaseTimerSettings.of(
+                    Duration.ofMinutes(5),
+                    Duration.ofSeconds(10),
+                    new TimerVisuals()
+            ),
+            GamePhase.TURN_ORDER_SELECTION, PhaseTimerSettings.of(
+                    Duration.ofMinutes(3),
+                    Duration.ofSeconds(5),
+                    new TimerVisuals()
+            )
     );
 
     @NonNull

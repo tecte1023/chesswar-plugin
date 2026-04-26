@@ -10,7 +10,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
 /**
- * 게임 진행 중 참여자에게 전달할 고정 메시지 목록입니다.
+ * 게임 진행 중 참가자에게 전달할 메시지 목록입니다.
  */
 @Getter
 @Accessors(fluent = true)
@@ -24,6 +24,9 @@ public enum GameMessage {
     ),
     SELECTION_WAITING(
             Component.text("기물 선택 완료! 다른 플레이어를 기다리는 중...").color(NamedTextColor.GREEN)
+    ),
+    SELECTION_COMPLETED(
+            Component.text("기물 선택이 모두 완료되었습니다!").color(NamedTextColor.AQUA)
     ),
     GAME_STOPPED(
             Component.text("게임이 중단되었습니다.")

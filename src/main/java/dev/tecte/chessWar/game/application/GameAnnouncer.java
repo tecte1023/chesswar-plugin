@@ -2,7 +2,6 @@ package dev.tecte.chessWar.game.application;
 
 import dev.tecte.chessWar.game.application.port.GameRepository;
 import dev.tecte.chessWar.game.application.port.GameTaskManager;
-import dev.tecte.chessWar.game.domain.model.Game;
 import dev.tecte.chessWar.piece.domain.model.PieceType;
 import dev.tecte.chessWar.port.UserNotifier;
 import dev.tecte.chessWar.team.application.TeamService;
@@ -13,7 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -30,10 +28,27 @@ public class GameAnnouncer {
     /**
      * 기물 선택 시작을 알립니다.
      *
-     * @param targets 대상 참여자
+     * @param targets 대상 참가자 목록
      */
     public void announceSelectionStart(@NonNull Set<Player> targets) {
         targets.forEach(player -> userNotifier.displayTitle(player, GameMessage.SELECTION_TITLE.content()));
+    }
+
+    /**
+     * 현재 게임 상태에 맞게 기물 선택 가이드를 재개합니다.
+     */
+    public void restoreSelectionGuidance() {
+        gameRepository.find().ifPresent(game -> {
+            if (!game.isInSelectionPhase()) {
+                return;
+            }
+
+            if (game.hasSelectedPiece(teamService.findAllParticipantIds())) {
+                announceSelectionCompletion();
+            } else {
+                startSelectionGuidance();
+            }
+        });
     }
 
     /**
@@ -45,16 +60,46 @@ public class GameAnnouncer {
 
         gameTaskManager.runRepeating(
                 GameTaskType.GUIDANCE,
-                this::refreshSelectionStatus,
+                this::refreshParticipantsStatus,
                 initialDelay,
                 intervalTicks
         );
     }
 
     /**
+     * 기물 선택 가이드를 중단합니다.
+     */
+    public void stopGuidance() {
+        gameTaskManager.cancel(GameTaskType.GUIDANCE);
+    }
+
+    /**
+     * 기물 선택 상태를 반영하여 가이드를 즉시 새로고침합니다.
+     *
+     * @param player 대상 참가자
+     */
+    public void refreshSelectionStatus(@NonNull Player player) {
+        gameRepository.find().ifPresent(game -> {
+            if (!game.isInSelectionPhase()) {
+                return;
+            }
+
+            if (game.hasSelectedPiece(teamService.findAllParticipantIds())) {
+                userNotifier.displayActionBar(player, GameMessage.SELECTION_COMPLETED.content());
+
+                return;
+            }
+
+            boolean hasSelected = game.hasSelectedPiece(player.getUniqueId());
+
+            sendSelectionStatus(player, hasSelected);
+        });
+    }
+
+    /**
      * 기물 선택 완료를 알립니다.
      *
-     * @param player    대상 참여자
+     * @param player    대상 참가자
      * @param pieceType 선택된 기물 타입
      */
     public void notifyPieceSelection(@NonNull Player player, @NonNull PieceType pieceType) {
@@ -62,23 +107,16 @@ public class GameAnnouncer {
     }
 
     /**
-     * 기물 선택 상태를 반영하여 가이드를 갱신합니다.
-     *
-     * @param player 대상 참여자
+     * 모든 참가자의 기물 선택 완료를 알립니다.
      */
-    public void refreshSelectionStatus(@NonNull Player player) {
-        boolean hasSelected = gameRepository.find()
-                .map(game -> game.hasSelectedPiece(player.getUniqueId()))
-                .orElse(false);
-
-        sendSelectionStatus(player, hasSelected);
-    }
-
-    /**
-     * 기물 선택 안내를 중단합니다.
-     */
-    public void stopGuidance() {
-        gameTaskManager.cancel(GameTaskType.GUIDANCE);
+    public void announceSelectionCompletion() {
+        stopGuidance();
+        gameTaskManager.runRepeating(
+                GameTaskType.GUIDANCE,
+                this::displayCompletionStatus,
+                0L,
+                2 * 20L
+        );
     }
 
     /**
@@ -90,16 +128,13 @@ public class GameAnnouncer {
         userNotifier.informSuccess(requester, GameMessage.GAME_STOPPED.content());
     }
 
-    private void refreshSelectionStatus() {
-        Optional<Game> currentGame = gameRepository.find();
+    private void refreshParticipantsStatus() {
+        gameRepository.find().ifPresent(game ->
+                teamService.findAllOnlineParticipants().forEach(player -> {
+                    boolean hasSelected = game.hasSelectedPiece(player.getUniqueId());
 
-        teamService.findAllOnlineParticipants().forEach(player -> {
-            boolean hasSelected = currentGame
-                    .map(game -> game.hasSelectedPiece(player.getUniqueId()))
-                    .orElse(false);
-
-            sendSelectionStatus(player, hasSelected);
-        });
+                    sendSelectionStatus(player, hasSelected);
+                }));
     }
 
     private void sendSelectionStatus(@NonNull Player player, boolean hasSelected) {
@@ -107,5 +142,10 @@ public class GameAnnouncer {
                 player,
                 hasSelected ? GameMessage.SELECTION_WAITING.content() : GameMessage.SELECTION_GUIDE.content()
         );
+    }
+
+    private void displayCompletionStatus() {
+        teamService.findAllOnlineParticipants().forEach(player ->
+                userNotifier.displayActionBar(player, GameMessage.SELECTION_COMPLETED.content()));
     }
 }

@@ -6,6 +6,7 @@ import dev.tecte.chessWar.game.application.port.GameTaskManager;
 import dev.tecte.chessWar.game.application.port.GameTimerDisplay;
 import dev.tecte.chessWar.game.domain.event.GamePhaseExpiredEvent;
 import dev.tecte.chessWar.game.domain.model.GamePhase;
+import dev.tecte.chessWar.game.domain.model.TimerSession;
 import dev.tecte.chessWar.game.domain.model.phase.TimedState;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -36,7 +37,7 @@ public class GameTimerService {
      *
      * @param phase          게임 단계
      * @param state          타이머 상태
-     * @param participantIds 참여자 ID 목록
+     * @param participantIds 참가자 ID 목록
      */
     public void start(
             @NonNull GamePhase phase,
@@ -62,11 +63,33 @@ public class GameTimerService {
     /**
      * 타이머 표시를 복구합니다.
      *
-     * @param playerId 플레이어 ID
+     * @param participantId 참가자 ID
      */
-    public void restore(@NonNull UUID playerId) {
+    public void restore(@NonNull UUID participantId) {
         if (isActive()) {
-            timerDisplay.show(playerId);
+            timerDisplay.show(participantId);
+        }
+    }
+
+    /**
+     * 현재 활성화된 타이머를 설정된 제한 시간으로 단축합니다.
+     */
+    public void accelerate() {
+        if (isActive()) {
+            accelerate(currentSession.reducedDuration());
+        }
+    }
+
+    /**
+     * 타이머를 특정 시간으로 단축합니다.
+     *
+     * @param reducedTime 목표 제한 시간
+     */
+    public void accelerate(@NonNull Duration reducedTime) {
+        int reducedSeconds = (int) reducedTime.toSeconds();
+
+        if (isActive() && currentSession.accelerateTo(reducedSeconds)) {
+            timerDisplay.update(currentSession.renderTitle(), currentSession.progress());
         }
     }
 

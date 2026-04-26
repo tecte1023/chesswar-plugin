@@ -9,38 +9,53 @@ import java.util.Objects;
 /**
  * 게임 단계별 타이머 설정입니다.
  *
- * @param duration 제한 시간
- * @param visuals  시각 효과 설정
+ * @param initialDuration 초기 제한 시간
+ * @param reducedDuration 단축 시 적용될 제한 시간
+ * @param visuals         시각 효과 설정
  */
-public record PhaseTimerSettings(Duration duration, TimerVisuals visuals) {
+public record PhaseTimerSettings(
+        Duration initialDuration,
+        Duration reducedDuration,
+        TimerVisuals visuals
+) {
     public PhaseTimerSettings {
-        Objects.requireNonNull(duration, "Duration cannot be null");
+        Objects.requireNonNull(initialDuration, "Initial duration cannot be null");
+        Objects.requireNonNull(reducedDuration, "Reduced duration cannot be null");
         Objects.requireNonNull(visuals, "Visuals cannot be null");
 
-        if (duration.isNegative()) {
-            throw new IllegalArgumentException("Duration cannot be negative");
+        if (initialDuration.isNegative()) {
+            throw new IllegalArgumentException("Initial duration cannot be negative");
+        }
+
+        if (reducedDuration.isNegative()) {
+            throw new IllegalArgumentException("Reduced duration cannot be negative");
         }
     }
 
     /**
      * 타이머 설정을 생성합니다.
      *
-     * @param duration 제한 시간
-     * @param visuals  시각 효과 설정
+     * @param initialDuration 초기 제한 시간
+     * @param reducedDuration 단축 시 적용될 제한 시간
+     * @param visuals         시각 효과 설정
      * @return 타이머 설정
      */
     @NonNull
-    public static PhaseTimerSettings of(@NonNull Duration duration, @NonNull TimerVisuals visuals) {
-        return new PhaseTimerSettings(duration, visuals);
+    public static PhaseTimerSettings of(
+            @NonNull Duration initialDuration,
+            @NonNull Duration reducedDuration,
+            @NonNull TimerVisuals visuals
+    ) {
+        return new PhaseTimerSettings(initialDuration, reducedDuration, visuals);
     }
 
     /**
-     * 제한 시간을 초 단위로 제공합니다.
+     * 초기 제한 시간을 초 단위로 제공합니다.
      *
-     * @return 제한 시간
+     * @return 초기 제한 시간
      */
-    public long totalSeconds() {
-        return duration.toSeconds();
+    public long initialSeconds() {
+        return initialDuration.toSeconds();
     }
 
     /**
