@@ -5,6 +5,7 @@ import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.ChessBoard;
+import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -26,6 +27,18 @@ public class ChessBoardCommand extends BaseCommand {
     public void onJoin(Player player, Team team) {
         plugin.gameManager().join(player, team);
         player.sendMessage(Component.text(team.displayName() + "에 참가했습니다!", team.textColor()));
+    }
+
+    @Subcommand("select")
+    public void onSelectPiece(Player player, PieceType pieceType) {
+        if (!plugin.gameManager().isParticipant(player)) {
+            player.sendMessage(Component.text("먼저 팀에 참가해야 합니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        plugin.gameManager().selectPiece(player, pieceType);
+        player.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
     }
 
     @Subcommand("setup")
