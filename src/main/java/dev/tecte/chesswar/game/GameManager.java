@@ -9,7 +9,9 @@ import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,10 +19,12 @@ import java.util.UUID;
 @Getter
 @Accessors(fluent = true)
 public class GameManager {
+    private final Map<UUID, Participant> participants = new HashMap<>();
+    private final List<UUID> turnOrder = new ArrayList<>();
+
     @Setter
     private GamePhase phase = GamePhase.WAITING;
-
-    private final Map<UUID, Participant> participants = new HashMap<>();
+    private int currentTurnIndex = -1;
 
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
@@ -50,6 +54,51 @@ public class GameManager {
 
     public Optional<Participant> findParticipant(Player player) {
         return Optional.ofNullable(participants.get(player.getUniqueId()));
+    }
+
+    public void prepareTurnOrder() {
+        turnOrder.clear();
+
+        List<UUID> whiteTeam = new ArrayList<>();
+        List<UUID> blackTeam = new ArrayList<>();
+
+        for (Participant p : participants.values()) {
+            if (p.team() == Team.WHITE) {
+                whiteTeam.add(p.playerId());
+            } else {
+                blackTeam.add(p.playerId());
+            }
+        }
+
+        int maxSize = Math.max(whiteTeam.size(), blackTeam.size());
+
+        for (int i = 0; i < maxSize; i++) {
+            if (i < whiteTeam.size()) {
+                turnOrder.add(whiteTeam.get(i));
+            }
+
+            if (i < blackTeam.size()) {
+                turnOrder.add(blackTeam.get(i));
+            }
+        }
+
+        currentTurnIndex = 0;
+    }
+
+    public Optional<UUID> currentTurnPlayer() {
+        if (currentTurnIndex < 0 || currentTurnIndex >= turnOrder.size()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(turnOrder.get(currentTurnIndex));
+    }
+
+    public void nextTurn() {
+        if (turnOrder.isEmpty()) {
+            return;
+        }
+
+        currentTurnIndex = (currentTurnIndex + 1) % turnOrder.size();
     }
 
     private void applyStats(Player player, PieceType type) {

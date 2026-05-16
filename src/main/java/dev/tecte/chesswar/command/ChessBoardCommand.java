@@ -4,7 +4,12 @@ import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
+import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.game.GamePhase;
+import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -22,22 +27,25 @@ import org.bukkit.scheduler.BukkitRunnable;
 @SuppressWarnings("unused")
 public class ChessBoardCommand extends BaseCommand {
     private final ChessWar plugin;
+    private final GameManager gameManager;
+    private final BoardManager boardManager;
+    private final TimerManager timerManager;
 
     @Subcommand("join")
     public void onJoin(Player player, Team team) {
-        plugin.gameManager().join(player, team);
+        gameManager.join(player, team);
         player.sendMessage(Component.text(team.displayName() + "에 참가했습니다!", team.textColor()));
     }
 
     @Subcommand("select")
     public void onSelectPiece(Player player, PieceType pieceType) {
-        if (!plugin.gameManager().isParticipant(player)) {
+        if (!gameManager.isParticipant(player)) {
             player.sendMessage(Component.text("먼저 팀에 참가해야 합니다!", NamedTextColor.RED));
 
             return;
         }
 
-        plugin.gameManager().selectPiece(player, pieceType);
+        gameManager.selectPiece(player, pieceType);
         player.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
     }
 
@@ -46,12 +54,25 @@ public class ChessBoardCommand extends BaseCommand {
         BlockFace forward = getCardinalDirection(player);
         ChessBoard board = new ChessBoard(player.getLocation(), forward, 3);
 
-        plugin.boardManager().currentBoard(board);
+        boardManager.currentBoard(board);
         player.sendMessage(Component.text("체스판이 설정되었습니다! (3x3 배율)", NamedTextColor.GREEN));
         player.sendMessage(Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
         player.sendMessage(Component.text("방향: " + board.forward() + " | 칸 크기: " + board.cellSize(), NamedTextColor.GRAY));
-
         visualizeBoard(player, board);
+    }
+
+    @Subcommand("start")
+    public void onStart(Player player) {
+        if (gameManager.participants().isEmpty()) {
+            player.sendMessage(Component.text("참가자가 없습니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        gameManager.phase(GamePhase.BATTLE);
+        gameManager.prepareTurnOrder();
+        timerManager.startTurnTimer();
+        player.sendMessage(Component.text("게임을 시작합니다! 전투 단계 돌입.", NamedTextColor.GREEN));
     }
 
     private BlockFace getCardinalDirection(Player player) {
