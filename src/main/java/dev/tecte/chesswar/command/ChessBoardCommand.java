@@ -5,6 +5,7 @@ import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.ChessBoard;
+import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -20,6 +21,12 @@ import org.bukkit.scheduler.BukkitRunnable;
 @SuppressWarnings("unused")
 public class ChessBoardCommand extends BaseCommand {
     private final ChessWar plugin;
+
+    @Subcommand("join")
+    public void onJoin(Player player, Team team) {
+        plugin.gameManager().join(player, team);
+        player.sendMessage(Component.text(team.displayName() + "에 참가했습니다!", team.textColor()));
+    }
 
     @Subcommand("setup")
     public void onSetupBoard(Player player) {
@@ -59,7 +66,7 @@ public class ChessBoardCommand extends BaseCommand {
             @Override
             public void run() {
                 if (ticks > 100) {
-                    cancel();
+                    this.cancel();
 
                     return;
                 }
