@@ -7,9 +7,12 @@ import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
+import dev.tecte.chesswar.game.Participant;
 import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,9 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.Optional;
+import java.util.UUID;
+
 @CommandAlias("chesswar|cw")
 @RequiredArgsConstructor
 @SuppressWarnings("unused")
@@ -30,6 +36,7 @@ public class ChessBoardCommand extends BaseCommand {
     private final GameManager gameManager;
     private final BoardManager boardManager;
     private final TimerManager timerManager;
+    private final MoveValidator moveValidator;
 
     @Subcommand("join")
     public void onJoin(Player player, Team team) {
@@ -58,6 +65,7 @@ public class ChessBoardCommand extends BaseCommand {
         player.sendMessage(Component.text("체스판이 설정되었습니다! (3x3 배율)", NamedTextColor.GREEN));
         player.sendMessage(Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
         player.sendMessage(Component.text("방향: " + board.forward() + " | 칸 크기: " + board.cellSize(), NamedTextColor.GRAY));
+
         visualizeBoard(player, board);
     }
 
@@ -69,10 +77,127 @@ public class ChessBoardCommand extends BaseCommand {
             return;
         }
 
+        if (!boardManager.hasBoard()) {
+            player.sendMessage(Component.text("먼저 체스판을 설정해야 합니다!", NamedTextColor.RED));
+
+            return;
+        }
+
         gameManager.phase(GamePhase.BATTLE);
         gameManager.prepareTurnOrder();
+
+        int whiteX = 0;
+        int blackX = 0;
+
+        for (Participant p : gameManager.participants().values()) {
+            Player onlinePlayer = player.getServer().getPlayer(p.playerId());
+
+            if (onlinePlayer == null || p.pieceType() == null) {
+                continue;
+            }
+
+            Coordinate startCoord = p.team() == Team.WHITE ? Coordinate.of(whiteX++, 0) : Coordinate.of(blackX++, 7);
+            Piece piece = Piece.of(p.playerId(), p.team(), p.pieceType());
+            Location spawnLoc = boardManager.currentBoard().toLocation(startCoord).add(1.5, 1, 1.5);
+
+            gameManager.placePiece(startCoord, piece);
+            onlinePlayer.teleport(spawnLoc);
+        }
+
         timerManager.startTurnTimer();
-        player.sendMessage(Component.text("게임을 시작합니다! 전투 단계 돌입.", NamedTextColor.GREEN));
+        player.sendMessage(Component.text("게임을 시작합니다! 전장에 배치되었습니다.", NamedTextColor.GREEN));
+    }
+
+    @Subcommand("move")
+    public void onMove(Player player, int x, int y) {
+        if (gameManager.phase() != GamePhase.BATTLE) {
+            player.sendMessage(Component.text("전투 단계가 아닙니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        Optional<UUID> currentTurnId = gameManager.currentTurnPlayer();
+
+        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
+            player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        Coordinate to = Coordinate.of(x, y);
+
+        if (!to.isValid()) {
+            player.sendMessage(Component.text("유효하지 않은 좌표입니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        // 현재 플레이어의 기물 위치 찾기 (MVP용 임시 로직)
+        Coordinate from = null;
+
+        for (var entry : gameManager.boardPieces().entrySet()) {
+            if (player.getUniqueId().equals(entry.getValue().ownerId())) {
+                from = entry.getKey();
+                break;
+            }
+        }
+
+        if (from == null) {
+            player.sendMessage(Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        if (!moveValidator.canMove(from, to)) {
+            player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
+
+            return;
+        }
+
+        Piece myPiece = gameManager.boardPieces().get(from);
+        Optional<Piece> targetPiece = gameManager.findPieceAt(to);
+
+        if (targetPiece.isEmpty()) {
+            // 빈 칸으로 이동
+            gameManager.removePiece(from);
+            gameManager.placePiece(to, myPiece);
+            player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
+            player.sendMessage(Component.text(x + ", " + y + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
+            finishTurn(player);
+        } else {
+            Piece target = targetPiece.get();
+
+            if (target.team() == myPiece.team()) {
+                player.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+
+                return;
+            }
+
+            // 공격 로직
+            double damage = myPiece.type().baseDamage();
+
+            target.currentHp(target.currentHp() - damage);
+            player.sendMessage(Component.text(target.type().displayName() + "에게 " + damage + "의 피해를 입혔습니다!", NamedTextColor.GOLD));
+
+            if (target.currentHp() <= 0) {
+                player.sendMessage(Component.text(target.type().displayName() + "을(를) 처치했습니다!", NamedTextColor.AQUA));
+                gameManager.removePiece(from);
+                gameManager.placePiece(to, myPiece);
+                player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
+                // TODO: 죽은 플레이어 관전자 전환 로직
+            } else {
+                player.sendMessage(Component.text("상대가 아직 살아있어 제자리에 유지됩니다. (남은 체력: " + target.currentHp() + ")", NamedTextColor.YELLOW));
+            }
+
+            finishTurn(player);
+        }
+    }
+
+    private void finishTurn(Player player) {
+        timerManager.startTurnTimer(); // 타이머 재시작 (내부적으로 nextTurn 호출 포함안됨, 로직 수정 필요할수도 있음)
+        // WHY: TimerManager.startTurnTimer()는 현재 타이머만 리셋하므로 명시적으로 nextTurn을 호출해야 함
+        gameManager.nextTurn();
+        timerManager.startTurnTimer();
     }
 
     private BlockFace getCardinalDirection(Player player) {

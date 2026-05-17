@@ -1,5 +1,7 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
@@ -20,6 +22,7 @@ import java.util.UUID;
 @Accessors(fluent = true)
 public class GameManager {
     private final Map<UUID, Participant> participants = new HashMap<>();
+    private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final List<UUID> turnOrder = new ArrayList<>();
 
     @Setter
@@ -99,6 +102,18 @@ public class GameManager {
         }
 
         currentTurnIndex = (currentTurnIndex + 1) % turnOrder.size();
+    }
+
+    public void placePiece(Coordinate coordinate, Piece piece) {
+        boardPieces.put(coordinate, piece);
+    }
+
+    public void removePiece(Coordinate coordinate) {
+        boardPieces.remove(coordinate);
+    }
+
+    public Optional<Piece> findPieceAt(Coordinate coordinate) {
+        return Optional.ofNullable(boardPieces.get(coordinate));
     }
 
     private void applyStats(Player player, PieceType type) {

@@ -2,6 +2,7 @@ package dev.tecte.chesswar;
 
 import co.aikar.commands.PaperCommandManager;
 import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.command.ChessBoardCommand;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.ScoreboardManager;
@@ -19,6 +20,7 @@ public class ChessWar extends JavaPlugin {
     private GameManager gameManager;
     private TimerManager timerManager;
     private ScoreboardManager scoreboardManager;
+    private MoveValidator moveValidator;
 
     @Override
     public void onEnable() {
@@ -26,6 +28,7 @@ public class ChessWar extends JavaPlugin {
         gameManager = new GameManager();
         timerManager = new TimerManager(this, gameManager);
         scoreboardManager = new ScoreboardManager(gameManager, timerManager);
+        moveValidator = new MoveValidator(gameManager);
 
         PaperCommandManager commandManager = new PaperCommandManager(this);
 
@@ -34,7 +37,8 @@ public class ChessWar extends JavaPlugin {
                 this,
                 gameManager,
                 boardManager,
-                timerManager
+                timerManager,
+                moveValidator
         ));
         log.info("ChessWar has been enabled!");
     }
