@@ -1,6 +1,6 @@
 name: ChessWar
 version: ${version}
-main: dev.tecte.chessWar.ChessWar
+main: dev.tecte.chesswar.ChessWar
 api-version: '1.21'
 depend: [MythicMobs]
 prefix: ChessWar
