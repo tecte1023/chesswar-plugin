@@ -132,7 +132,6 @@ public class ChessBoardCommand extends BaseCommand {
             return;
         }
 
-        // 현재 플레이어의 기물 위치 찾기 (MVP용 임시 로직)
         Coordinate from = null;
 
         for (var entry : gameManager.boardPieces().entrySet()) {
@@ -158,7 +157,6 @@ public class ChessBoardCommand extends BaseCommand {
         Optional<Piece> targetPiece = gameManager.findPieceAt(to);
 
         if (targetPiece.isEmpty()) {
-            // 빈 칸으로 이동
             gameManager.removePiece(from);
             gameManager.placePiece(to, myPiece);
             player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
@@ -173,7 +171,6 @@ public class ChessBoardCommand extends BaseCommand {
                 return;
             }
 
-            // 공격 로직
             double damage = myPiece.type().baseDamage();
 
             target.currentHp(target.currentHp() - damage);
@@ -184,7 +181,13 @@ public class ChessBoardCommand extends BaseCommand {
                 gameManager.removePiece(from);
                 gameManager.placePiece(to, myPiece);
                 player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
-                // TODO: 죽은 플레이어 관전자 전환 로직
+
+                if (target.type() == PieceType.KING) {
+                    gameManager.win(myPiece.team());
+                    timerManager.stopTimer();
+
+                    return;
+                }
             } else {
                 player.sendMessage(Component.text("상대가 아직 살아있어 제자리에 유지됩니다. (남은 체력: " + target.currentHp() + ")", NamedTextColor.YELLOW));
             }
@@ -193,9 +196,14 @@ public class ChessBoardCommand extends BaseCommand {
         }
     }
 
+    @Subcommand("reset")
+    public void onReset(Player player) {
+        gameManager.reset();
+        timerManager.stopTimer();
+        player.sendMessage(Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN));
+    }
+
     private void finishTurn(Player player) {
-        timerManager.startTurnTimer(); // 타이머 재시작 (내부적으로 nextTurn 호출 포함안됨, 로직 수정 필요할수도 있음)
-        // WHY: TimerManager.startTurnTimer()는 현재 타이머만 리셋하므로 명시적으로 nextTurn을 호출해야 함
         gameManager.nextTurn();
         timerManager.startTurnTimer();
     }
