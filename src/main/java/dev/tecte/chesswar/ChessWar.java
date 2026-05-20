@@ -7,9 +7,17 @@ import dev.tecte.chesswar.command.ChessBoardCommand;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.ScoreboardManager;
 import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.listener.ChessDamageListener;
+import dev.tecte.chesswar.listener.ChessInteractListener;
+import dev.tecte.chesswar.listener.ChessVisualGuideListener;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
+import org.bukkit.Bukkit;
+import org.bukkit.Difficulty;
+import org.bukkit.GameRule;
+import org.bukkit.World;
+import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @Getter
@@ -31,6 +39,7 @@ public class ChessWar extends JavaPlugin {
         moveValidator = new MoveValidator(gameManager);
 
         PaperCommandManager commandManager = new PaperCommandManager(this);
+        PluginManager pluginManager = getServer().getPluginManager();
 
         timerManager.scoreboardManager(scoreboardManager);
         commandManager.registerCommand(new ChessBoardCommand(
@@ -40,11 +49,58 @@ public class ChessWar extends JavaPlugin {
                 timerManager,
                 moveValidator
         ));
-        log.info("ChessWar has been enabled!");
+        pluginManager.registerEvents(
+                new ChessInteractListener(gameManager, boardManager, moveValidator, timerManager),
+                this
+        );
+        pluginManager.registerEvents(
+                new ChessDamageListener(gameManager, boardManager, moveValidator, timerManager),
+                this
+        );
+        pluginManager.registerEvents(
+                new ChessVisualGuideListener(gameManager, boardManager, moveValidator),
+                this
+        );
+
+        setupOptimalEngineSettings();
+        log.info("ChessWar has been enabled with optimized engine settings!");
     }
 
     @Override
     public void onDisable() {
         log.info("ChessWar has been disabled!");
+    }
+
+    private void setupOptimalEngineSettings() {
+        Bukkit.getWorlds().forEach(world -> {
+            setGameRuleIfDifferent(world, GameRule.NATURAL_REGENERATION, false);
+            setGameRuleIfDifferent(world, GameRule.DO_DAYLIGHT_CYCLE, false);
+            setGameRuleIfDifferent(world, GameRule.DO_WEATHER_CYCLE, false);
+            setGameRuleIfDifferent(world, GameRule.DO_MOB_SPAWNING, false);
+            setGameRuleIfDifferent(world, GameRule.DO_TRADER_SPAWNING, false);
+            setGameRuleIfDifferent(world, GameRule.DO_PATROL_SPAWNING, false);
+            setGameRuleIfDifferent(world, GameRule.MOB_GRIEFING, false);
+            setGameRuleIfDifferent(world, GameRule.KEEP_INVENTORY, true);
+            setGameRuleIfDifferent(world, GameRule.DO_FIRE_TICK, false);
+            setGameRuleIfDifferent(world, GameRule.DO_TILE_DROPS, false);
+            setGameRuleIfDifferent(world, GameRule.ANNOUNCE_ADVANCEMENTS, false);
+            setGameRuleIfDifferent(world, GameRule.SPAWN_RADIUS, 0);
+
+            if (world.getDifficulty() != Difficulty.NORMAL) {
+                world.setDifficulty(Difficulty.NORMAL);
+            }
+
+            if (!world.getPVP()) {
+                world.setPVP(true);
+            }
+        });
+    }
+
+    private <T> void setGameRuleIfDifferent(World world, GameRule<T> rule, T value) {
+        T currentValue = world.getGameRuleValue(rule);
+
+        if (currentValue != null && !currentValue.equals(value)) {
+            world.setGameRule(rule, value);
+        }
     }
 }

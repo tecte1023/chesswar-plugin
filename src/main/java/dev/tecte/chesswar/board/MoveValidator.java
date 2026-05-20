@@ -2,6 +2,7 @@ package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
@@ -30,6 +31,7 @@ public class MoveValidator {
             case ROOK -> (dx == 0 || dy == 0) && isPathClear(from, to);
             case BISHOP -> (absDx == absDy) && isPathClear(from, to);
             case KNIGHT -> (absDx == 1 && absDy == 2) || (absDx == 2 && absDy == 1);
+            case PAWN -> dx == 0 && dy == (piece.team() == Team.WHITE ? 1 : -1);
         };
     }
 

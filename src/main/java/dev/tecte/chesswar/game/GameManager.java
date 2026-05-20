@@ -2,6 +2,7 @@ package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
@@ -14,6 +15,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +51,16 @@ public class GameManager {
 
         participants.put(playerId, Participant.of(playerId, participant.team(), pieceType));
         applyStats(player, pieceType);
+
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+
+            if (PieceItemUtils.isPieceItem(item)) {
+                player.getInventory().setItem(i, null);
+            }
+        }
+
+        player.getInventory().addItem(PieceItemUtils.createPieceItem(pieceType));
     }
 
     public void leave(Player player) {
@@ -69,11 +81,11 @@ public class GameManager {
         List<UUID> whiteTeam = new ArrayList<>();
         List<UUID> blackTeam = new ArrayList<>();
 
-        for (Participant p : participants.values()) {
-            if (p.team() == Team.WHITE) {
-                whiteTeam.add(p.playerId());
+        for (Participant participant : participants.values()) {
+            if (participant.team() == Team.WHITE) {
+                whiteTeam.add(participant.playerId());
             } else {
-                blackTeam.add(p.playerId());
+                blackTeam.add(participant.playerId());
             }
         }
 
@@ -106,6 +118,12 @@ public class GameManager {
         }
 
         currentTurnIndex = (currentTurnIndex + 1) % turnOrder.size();
+        currentTurnPlayer().ifPresent(uuid -> {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                Bukkit.getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessTurnStartedEvent(player));
+            }
+        });
     }
 
     public void placePiece(Coordinate coordinate, Piece piece) {
@@ -130,7 +148,7 @@ public class GameManager {
                 .build();
 
         Bukkit.broadcast(winMessage);
-        
+
         // WHY: 게임 종료 후 데이터를 즉시 삭제하지 않고 잠시 유지하여 통계를 확인
         // TODO: 일정 시간 뒤 자동 초기화 로직 추가 필요
     }
@@ -141,11 +159,19 @@ public class GameManager {
         turnOrder.clear();
         currentTurnIndex = -1;
 
-        for (Participant p : participants.values()) {
-            Player player = Bukkit.getPlayer(p.playerId());
+        for (Participant participant : participants.values()) {
+            Player player = Bukkit.getPlayer(participant.playerId());
 
             if (player != null) {
                 resetStats(player);
+
+                for (int i = 0; i < player.getInventory().getSize(); i++) {
+                    ItemStack item = player.getInventory().getItem(i);
+
+                    if (PieceItemUtils.isPieceItem(item)) {
+                        player.getInventory().setItem(i, null);
+                    }
+                }
             }
         }
     }
@@ -155,8 +181,8 @@ public class GameManager {
         AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
 
         if (maxHealth != null) {
-            maxHealth.setBaseValue(type.baseHp());
-            player.setHealth(type.baseHp());
+            maxHealth.setBaseValue(type.baseHealth());
+            player.setHealth(type.baseHealth());
         }
 
         if (attackDamage != null) {

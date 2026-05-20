@@ -12,9 +12,10 @@ public enum PieceType {
     QUEEN("퀸", 100, 25),
     ROOK("룩", 150, 15),
     BISHOP("비숍", 80, 20),
-    KNIGHT("나이트", 100, 20);
+    KNIGHT("나이트", 100, 20),
+    PAWN("폰", 50, 5);
 
     private final String displayName;
-    private final double baseHp;
+    private final double baseHealth;
     private final double baseDamage;
 }

@@ -21,18 +21,27 @@ public class ChessBoard {
         this.cellSize = cellSize;
     }
 
-    public Location toLocation(Coordinate coord) {
+    public Location toLocation(Coordinate coordinate) {
         Vector offset = forward.getDirection()
-                .multiply(coord.y() * cellSize)
-                .add(right.getDirection().multiply(coord.x() * cellSize));
+                .multiply(coordinate.y() * cellSize)
+                .add(right.getDirection().multiply(coordinate.x() * cellSize));
 
         return origin.clone().add(offset);
     }
 
+    public Location toCenterLocation(Coordinate coordinate) {
+        double centerOffset = (cellSize - 1) / 2.0;
+
+        return toLocation(coordinate).add(
+                forward.getDirection().multiply(centerOffset)
+                        .add(right.getDirection().multiply(centerOffset))
+        ).add(0.5, 0, 0.5);
+    }
+
     public Coordinate toCoordinate(Location location) {
         Vector relative = location.toVector().subtract(origin.toVector());
-        int y = (int) Math.round(relative.dot(forward.getDirection()) / cellSize);
-        int x = (int) Math.round(relative.dot(right.getDirection()) / cellSize);
+        int y = (int) Math.floor(relative.dot(forward.getDirection()) / cellSize);
+        int x = (int) Math.floor(relative.dot(right.getDirection()) / cellSize);
 
         return Coordinate.of(x, y);
     }

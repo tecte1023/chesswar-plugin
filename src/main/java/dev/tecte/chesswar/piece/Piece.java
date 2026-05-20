@@ -18,14 +18,14 @@ public class Piece {
     private final Team team;
     private final PieceType type;
 
-    private double currentHp;
+    private double currentHealth;
 
     public static Piece of(Team team, PieceType type) {
-        return new Piece(null, team, type, type.baseHp());
+        return new Piece(null, team, type, type.baseHealth());
     }
 
     public static Piece of(UUID ownerId, Team team, PieceType type) {
-        return new Piece(ownerId, team, type, type.baseHp());
+        return new Piece(ownerId, team, type, type.baseHealth());
     }
 
     public boolean isPlayerPiece() {

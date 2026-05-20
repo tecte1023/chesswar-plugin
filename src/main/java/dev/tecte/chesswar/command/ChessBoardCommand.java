@@ -48,7 +48,6 @@ public class ChessBoardCommand extends BaseCommand {
     public void onSelectPiece(Player player, PieceType pieceType) {
         if (!gameManager.isParticipant(player)) {
             player.sendMessage(Component.text("먼저 팀에 참가해야 합니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -64,8 +63,10 @@ public class ChessBoardCommand extends BaseCommand {
         boardManager.currentBoard(board);
         player.sendMessage(Component.text("체스판이 설정되었습니다! (3x3 배율)", NamedTextColor.GREEN));
         player.sendMessage(Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
-        player.sendMessage(Component.text("방향: " + board.forward() + " | 칸 크기: " + board.cellSize(), NamedTextColor.GRAY));
-
+        player.sendMessage(Component.text(
+                "방향: %s | 칸 크기: %s".formatted(board.forward(), board.cellSize()),
+                NamedTextColor.GRAY
+        ));
         visualizeBoard(player, board);
     }
 
@@ -73,13 +74,11 @@ public class ChessBoardCommand extends BaseCommand {
     public void onStart(Player player) {
         if (gameManager.participants().isEmpty()) {
             player.sendMessage(Component.text("참가자가 없습니다!", NamedTextColor.RED));
-
             return;
         }
 
         if (!boardManager.hasBoard()) {
             player.sendMessage(Component.text("먼저 체스판을 설정해야 합니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -89,30 +88,37 @@ public class ChessBoardCommand extends BaseCommand {
         int whiteX = 0;
         int blackX = 0;
 
-        for (Participant p : gameManager.participants().values()) {
-            Player onlinePlayer = player.getServer().getPlayer(p.playerId());
+        for (Participant participant : gameManager.participants().values()) {
+            Player onlinePlayer = player.getServer().getPlayer(participant.playerId());
 
-            if (onlinePlayer == null || p.pieceType() == null) {
+            if (onlinePlayer == null || participant.pieceType() == null) {
                 continue;
             }
 
-            Coordinate startCoord = p.team() == Team.WHITE ? Coordinate.of(whiteX++, 0) : Coordinate.of(blackX++, 7);
-            Piece piece = Piece.of(p.playerId(), p.team(), p.pieceType());
-            Location spawnLoc = boardManager.currentBoard().toLocation(startCoord).add(1.5, 1, 1.5);
+            Coordinate startCoordinate = participant.team() == Team.WHITE
+                    ? Coordinate.of(whiteX++, 0)
+                    : Coordinate.of(blackX++, 7);
+            Piece piece = Piece.of(participant.playerId(), participant.team(), participant.pieceType());
+            Location spawnLocation = boardManager.currentBoard().toCenterLocation(startCoordinate).add(0, 1, 0);
 
-            gameManager.placePiece(startCoord, piece);
-            onlinePlayer.teleport(spawnLoc);
+            gameManager.placePiece(startCoordinate, piece);
+            onlinePlayer.teleport(spawnLocation);
         }
 
         timerManager.startTurnTimer();
+        gameManager.currentTurnPlayer().ifPresent(uuid -> {
+            Player firstPlayer = player.getServer().getPlayer(uuid);
+            if (firstPlayer != null) {
+                player.getServer().getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessTurnStartedEvent(firstPlayer));
+            }
+        });
         player.sendMessage(Component.text("게임을 시작합니다! 전장에 배치되었습니다.", NamedTextColor.GREEN));
     }
 
-    @Subcommand("move")
+    @Subcommand("dev move")
     public void onMove(Player player, int x, int y) {
         if (gameManager.phase() != GamePhase.BATTLE) {
             player.sendMessage(Component.text("전투 단계가 아닙니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -120,7 +126,6 @@ public class ChessBoardCommand extends BaseCommand {
 
         if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
             player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -128,7 +133,6 @@ public class ChessBoardCommand extends BaseCommand {
 
         if (!to.isValid()) {
             player.sendMessage(Component.text("유효하지 않은 좌표입니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -143,13 +147,11 @@ public class ChessBoardCommand extends BaseCommand {
 
         if (from == null) {
             player.sendMessage(Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED));
-
             return;
         }
 
         if (!moveValidator.canMove(from, to)) {
             player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
-
             return;
         }
 
@@ -159,7 +161,7 @@ public class ChessBoardCommand extends BaseCommand {
         if (targetPiece.isEmpty()) {
             gameManager.removePiece(from);
             gameManager.placePiece(to, myPiece);
-            player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
+            player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
             player.sendMessage(Component.text(x + ", " + y + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
             finishTurn(player);
         } else {
@@ -167,29 +169,36 @@ public class ChessBoardCommand extends BaseCommand {
 
             if (target.team() == myPiece.team()) {
                 player.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
-
                 return;
             }
 
             double damage = myPiece.type().baseDamage();
 
-            target.currentHp(target.currentHp() - damage);
-            player.sendMessage(Component.text(target.type().displayName() + "에게 " + damage + "의 피해를 입혔습니다!", NamedTextColor.GOLD));
+            target.currentHealth(target.currentHealth() - damage);
+            player.sendMessage(Component.text(
+                    "%s에게 %s의 피해를 입혔습니다!".formatted(target.type().displayName(), damage),
+                    NamedTextColor.GOLD
+            ));
 
-            if (target.currentHp() <= 0) {
-                player.sendMessage(Component.text(target.type().displayName() + "을(를) 처치했습니다!", NamedTextColor.AQUA));
+            if (target.currentHealth() <= 0) {
+                player.sendMessage(Component.text(
+                        "%s 기물을 처치했습니다!".formatted(target.type().displayName()),
+                        NamedTextColor.AQUA
+                ));
                 gameManager.removePiece(from);
                 gameManager.placePiece(to, myPiece);
-                player.teleport(boardManager.currentBoard().toLocation(to).add(1.5, 1, 1.5));
+                player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
 
                 if (target.type() == PieceType.KING) {
                     gameManager.win(myPiece.team());
                     timerManager.stopTimer();
-
                     return;
                 }
             } else {
-                player.sendMessage(Component.text("상대가 아직 살아있어 제자리에 유지됩니다. (남은 체력: " + target.currentHp() + ")", NamedTextColor.YELLOW));
+                player.sendMessage(Component.text(
+                        "상대가 아직 살아있어 제자리에 유지됩니다. (남은 체력: %s)".formatted(target.currentHealth()),
+                        NamedTextColor.YELLOW
+                ));
             }
 
             finishTurn(player);
@@ -222,8 +231,8 @@ public class ChessBoardCommand extends BaseCommand {
         }
     }
 
-    private String formatLocation(Location loc) {
-        return String.format("%.0f, %.0f, %.0f", loc.getX(), loc.getY(), loc.getZ());
+    private String formatLocation(Location location) {
+        return String.format("%.0f, %.0f, %.0f", location.getX(), location.getY(), location.getZ());
     }
 
     private void visualizeBoard(Player player, ChessBoard board) {
@@ -233,8 +242,7 @@ public class ChessBoardCommand extends BaseCommand {
             @Override
             public void run() {
                 if (ticks > 100) {
-                    this.cancel();
-
+                    cancel();
                     return;
                 }
 
@@ -257,10 +265,10 @@ public class ChessBoardCommand extends BaseCommand {
                 ticks += 5;
             }
 
-            private void spawnParticle(Location loc) {
+            private void spawnParticle(Location location) {
                 player.spawnParticle(
                         Particle.DUST,
-                        loc.add(0.5, 0.1, 0.5),
+                        location.add(0.5, 0.1, 0.5),
                         1,
                         new Particle.DustOptions(Color.GREEN, 1.0f)
                 );
