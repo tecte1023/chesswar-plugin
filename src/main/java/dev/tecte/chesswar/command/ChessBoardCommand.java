@@ -8,6 +8,7 @@ import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
@@ -15,16 +16,25 @@ import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
+import io.lumine.mythic.api.MythicProvider;
+import io.lumine.mythic.api.mobs.MobManager;
+import io.lumine.mythic.bukkit.BukkitAdapter;
+import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -68,6 +78,87 @@ public class ChessBoardCommand extends BaseCommand {
                 NamedTextColor.GRAY
         ));
         visualizeBoard(player, board);
+        setupBarracks(player, board);
+    }
+
+    private void setupBarracks(Player player, ChessBoard mainBoard) {
+        int offsetDistance = 5 + (8 * mainBoard.cellSize());
+        Location whiteOrigin = mainBoard.origin().clone()
+                .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard whiteBarracks = new ChessBoard(whiteOrigin, mainBoard.forward(), mainBoard.cellSize());
+        Location blackOrigin = mainBoard.origin().clone()
+                .add(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard blackBarracks = new ChessBoard(blackOrigin, mainBoard.forward(), mainBoard.cellSize());
+
+        visualizeBoard(player, whiteBarracks);
+        visualizeBoard(player, blackBarracks);
+
+        PieceType[] backRow = {
+                PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP, PieceType.QUEEN,
+                PieceType.KING, PieceType.BISHOP, PieceType.KNIGHT, PieceType.ROOK
+        };
+        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
+        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        MobManager mobManager = MythicProvider.get().getMobManager();
+
+        for (int x = 0; x < 8; x++) {
+            PieceType type = backRow[x];
+
+            spawnBarracksPiece(
+                    whiteBarracks.toCenterLocation(Coordinate.of(x, 0)),
+                    type,
+                    Team.WHITE,
+                    mainBoard.forward().getDirection(),
+                    typeKey,
+                    teamKey,
+                    mobManager
+            );
+            spawnBarracksPiece(
+                    blackBarracks.toCenterLocation(Coordinate.of(x, 7)),
+                    type,
+                    Team.BLACK,
+                    mainBoard.forward().getDirection().multiply(-1),
+                    typeKey,
+                    teamKey,
+                    mobManager
+            );
+        }
+    }
+
+    private void spawnBarracksPiece(
+            Location location,
+            PieceType type,
+            Team team,
+            Vector direction,
+            NamespacedKey typeKey,
+            NamespacedKey teamKey,
+            MobManager mobManager
+    ) {
+        String mobId = toPascalCase(team.name()) + toPascalCase(type.name());
+
+        mobManager.getMythicMob(mobId).ifPresent(mythicMob -> {
+            ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), 1);
+
+            if (activeMob == null) {
+                return;
+            }
+
+            Entity entity = activeMob.getEntity().getBukkitEntity();
+
+            location.setDirection(direction);
+            entity.teleport(location);
+            entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
+            entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
+            gameManager.addSpawnedEntity(entity.getUniqueId());
+        });
+    }
+
+    private String toPascalCase(String source) {
+        if (source == null || source.isEmpty()) {
+            return "";
+        }
+
+        return source.substring(0, 1).toUpperCase() + source.substring(1).toLowerCase();
     }
 
     @Subcommand("start")
@@ -109,7 +200,7 @@ public class ChessBoardCommand extends BaseCommand {
         gameManager.currentTurnPlayer().ifPresent(uuid -> {
             Player firstPlayer = player.getServer().getPlayer(uuid);
             if (firstPlayer != null) {
-                player.getServer().getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessTurnStartedEvent(firstPlayer));
+                player.getServer().getPluginManager().callEvent(new ChessTurnStartedEvent(firstPlayer));
             }
         });
         player.sendMessage(Component.text("게임을 시작합니다! 전장에 배치되었습니다.", NamedTextColor.GREEN));
@@ -138,7 +229,7 @@ public class ChessBoardCommand extends BaseCommand {
 
         Coordinate from = null;
 
-        for (var entry : gameManager.boardPieces().entrySet()) {
+        for (Map.Entry<Coordinate, Piece> entry : gameManager.boardPieces().entrySet()) {
             if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                 from = entry.getKey();
                 break;

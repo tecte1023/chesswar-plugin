@@ -14,14 +14,17 @@ import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -30,10 +33,15 @@ public class GameManager {
     private final Map<UUID, Participant> participants = new HashMap<>();
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final List<UUID> turnOrder = new ArrayList<>();
+    private final Set<UUID> spawnedEntities = new HashSet<>();
 
     @Setter
     private GamePhase phase = GamePhase.WAITING;
     private int currentTurnIndex = -1;
+
+    public void addSpawnedEntity(UUID entityId) {
+        spawnedEntities.add(entityId);
+    }
 
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
@@ -158,6 +166,7 @@ public class GameManager {
         boardPieces.clear();
         turnOrder.clear();
         currentTurnIndex = -1;
+        clearSpawnedEntities();
 
         for (Participant participant : participants.values()) {
             Player player = Bukkit.getPlayer(participant.playerId());
@@ -174,6 +183,18 @@ public class GameManager {
                 }
             }
         }
+    }
+
+    private void clearSpawnedEntities() {
+        for (UUID entityId : spawnedEntities) {
+            Entity entity = Bukkit.getEntity(entityId);
+
+            if (entity != null) {
+                entity.remove();
+            }
+        }
+
+        spawnedEntities.clear();
     }
 
     private void applyStats(Player player, PieceType type) {
