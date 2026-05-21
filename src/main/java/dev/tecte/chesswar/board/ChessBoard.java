@@ -39,9 +39,12 @@ public class ChessBoard {
     }
 
     public Coordinate toCoordinate(Location location) {
-        Vector relative = location.toVector().subtract(origin.toVector());
-        int y = (int) Math.floor(relative.dot(forward.getDirection()) / cellSize);
-        int x = (int) Math.floor(relative.dot(right.getDirection()) / cellSize);
+        int blockOffsetX = location.getBlockX() - origin.getBlockX();
+        int blockOffsetZ = location.getBlockZ() - origin.getBlockZ();
+        int forwardDot = blockOffsetX * forward.getModX() + blockOffsetZ * forward.getModZ();
+        int rightDot = blockOffsetX * right.getModX() + blockOffsetZ * right.getModZ();
+        int y = Math.floorDiv(forwardDot, cellSize);
+        int x = Math.floorDiv(rightDot, cellSize);
 
         return Coordinate.of(x, y);
     }
