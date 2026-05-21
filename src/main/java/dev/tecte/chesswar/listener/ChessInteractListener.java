@@ -8,10 +8,12 @@ import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
+import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -34,10 +36,39 @@ public class ChessInteractListener implements Listener {
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
-        if (gameManager.phase() != GamePhase.BATTLE) {
+        if (gameManager.phase() == GamePhase.WAITING) {
+            handleWaitingInteraction(event, player, item);
             return;
         }
 
+        if (gameManager.phase() == GamePhase.BATTLE) {
+            handleBattleInteraction(event, player, item);
+        }
+    }
+
+    private void handleWaitingInteraction(PlayerInteractEvent event, Player player, ItemStack item) {
+        if (item == null || (
+                event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK
+        )) {
+            return;
+        }
+
+        Team targetTeam = null;
+
+        if (item.getType() == Material.WHITE_WOOL) {
+            targetTeam = Team.WHITE;
+        } else if (item.getType() == Material.BLACK_WOOL) {
+            targetTeam = Team.BLACK;
+        }
+
+        if (targetTeam != null) {
+            gameManager.join(player, targetTeam);
+            player.sendMessage(Component.text(targetTeam.displayName() + "에 참가했습니다!", targetTeam.textColor()));
+        }
+    }
+
+    private void handleBattleInteraction(PlayerInteractEvent event, Player player, ItemStack item) {
         if (!PieceItemUtils.isPieceItem(item)) {
             return;
         }
