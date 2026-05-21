@@ -3,6 +3,7 @@ package dev.tecte.chesswar.listener;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.TimerManager;
@@ -19,8 +20,10 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -33,6 +36,10 @@ public class ChessInteractListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
+
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
 
@@ -100,7 +107,7 @@ public class ChessInteractListener implements Listener {
 
         Coordinate from = null;
 
-        for (var entry : gameManager.boardPieces().entrySet()) {
+        for (Map.Entry<Coordinate, Piece> entry : gameManager.boardPieces().entrySet()) {
             if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                 from = entry.getKey();
                 break;
@@ -137,7 +144,7 @@ public class ChessInteractListener implements Listener {
         gameManager.removePiece(from);
         gameManager.placePiece(to, myPiece);
         player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
-        Bukkit.getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessPieceMoveEvent(player));
+        Bukkit.getPluginManager().callEvent(new ChessPieceMoveEvent(player));
         finishTurn();
     }
 
