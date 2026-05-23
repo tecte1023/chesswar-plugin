@@ -31,23 +31,41 @@ public class MoveValidator {
             case ROOK -> (dx == 0 || dy == 0) && isPathClear(from, to);
             case BISHOP -> (absDx == absDy) && isPathClear(from, to);
             case KNIGHT -> (absDx == 1 && absDy == 2) || (absDx == 2 && absDy == 1);
-            case PAWN -> dx == 0 && dy == (piece.team() == Team.WHITE ? 1 : -1);
+            case PAWN -> {
+                int direction = (piece.team() == Team.WHITE ? 1 : -1);
+                boolean isForward = dx == 0 && dy == direction;
+                boolean isFirstMove = dx == 0 && dy == 2 * direction && from.y() == (piece.team() == Team.WHITE ? 1 : 6);
+                boolean isCapture = absDx == 1 && dy == direction;
+
+                if (isForward) {
+                    yield gameManager.findPieceAt(to).isEmpty();
+                }
+
+                if (isFirstMove) {
+                    yield gameManager.findPieceAt(to).isEmpty() && isPathClear(from, to);
+                }
+
+                if (isCapture) {
+                    yield gameManager.findPieceAt(to).isPresent();
+                }
+
+                yield false;
+            }
         };
     }
 
     private boolean isPathClear(Coordinate from, Coordinate to) {
         int xDirection = Integer.compare(to.x(), from.x());
         int yDirection = Integer.compare(to.y(), from.y());
-        int currentX = from.x() + xDirection;
-        int currentY = from.y() + yDirection;
+        int steps = Math.max(Math.abs(to.x() - from.x()), Math.abs(to.y() - from.y()));
 
-        while (currentX != to.x() || currentY != to.y()) {
+        for (int i = 1; i < steps; i++) {
+            int currentX = from.x() + (xDirection * i);
+            int currentY = from.y() + (yDirection * i);
+
             if (gameManager.findPieceAt(Coordinate.of(currentX, currentY)).isPresent()) {
                 return false;
             }
-
-            currentX += xDirection;
-            currentY += yDirection;
         }
 
         return true;

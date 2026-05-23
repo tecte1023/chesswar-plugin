@@ -33,23 +33,23 @@ public class ChessDamageListener implements Listener {
     private final TimerManager timerManager;
 
     @EventHandler
-    public void onGlobalDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
+    public void preventNonBattleDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player participant)) {
             return;
         }
 
-        if (gameManager.isParticipant(player) && gameManager.phase() != GamePhase.BATTLE) {
+        if (gameManager.isParticipant(participant) && gameManager.phase() != GamePhase.BATTLE) {
             event.setCancelled(true);
         }
     }
 
     @EventHandler
-    public void onDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getDamager() instanceof Player attacker)) {
+    public void handleCombatInteraction(EntityDamageByEntityEvent event) {
+        if (!(event.getDamager() instanceof Player attackerParticipant)) {
             return;
         }
 
-        if (gameManager.isParticipant(attacker)) {
+        if (gameManager.isParticipant(attackerParticipant)) {
             event.setCancelled(true);
         }
 
@@ -57,22 +57,24 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        ItemStack item = attacker.getInventory().getItemInMainHand();
-        if (!PieceItemUtils.isPieceItem(item)) {
+        ItemStack weaponItem = attackerParticipant.getInventory().getItemInMainHand();
+
+        if (!PieceItemUtils.isPieceItem(weaponItem)) {
             return;
         }
 
-        Optional<UUID> currentTurnId = gameManager.currentTurnPlayer();
-        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(attacker.getUniqueId())) {
-            attacker.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
+        Optional<UUID> currentTurnPlayerId = gameManager.currentTurnPlayer();
+
+        if (currentTurnPlayerId.isEmpty() || !currentTurnPlayerId.get().equals(attackerParticipant.getUniqueId())) {
+            attackerParticipant.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
             return;
         }
 
-        if (!(event.getEntity() instanceof Player victim)) {
+        if (!(event.getEntity() instanceof Player targetParticipant)) {
             return;
         }
 
-        if (!gameManager.isParticipant(victim)) {
+        if (!gameManager.isParticipant(targetParticipant)) {
             return;
         }
 
@@ -80,30 +82,30 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        Coordinate from = null;
+        Coordinate attackingCoordinate = null;
 
         for (var entry : gameManager.boardPieces().entrySet()) {
-            if (attacker.getUniqueId().equals(entry.getValue().ownerId())) {
-                from = entry.getKey();
+            if (attackerParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
+                attackingCoordinate = entry.getKey();
                 break;
             }
         }
 
-        Coordinate to = null;
+        Coordinate targetCoordinate = null;
 
         for (var entry : gameManager.boardPieces().entrySet()) {
-            if (victim.getUniqueId().equals(entry.getValue().ownerId())) {
-                to = entry.getKey();
+            if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
+                targetCoordinate = entry.getKey();
                 break;
             }
         }
 
-        if (from == null || to == null) {
+        if (attackingCoordinate == null || targetCoordinate == null) {
             return;
         }
 
-        if (!moveValidator.canMove(from, to)) {
-            attacker.sendMessage(Component.text(
+        if (!moveValidator.canMove(attackingCoordinate, targetCoordinate)) {
+            attackerParticipant.sendMessage(Component.text(
                     "그곳에 있는 적은 공격할 수 없는 범위에 있습니다!",
                     NamedTextColor.RED
             ));
@@ -111,55 +113,51 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        Piece myPiece = gameManager.boardPieces().get(from);
-        Piece target = gameManager.boardPieces().get(to);
+        Piece attackingPiece = gameManager.boardPieces().get(attackingCoordinate);
+        Piece targetPiece = gameManager.boardPieces().get(targetCoordinate);
 
-        if (target.team() == myPiece.team()) {
-            attacker.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+        if (targetPiece.team() == attackingPiece.team()) {
+            attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
             return;
         }
 
-        double damage = myPiece.type().baseDamage();
-
-        if (event.isCritical()) {
-            event.setDamage(damage);
-        }
-
+        event.setDamage(attackingPiece.type().baseDamage());
         event.setCancelled(false);
+        targetParticipant.setNoDamageTicks(0);
 
-        final Coordinate finalFrom = from;
-        final Coordinate finalTo = to;
-        final Piece finalMyPiece = myPiece;
-        final Piece finalTarget = target;
+        final Coordinate finalAttackingCoordinate = attackingCoordinate;
+        final Coordinate finalTargetCoordinate = targetCoordinate;
+        final Piece finalAttackingPiece = attackingPiece;
+        final Piece finalTargetPiece = targetPiece;
 
         Bukkit.getScheduler().runTask(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), () -> {
-            finalTarget.currentHealth(victim.getHealth());
+            finalTargetPiece.currentHealth(targetParticipant.getHealth());
 
-            if (victim.getHealth() <= 0) {
-                attacker.sendMessage(Component.text(
-                        "%s을(를) 처치했습니다!".formatted(finalTarget.type().displayName()),
+            if (targetParticipant.getHealth() <= 0) {
+                attackerParticipant.sendMessage(Component.text(
+                        "%s을(를) 처치했습니다!".formatted(finalTargetPiece.type().displayName()),
                         NamedTextColor.AQUA
                 ));
-                victim.sendMessage(Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED));
-                victim.setGameMode(GameMode.SPECTATOR);
-                gameManager.removePiece(finalTo);
-                gameManager.removePiece(finalFrom);
-                gameManager.placePiece(finalTo, finalMyPiece);
-                attacker.teleport(boardManager.currentBoard().toCenterLocation(finalTo).add(0, 1, 0));
+                targetParticipant.sendMessage(Component.text(
+                        "처치당했습니다! 관전자로 전환됩니다.",
+                        NamedTextColor.DARK_RED
+                ));
+                targetParticipant.setGameMode(GameMode.SPECTATOR);
+                gameManager.removePiece(finalTargetCoordinate);
+                gameManager.removePiece(finalAttackingCoordinate);
+                gameManager.placePiece(finalTargetCoordinate, finalAttackingPiece);
+                attackerParticipant.teleport(boardManager.currentBoard()
+                        .toCenterLocation(finalTargetCoordinate)
+                        .add(0, 1, 0));
 
-                if (finalTarget.type() == PieceType.KING) {
-                    gameManager.win(finalMyPiece.team());
+                if (finalTargetPiece.type() == PieceType.KING) {
+                    gameManager.win(finalAttackingPiece.team());
                     timerManager.stopTimer();
                     return;
                 }
             }
 
-            finishTurn();
+            gameManager.finishTurn();
         });
-    }
-
-    private void finishTurn() {
-        gameManager.nextTurn();
-        timerManager.startTurnTimer();
     }
 }

@@ -59,7 +59,7 @@ public class ChessWar extends JavaPlugin {
                 moveValidator
         ));
         pluginManager.registerEvents(
-                new ChessInteractListener(gameManager, boardManager, moveValidator, timerManager),
+                new ChessInteractListener(gameManager, boardManager, moveValidator),
                 this
         );
         pluginManager.registerEvents(
@@ -70,9 +70,13 @@ public class ChessWar extends JavaPlugin {
                 new ChessVisualGuideListener(gameManager, boardManager, moveValidator),
                 this
         );
-        pluginManager.registerEvents(new ChessPieceSelectionListener(this, gameManager), this);
+        pluginManager.registerEvents(
+                new ChessPieceSelectionListener(this, gameManager),
+                this
+        );
         pluginManager.registerEvents(new ChessReadyListener(this, gameManager), this);
         pluginManager.registerEvents(new ChessBlockListener(gameManager), this);
+        pluginManager.registerEvents(timerManager, this);
         setupMythicMobs();
         setupOptimalEngineSettings();
         log.info("ChessWar has been enabled with optimized engine settings!");

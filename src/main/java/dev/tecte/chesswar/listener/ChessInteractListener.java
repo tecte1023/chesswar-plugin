@@ -6,7 +6,6 @@ import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
-import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.team.Team;
@@ -32,7 +31,6 @@ public class ChessInteractListener implements Listener {
     private final GameManager gameManager;
     private final BoardManager boardManager;
     private final MoveValidator moveValidator;
-    private final TimerManager timerManager;
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
@@ -145,11 +143,6 @@ public class ChessInteractListener implements Listener {
         gameManager.placePiece(to, myPiece);
         player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
         Bukkit.getPluginManager().callEvent(new ChessPieceMoveEvent(player));
-        finishTurn();
-    }
-
-    private void finishTurn() {
-        gameManager.nextTurn();
-        timerManager.startTurnTimer();
+        gameManager.finishTurn();
     }
 }

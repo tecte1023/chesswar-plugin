@@ -200,6 +200,10 @@ public class GameManager {
         });
     }
 
+    public void finishTurn() {
+        nextTurn();
+    }
+
     public void placePiece(Coordinate coordinate, Piece piece) {
         boardPieces.put(coordinate, piece);
     }

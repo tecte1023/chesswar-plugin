@@ -1,17 +1,20 @@
 package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
 @Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor
-public class TimerManager {
+public class TimerManager implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
 
@@ -19,6 +22,11 @@ public class TimerManager {
     private ScoreboardManager scoreboardManager;
     private BukkitTask currentTask;
     private int remainingSeconds;
+
+    @EventHandler
+    public void onTurnStart(ChessTurnStartedEvent event) {
+        startTurnTimer();
+    }
 
     public void startTurnTimer() {
         stopTimer();
