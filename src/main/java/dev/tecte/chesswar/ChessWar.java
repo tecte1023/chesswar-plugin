@@ -7,9 +7,11 @@ import dev.tecte.chesswar.command.ChessBoardCommand;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.ScoreboardManager;
 import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.listener.ChessBlockListener;
 import dev.tecte.chesswar.listener.ChessDamageListener;
 import dev.tecte.chesswar.listener.ChessInteractListener;
 import dev.tecte.chesswar.listener.ChessPieceSelectionListener;
+import dev.tecte.chesswar.listener.ChessReadyListener;
 import dev.tecte.chesswar.listener.ChessVisualGuideListener;
 import lombok.Getter;
 import lombok.experimental.Accessors;
@@ -69,6 +71,8 @@ public class ChessWar extends JavaPlugin {
                 this
         );
         pluginManager.registerEvents(new ChessPieceSelectionListener(this, gameManager), this);
+        pluginManager.registerEvents(new ChessReadyListener(this, gameManager), this);
+        pluginManager.registerEvents(new ChessBlockListener(gameManager), this);
         setupMythicMobs();
         setupOptimalEngineSettings();
         log.info("ChessWar has been enabled with optimized engine settings!");

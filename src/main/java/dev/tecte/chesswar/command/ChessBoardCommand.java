@@ -23,13 +23,20 @@ import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Color;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.type.Chest;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
@@ -123,6 +130,86 @@ public class ChessBoardCommand extends BaseCommand {
                     mobManager
             );
         }
+
+        setupReadyChest(whiteBarracks, Team.WHITE, 4);
+        setupReadyChest(blackBarracks, Team.BLACK, 3);
+    }
+
+    private void setupReadyChest(ChessBoard barracks, Team team, int row) {
+        Location origin = barracks.origin();
+        BlockFace right = barracks.right();
+        BlockFace forward = barracks.forward();
+        int cellSize = barracks.cellSize();
+        Location leftBlock = origin.clone()
+                .add(right.getDirection().multiply(4 * cellSize - 1))
+                .add(forward.getDirection().multiply(row * cellSize + 1));
+        Location rightBlock = origin.clone()
+                .add(right.getDirection().multiply(4 * cellSize))
+                .add(forward.getDirection().multiply(row * cellSize + 1));
+        BlockFace facing = team == Team.WHITE ? forward.getOppositeFace() : forward;
+
+        leftBlock.getBlock().setType(Material.CHEST, false);
+        rightBlock.getBlock().setType(Material.CHEST, false);
+        gameManager.addBarracksChest(leftBlock);
+        gameManager.addBarracksChest(rightBlock);
+
+        Chest leftData = (Chest) leftBlock.getBlock().getBlockData();
+        Chest rightData = (Chest) rightBlock.getBlock().getBlockData();
+
+        leftData.setFacing(facing);
+        rightData.setFacing(facing);
+
+        if (facing == BlockFace.NORTH) {
+            leftData.setType(Chest.Type.RIGHT);
+            rightData.setType(Chest.Type.LEFT);
+        } else if (facing == BlockFace.SOUTH) {
+            leftData.setType(Chest.Type.LEFT);
+            rightData.setType(Chest.Type.RIGHT);
+        } else if (facing == BlockFace.EAST) {
+            leftData.setType(Chest.Type.RIGHT);
+            rightData.setType(Chest.Type.LEFT);
+        } else {
+            leftData.setType(Chest.Type.LEFT);
+            rightData.setType(Chest.Type.RIGHT);
+        }
+
+        leftBlock.getBlock().setBlockData(leftData, true);
+        rightBlock.getBlock().setBlockData(rightData, true);
+
+        InventoryHolder leftHolder = (InventoryHolder) leftBlock.getBlock().getState();
+        InventoryHolder rightHolder = (InventoryHolder) rightBlock.getBlock().getState();
+        Inventory leftInv = leftHolder.getInventory();
+        Inventory rightInv = rightHolder.getInventory();
+
+        leftInv.clear();
+        rightInv.clear();
+
+        int participantCount = (int) gameManager.participants().values().stream()
+                .filter(p -> p.team() == team)
+                .count();
+
+        if (participantCount > 0) {
+            NamespacedKey orderKey = new NamespacedKey(plugin, "turn_order");
+
+            for (int i = 1; i <= participantCount; i++) {
+                ItemStack item = new ItemStack(Material.PAPER);
+                ItemMeta meta = item.getItemMeta();
+
+                meta.displayName(Component.text(i + "번 순서", NamedTextColor.GOLD, TextDecoration.BOLD));
+                meta.getPersistentDataContainer().set(orderKey, PersistentDataType.INTEGER, i);
+                item.setItemMeta(meta);
+                leftInv.addItem(item);
+            }
+        }
+
+        NamespacedKey readyKey = new NamespacedKey(plugin, "ready_button");
+        ItemStack readyBtn = new ItemStack(Material.LIME_STAINED_GLASS_PANE);
+        ItemMeta readyMeta = readyBtn.getItemMeta();
+
+        readyMeta.displayName(Component.text("[ 준비 완료 ]", NamedTextColor.GREEN, TextDecoration.BOLD));
+        readyMeta.getPersistentDataContainer().set(readyKey, PersistentDataType.BYTE, (byte) 1);
+        readyBtn.setItemMeta(readyMeta);
+        rightInv.setItem(49, readyBtn);
     }
 
     private void spawnBarracksPiece(
@@ -174,7 +261,7 @@ public class ChessBoardCommand extends BaseCommand {
         }
 
         gameManager.phase(GamePhase.BATTLE);
-        gameManager.prepareTurnOrder();
+        gameManager.calculateTurnOrder(plugin);
 
         int whiteX = 0;
         int blackX = 0;
