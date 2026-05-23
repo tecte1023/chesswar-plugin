@@ -260,37 +260,8 @@ public class ChessBoardCommand extends BaseCommand {
             return;
         }
 
-        gameManager.phase(GamePhase.BATTLE);
-        gameManager.calculateTurnOrder(plugin);
-
-        int whiteX = 0;
-        int blackX = 0;
-
-        for (Participant participant : gameManager.participants().values()) {
-            Player onlinePlayer = player.getServer().getPlayer(participant.playerId());
-
-            if (onlinePlayer == null || participant.pieceType() == null) {
-                continue;
-            }
-
-            Coordinate startCoordinate = participant.team() == Team.WHITE
-                    ? Coordinate.of(whiteX++, 0)
-                    : Coordinate.of(blackX++, 7);
-            Piece piece = Piece.of(participant.playerId(), participant.team(), participant.pieceType());
-            Location spawnLocation = boardManager.currentBoard().toCenterLocation(startCoordinate).add(0, 1, 0);
-
-            gameManager.placePiece(startCoordinate, piece);
-            onlinePlayer.teleport(spawnLocation);
-        }
-
-        timerManager.startTurnTimer();
-        gameManager.currentTurnPlayer().ifPresent(uuid -> {
-            Player firstPlayer = player.getServer().getPlayer(uuid);
-            if (firstPlayer != null) {
-                player.getServer().getPluginManager().callEvent(new ChessTurnStartedEvent(firstPlayer));
-            }
-        });
-        player.sendMessage(Component.text("게임을 시작합니다! 전장에 배치되었습니다.", NamedTextColor.GREEN));
+        gameManager.advancePhase(plugin, boardManager, timerManager);
+        player.sendMessage(Component.text("게임을 시작합니다! 기물 선택 단계로 이동합니다.", NamedTextColor.GREEN));
     }
 
     @Subcommand("dev move")
@@ -390,9 +361,10 @@ public class ChessBoardCommand extends BaseCommand {
         player.sendMessage(Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN));
     }
 
+
     private void finishTurn(Player player) {
         gameManager.nextTurn();
-        timerManager.startTurnTimer();
+        timerManager.startTurnTimer(30);
     }
 
     private BlockFace getCardinalDirection(Player player) {

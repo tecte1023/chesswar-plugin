@@ -25,20 +25,24 @@ public class TimerManager implements Listener {
 
     @EventHandler
     public void onTurnStart(ChessTurnStartedEvent event) {
-        startTurnTimer();
+        startTurnTimer(30);
     }
 
-    public void startTurnTimer() {
+    public void startTurnTimer(int seconds) {
         stopTimer();
-        remainingSeconds = 30;
+        remainingSeconds = seconds;
         currentTask = new BukkitRunnable() {
             @Override
             public void run() {
                 remainingSeconds--;
 
                 if (remainingSeconds < 0) {
-                    gameManager.nextTurn();
-                    startTurnTimer();
+                    if (gameManager.phase() == GamePhase.BATTLE) {
+                        gameManager.nextTurn();
+                        startTurnTimer(30);
+                    } else {
+                        gameManager.advancePhase(plugin, plugin.boardManager(), TimerManager.this);
+                    }
 
                     return;
                 }

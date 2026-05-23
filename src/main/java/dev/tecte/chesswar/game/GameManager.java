@@ -1,5 +1,7 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.piece.Piece;
@@ -90,6 +92,98 @@ public class GameManager {
         return participants.values().stream().allMatch(p -> p.pieceType() != null);
     }
 
+    public void advancePhase(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
+        GamePhase nextPhase = switch (phase) {
+            case WAITING -> GamePhase.PIECE_SELECTION;
+            case PIECE_SELECTION -> GamePhase.TURN_ORDER;
+            case TURN_ORDER -> GamePhase.BATTLE;
+            case BATTLE -> GamePhase.ENDED;
+            case ENDED -> GamePhase.WAITING;
+        };
+
+        phase = nextPhase;
+
+        switch (nextPhase) {
+            case PIECE_SELECTION -> {
+                teleportToBarracks(boardManager);
+                timerManager.startTurnTimer(300);
+            }
+            case TURN_ORDER -> {
+                clearSpawnedEntities();
+                timerManager.startTurnTimer(180);
+            }
+            case BATTLE -> {
+                clearBarracksChests();
+                calculateTurnOrder(plugin);
+                deployToBattlefield(boardManager);
+                timerManager.startTurnTimer(30);
+                currentTurnPlayer().ifPresent(uuid -> {
+                    Player firstPlayer = Bukkit.getPlayer(uuid);
+
+                    if (firstPlayer != null) {
+                        Bukkit.getPluginManager().callEvent(new ChessTurnStartedEvent(firstPlayer));
+                    }
+                });
+            }
+            case ENDED -> timerManager.stopTimer();
+            case WAITING -> reset();
+        }
+    }
+
+    private void teleportToBarracks(BoardManager boardManager) {
+        if (!boardManager.hasBoard()) {
+            return;
+        }
+
+        ChessBoard mainBoard = boardManager.currentBoard();
+        int offsetDistance = 5 + (8 * mainBoard.cellSize());
+        Location whiteBarracksLoc = mainBoard.origin().clone()
+                .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard whiteBarracks = new ChessBoard(whiteBarracksLoc, mainBoard.forward(), mainBoard.cellSize());
+        Location whiteTeleportPos = whiteBarracks.toCenterLocation(Coordinate.of(4, 7));
+        Location blackBarracksLoc = mainBoard.origin().clone()
+                .add(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard blackBarracks = new ChessBoard(blackBarracksLoc, mainBoard.forward(), mainBoard.cellSize());
+        Location blackTeleportPos = blackBarracks.toCenterLocation(Coordinate.of(4, 0));
+
+        whiteTeleportPos.setDirection(mainBoard.forward().getDirection());
+        blackTeleportPos.setDirection(mainBoard.forward().getDirection().multiply(-1));
+        participants.values().forEach(p -> {
+            Player onlinePlayer = Bukkit.getPlayer(p.playerId());
+
+            if (onlinePlayer != null) {
+                onlinePlayer.teleport(p.team() == Team.WHITE ? whiteTeleportPos : blackTeleportPos);
+            }
+        });
+    }
+
+    private void deployToBattlefield(BoardManager boardManager) {
+        if (!boardManager.hasBoard()) {
+            return;
+        }
+
+        ChessBoard mainBoard = boardManager.currentBoard();
+        int whiteX = 0;
+        int blackX = 0;
+
+        for (Participant participant : participants.values()) {
+            Player onlinePlayer = Bukkit.getPlayer(participant.playerId());
+
+            if (onlinePlayer == null || participant.pieceType() == null) {
+                continue;
+            }
+
+            Coordinate startCoordinate = participant.team() == Team.WHITE
+                    ? Coordinate.of(whiteX++, 0)
+                    : Coordinate.of(blackX++, 7);
+            Piece piece = Piece.of(participant.playerId(), participant.team(), participant.pieceType());
+            Location spawnLocation = mainBoard.toCenterLocation(startCoordinate).add(0, 1, 0);
+
+            placePiece(startCoordinate, piece);
+            onlinePlayer.teleport(spawnLocation);
+        }
+    }
+
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
 
@@ -129,7 +223,10 @@ public class GameManager {
         }
 
         participant.getInventory().addItem(PieceItemUtils.createPieceItem(pieceType));
-        participant.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
+        participant.sendMessage(Component.text(
+                pieceType.displayName() + " 기물을 선택했습니다!",
+                NamedTextColor.GOLD
+        ));
     }
 
     public void leave(Player player) {
