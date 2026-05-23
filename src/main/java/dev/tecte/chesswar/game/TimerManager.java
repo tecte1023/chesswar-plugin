@@ -56,4 +56,10 @@ public class TimerManager implements Listener {
             currentTask = null;
         }
     }
+
+    public void accelerateTo(int seconds) {
+        if (remainingSeconds > seconds) {
+            remainingSeconds = seconds;
+        }
+    }
 }

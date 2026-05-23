@@ -82,32 +82,54 @@ public class GameManager {
         return readyPlayers.containsAll(participants.keySet());
     }
 
+    public boolean areAllPiecesSelected() {
+        if (participants.isEmpty()) {
+            return false;
+        }
+
+        return participants.values().stream().allMatch(p -> p.pieceType() != null);
+    }
+
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
 
         participants.put(playerId, Participant.of(playerId, team));
     }
 
-    public void selectPiece(Player player, PieceType pieceType) {
-        UUID playerId = player.getUniqueId();
-        Participant participant = participants.get(playerId);
+    public void selectPiece(Player participant, PieceType pieceType) {
+        UUID participantId = participant.getUniqueId();
+        Participant currentParticipant = participants.get(participantId);
 
-        if (participant == null) {
+        if (currentParticipant == null) {
             return;
         }
 
-        participants.put(playerId, Participant.of(playerId, participant.team(), pieceType));
-        applyStats(player, pieceType);
+        boolean isAlreadyTaken = participants.values().stream()
+                .filter(p -> p.team() == currentParticipant.team())
+                .filter(p -> !p.playerId().equals(participantId))
+                .anyMatch(p -> pieceType.equals(p.pieceType()));
 
-        for (int i = 0; i < player.getInventory().getSize(); i++) {
-            ItemStack item = player.getInventory().getItem(i);
+        if (isAlreadyTaken) {
+            participant.sendMessage(Component.text(
+                    pieceType.displayName() + " 기물은 이미 팀원이 선택했습니다!",
+                    NamedTextColor.RED
+            ));
+            return;
+        }
+
+        participants.put(participantId, Participant.of(participantId, currentParticipant.team(), pieceType));
+        applyStats(participant, pieceType);
+
+        for (int i = 0; i < participant.getInventory().getSize(); i++) {
+            ItemStack item = participant.getInventory().getItem(i);
 
             if (PieceItemUtils.isPieceItem(item)) {
-                player.getInventory().setItem(i, null);
+                participant.getInventory().setItem(i, null);
             }
         }
 
-        player.getInventory().addItem(PieceItemUtils.createPieceItem(pieceType));
+        participant.getInventory().addItem(PieceItemUtils.createPieceItem(pieceType));
+        participant.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
     }
 
     public void leave(Player player) {

@@ -4,6 +4,7 @@ import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
+import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -27,6 +29,7 @@ import java.util.Optional;
 public class ChessPieceSelectionListener implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
+    private final TimerManager timerManager;
 
     @EventHandler
     public void onEntityInteract(PlayerInteractEntityEvent event) {
@@ -67,6 +70,15 @@ public class ChessPieceSelectionListener implements Listener {
         }
 
         renderInfo(player, pieceType, pieceTeam);
+
+        if (gameManager.areAllPiecesSelected()) {
+            timerManager.accelerateTo(10);
+            Bukkit.broadcast(Component.text(
+                    " 모든 플레이어가 기물을 선택했습니다! 10초 후 준비 단계로 넘어갑니다.",
+                    NamedTextColor.AQUA,
+                    TextDecoration.BOLD
+            ));
+        }
     }
 
     private void renderInfo(Player player, PieceType type, Team team) {

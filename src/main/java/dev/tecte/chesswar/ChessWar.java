@@ -71,10 +71,10 @@ public class ChessWar extends JavaPlugin {
                 this
         );
         pluginManager.registerEvents(
-                new ChessPieceSelectionListener(this, gameManager),
+                new ChessPieceSelectionListener(this, gameManager, timerManager),
                 this
         );
-        pluginManager.registerEvents(new ChessReadyListener(this, gameManager), this);
+        pluginManager.registerEvents(new ChessReadyListener(this, gameManager, timerManager), this);
         pluginManager.registerEvents(new ChessBlockListener(gameManager), this);
         pluginManager.registerEvents(timerManager, this);
         setupMythicMobs();

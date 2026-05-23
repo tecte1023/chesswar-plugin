@@ -3,10 +3,13 @@ package dev.tecte.chesswar.listener;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.Participant;
+import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,6 +24,7 @@ import java.util.Optional;
 public class ChessReadyListener implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
+    private final TimerManager timerManager;
 
     @EventHandler
     public void onReadyClick(InventoryClickEvent event) {
@@ -81,7 +85,12 @@ public class ChessReadyListener implements Listener {
         });
 
         if (gameManager.areAllParticipantsReady()) {
-            startBattle(player);
+            timerManager.accelerateTo(10);
+            Bukkit.broadcast(Component.text(
+                    " 모든 플레이어가 준비를 마쳤습니다! 10초 후 전투가 시작됩니다.",
+                    NamedTextColor.GREEN,
+                    TextDecoration.BOLD
+            ));
         }
     }
 
