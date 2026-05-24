@@ -1,6 +1,7 @@
 package dev.tecte.chesswar.listener;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
@@ -14,7 +15,6 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -35,7 +35,7 @@ public class ChessPieceSelectionListener implements Listener {
     public void onEntityInteract(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
 
-        if (gameManager.phase() != GamePhase.WAITING && gameManager.phase() != GamePhase.PIECE_SELECTION) {
+        if (gameManager.phase() != GamePhase.PIECE_SELECTION) {
             return;
         }
 
@@ -60,6 +60,10 @@ public class ChessPieceSelectionListener implements Listener {
             return;
         }
 
+        // 1그룹 핵심: 클릭한 엔티티의 위치에서 논리 좌표를 역산함 (또는 추후 NBT에 저장된 좌표 사용)
+        if (!plugin.boardManager().hasBoard()) return;
+        Coordinate clickedCoordinate = plugin.boardManager().currentBoard().toCoordinate(clickedEntity.getLocation());
+
         PieceType pieceType = PieceType.valueOf(typeStr);
         Team pieceTeam = Team.valueOf(teamStr);
         Optional<Team> playerTeam = gameManager.findParticipant(player.getUniqueId()).map(Participant::team);
@@ -69,19 +73,10 @@ public class ChessPieceSelectionListener implements Listener {
             return;
         }
 
-        renderInfo(player, pieceType, pieceTeam);
-
-        if (gameManager.areAllPiecesSelected()) {
-            timerManager.accelerateTo(10);
-            Bukkit.broadcast(Component.text(
-                    " 모든 플레이어가 기물을 선택했습니다! 10초 후 준비 단계로 넘어갑니다.",
-                    NamedTextColor.AQUA,
-                    TextDecoration.BOLD
-            ));
-        }
+        renderInfo(player, pieceType, pieceTeam, clickedCoordinate);
     }
 
-    private void renderInfo(Player player, PieceType type, Team team) {
+    private void renderInfo(Player player, PieceType type, Team team, Coordinate coordinate) {
         Component decorationLine = Component.text(
                 "━━━━━━━━━━━━━━━",
                 NamedTextColor.DARK_GRAY,
@@ -111,17 +106,36 @@ public class ChessPieceSelectionListener implements Listener {
                 .append(Component.text("공격 및 이동 범위: ", NamedTextColor.GRAY))
                 .append(Component.text(type.rangeDescription(), NamedTextColor.AQUA))
                 .build();
-        Component button = Component.text()
-                .color(NamedTextColor.GREEN)
-                .append(Component.text("[ ⚔ "))
-                .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
-                .append(Component.text(" ]"))
-                .hoverEvent(HoverEvent.showText(Component.text(
-                        "클릭하여 해당 기물로 참전합니다.",
-                        NamedTextColor.GREEN
-                )))
-                .clickEvent(ClickEvent.runCommand("/cw select " + type.name()))
-                .build();
+
+        boolean isAlreadySelected = gameManager.participants().values().stream()
+                .filter(p -> p.team() == team)
+                .anyMatch(p -> coordinate.equals(p.initialCoordinate()));
+
+        Component button;
+        if (isAlreadySelected) {
+            button = Component.text()
+                    .color(NamedTextColor.GRAY)
+                    .append(Component.text("[ ⚔ "))
+                    .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
+                    .append(Component.text(" ]"))
+                    .hoverEvent(HoverEvent.showText(Component.text(
+                            "이미 팀원이 선택한 기물입니다.",
+                            NamedTextColor.RED
+                    )))
+                    .build();
+        } else {
+            button = Component.text()
+                    .color(NamedTextColor.GREEN)
+                    .append(Component.text("[ ⚔ "))
+                    .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
+                    .append(Component.text(" ]"))
+                    .hoverEvent(HoverEvent.showText(Component.text(
+                            "클릭하여 해당 기물로 참전합니다.",
+                            NamedTextColor.GREEN
+                    )))
+                    .clickEvent(ClickEvent.runCommand("/cw select " + coordinate.x() + " " + coordinate.y()))
+                    .build();
+        }
         Component buttonLine = Component.text()
                 .append(Component.text("               "))
                 .append(button)

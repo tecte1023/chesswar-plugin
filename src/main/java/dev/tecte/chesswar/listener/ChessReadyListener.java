@@ -2,6 +2,7 @@ package dev.tecte.chesswar.listener;
 
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
 import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.team.Team;
@@ -10,6 +11,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -42,9 +44,21 @@ public class ChessReadyListener implements Listener {
             plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
 
             if (isReadyButton(item)) {
+                // 팀 막사 상자 검증: 클릭한 상자의 위치가 내 팀의 상자인지 확인
+                Location invLoc = event.getInventory().getLocation();
+                if (invLoc != null && !isMyTeamBarracksChest(player, invLoc)) {
+                    player.sendMessage(Component.text("자신의 팀 막사에 있는 상자에서만 준비를 완료할 수 있습니다!", NamedTextColor.RED));
+                    return;
+                }
                 handleReadyUp(player);
             }
         }
+    }
+
+    private boolean isMyTeamBarracksChest(Player player, Location location) {
+        return gameManager.findParticipant(player.getUniqueId())
+                .map(p -> gameManager.isTeamChest(location, p.team()))
+                .orElse(false);
     }
 
     private boolean isReadyButton(ItemStack item) {
@@ -58,6 +72,11 @@ public class ChessReadyListener implements Listener {
     }
 
     private void handleReadyUp(Player player) {
+        if (gameManager.phase() != GamePhase.TURN_ORDER) {
+            player.sendMessage(Component.text("지금은 준비 완료를 할 수 있는 단계가 아닙니다!", NamedTextColor.RED));
+            return;
+        }
+
         if (gameManager.isReady(player.getUniqueId())) {
             player.sendMessage(Component.text("이미 준비 완료 상태입니다!", NamedTextColor.YELLOW));
             return;
@@ -86,11 +105,10 @@ public class ChessReadyListener implements Listener {
 
         if (gameManager.areAllParticipantsReady()) {
             timerManager.accelerateTo(10);
-            Bukkit.broadcast(Component.text(
-                    " 모든 플레이어가 준비를 마쳤습니다! 10초 후 전투가 시작됩니다.",
-                    NamedTextColor.GREEN,
-                    TextDecoration.BOLD
-            ));
+            Bukkit.broadcast(Component.text()
+                    .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text("모든 플레이어가 준비를 마쳤습니다! 10초 후 전투가 시작됩니다.", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .build());
         }
     }
 
