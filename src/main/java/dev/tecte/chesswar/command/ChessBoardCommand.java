@@ -12,6 +12,7 @@ import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
+import dev.tecte.chesswar.game.Statistics;
 import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceType;
@@ -24,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -62,18 +64,67 @@ public class ChessBoardCommand extends BaseCommand {
     }
 
     @Subcommand("select")
-    public void onSelectPiece(Player player, PieceType pieceType) {
+    public void onSelectPiece(Player player, int x, int y) {
+        if (gameManager.phase() != GamePhase.PIECE_SELECTION) {
+            player.sendMessage(Component.text("기물 선택 단계가 아닙니다!", NamedTextColor.RED));
+            return;
+        }
+
         if (!gameManager.isParticipant(player)) {
             player.sendMessage(Component.text("먼저 팀에 참가해야 합니다!", NamedTextColor.RED));
             return;
         }
 
-        gameManager.selectPiece(player, pieceType);
-        player.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
+        Coordinate coordinate = Coordinate.of(x, y);
+        gameManager.selectPiece(player, coordinate);
+
+        if (gameManager.areAllPiecesSelected()) {
+            timerManager.accelerateTo(10);
+            Bukkit.broadcast(Component.text()
+                    .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text("모든 플레이어가 기물을 선택했습니다! 10초 후 준비 단계로 넘어갑니다.", NamedTextColor.AQUA, TextDecoration.BOLD))
+                    .build());
+        }
+    }
+
+    @Subcommand("record")
+    public void onRecord(Player player) {
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        org.bukkit.inventory.meta.BookMeta meta = (org.bukkit.inventory.meta.BookMeta) book.getItemMeta();
+
+        meta.setTitle("전투 기록 일지");
+        meta.setAuthor("ChessWar System");
+
+        Component content = Component.text()
+                .append(Component.text("=== 전투 기록 리포트 ===\n\n", NamedTextColor.GOLD, TextDecoration.BOLD))
+                .build();
+
+        for (Participant p : gameManager.participants().values()) {
+            Statistics s = gameManager.getStats(p.playerId());
+            Player participantPlayer = Bukkit.getPlayer(p.playerId());
+            String name = (participantPlayer != null) ? participantPlayer.getName() : "오프라인";
+
+            content = content.append(Component.text()
+                    .append(Component.text("-" + name + " (" + p.team().displayName() + ")\n", p.team().textColor()))
+                    .append(Component.text("  가한 피해: " + (int) s.getDamageDealt() + "\n", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("  받은 피해: " + (int) s.getDamageTaken() + "\n", NamedTextColor.DARK_GRAY))
+                    .append(Component.text("  킬/데스: " + s.getKills() + "/" + s.getDeaths() + "\n\n", NamedTextColor.DARK_GRAY))
+                    .build());
+        }
+
+        meta.addPages(content);
+        book.setItemMeta(meta);
+        player.getInventory().addItem(book);
+        player.sendMessage(Component.text("전투 기록 일지를 지급했습니다.", NamedTextColor.GREEN));
     }
 
     @Subcommand("setup")
     public void onSetupBoard(Player player) {
+        if (gameManager.phase() != GamePhase.WAITING) {
+            player.sendMessage(Component.text("대기 단계에서만 체스판을 설정할 수 있습니다!", NamedTextColor.RED));
+            return;
+        }
+
         BlockFace forward = getCardinalDirection(player);
         ChessBoard board = new ChessBoard(player.getLocation(), forward, 3);
 
@@ -85,167 +136,6 @@ public class ChessBoardCommand extends BaseCommand {
                 NamedTextColor.GRAY
         ));
         visualizeBoard(player, board);
-        setupBarracks(player, board);
-    }
-
-    private void setupBarracks(Player player, ChessBoard mainBoard) {
-        int offsetDistance = 5 + (8 * mainBoard.cellSize());
-        Location whiteOrigin = mainBoard.origin().clone()
-                .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
-        ChessBoard whiteBarracks = new ChessBoard(whiteOrigin, mainBoard.forward(), mainBoard.cellSize());
-        Location blackOrigin = mainBoard.origin().clone()
-                .add(mainBoard.forward().getDirection().multiply(offsetDistance));
-        ChessBoard blackBarracks = new ChessBoard(blackOrigin, mainBoard.forward(), mainBoard.cellSize());
-
-        visualizeBoard(player, whiteBarracks);
-        visualizeBoard(player, blackBarracks);
-
-        PieceType[] backRow = {
-                PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP, PieceType.QUEEN,
-                PieceType.KING, PieceType.BISHOP, PieceType.KNIGHT, PieceType.ROOK
-        };
-        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
-        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
-        MobManager mobManager = MythicProvider.get().getMobManager();
-
-        for (int x = 0; x < 8; x++) {
-            PieceType type = backRow[x];
-
-            spawnBarracksPiece(
-                    whiteBarracks.toCenterLocation(Coordinate.of(x, 0)),
-                    type,
-                    Team.WHITE,
-                    mainBoard.forward().getDirection(),
-                    typeKey,
-                    teamKey,
-                    mobManager
-            );
-            spawnBarracksPiece(
-                    blackBarracks.toCenterLocation(Coordinate.of(x, 7)),
-                    type,
-                    Team.BLACK,
-                    mainBoard.forward().getDirection().multiply(-1),
-                    typeKey,
-                    teamKey,
-                    mobManager
-            );
-        }
-
-        setupReadyChest(whiteBarracks, Team.WHITE, 4);
-        setupReadyChest(blackBarracks, Team.BLACK, 3);
-    }
-
-    private void setupReadyChest(ChessBoard barracks, Team team, int row) {
-        Location origin = barracks.origin();
-        BlockFace right = barracks.right();
-        BlockFace forward = barracks.forward();
-        int cellSize = barracks.cellSize();
-        Location leftBlock = origin.clone()
-                .add(right.getDirection().multiply(4 * cellSize - 1))
-                .add(forward.getDirection().multiply(row * cellSize + 1));
-        Location rightBlock = origin.clone()
-                .add(right.getDirection().multiply(4 * cellSize))
-                .add(forward.getDirection().multiply(row * cellSize + 1));
-        BlockFace facing = team == Team.WHITE ? forward.getOppositeFace() : forward;
-
-        leftBlock.getBlock().setType(Material.CHEST, false);
-        rightBlock.getBlock().setType(Material.CHEST, false);
-        gameManager.addBarracksChest(leftBlock);
-        gameManager.addBarracksChest(rightBlock);
-
-        Chest leftData = (Chest) leftBlock.getBlock().getBlockData();
-        Chest rightData = (Chest) rightBlock.getBlock().getBlockData();
-
-        leftData.setFacing(facing);
-        rightData.setFacing(facing);
-
-        if (facing == BlockFace.NORTH) {
-            leftData.setType(Chest.Type.RIGHT);
-            rightData.setType(Chest.Type.LEFT);
-        } else if (facing == BlockFace.SOUTH) {
-            leftData.setType(Chest.Type.LEFT);
-            rightData.setType(Chest.Type.RIGHT);
-        } else if (facing == BlockFace.EAST) {
-            leftData.setType(Chest.Type.RIGHT);
-            rightData.setType(Chest.Type.LEFT);
-        } else {
-            leftData.setType(Chest.Type.LEFT);
-            rightData.setType(Chest.Type.RIGHT);
-        }
-
-        leftBlock.getBlock().setBlockData(leftData, true);
-        rightBlock.getBlock().setBlockData(rightData, true);
-
-        InventoryHolder leftHolder = (InventoryHolder) leftBlock.getBlock().getState();
-        InventoryHolder rightHolder = (InventoryHolder) rightBlock.getBlock().getState();
-        Inventory leftInv = leftHolder.getInventory();
-        Inventory rightInv = rightHolder.getInventory();
-
-        leftInv.clear();
-        rightInv.clear();
-
-        int participantCount = (int) gameManager.participants().values().stream()
-                .filter(p -> p.team() == team)
-                .count();
-
-        if (participantCount > 0) {
-            NamespacedKey orderKey = new NamespacedKey(plugin, "turn_order");
-
-            for (int i = 1; i <= participantCount; i++) {
-                ItemStack item = new ItemStack(Material.PAPER);
-                ItemMeta meta = item.getItemMeta();
-
-                meta.displayName(Component.text(i + "번 순서", NamedTextColor.GOLD, TextDecoration.BOLD));
-                meta.getPersistentDataContainer().set(orderKey, PersistentDataType.INTEGER, i);
-                item.setItemMeta(meta);
-                leftInv.addItem(item);
-            }
-        }
-
-        NamespacedKey readyKey = new NamespacedKey(plugin, "ready_button");
-        ItemStack readyBtn = new ItemStack(Material.LIME_STAINED_GLASS_PANE);
-        ItemMeta readyMeta = readyBtn.getItemMeta();
-
-        readyMeta.displayName(Component.text("[ 준비 완료 ]", NamedTextColor.GREEN, TextDecoration.BOLD));
-        readyMeta.getPersistentDataContainer().set(readyKey, PersistentDataType.BYTE, (byte) 1);
-        readyBtn.setItemMeta(readyMeta);
-        rightInv.setItem(49, readyBtn);
-    }
-
-    private void spawnBarracksPiece(
-            Location location,
-            PieceType type,
-            Team team,
-            Vector direction,
-            NamespacedKey typeKey,
-            NamespacedKey teamKey,
-            MobManager mobManager
-    ) {
-        String mobId = toPascalCase(team.name()) + toPascalCase(type.name());
-
-        mobManager.getMythicMob(mobId).ifPresent(mythicMob -> {
-            ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), 1);
-
-            if (activeMob == null) {
-                return;
-            }
-
-            Entity entity = activeMob.getEntity().getBukkitEntity();
-
-            location.setDirection(direction);
-            entity.teleport(location);
-            entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
-            entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
-            gameManager.addSpawnedEntity(entity.getUniqueId());
-        });
-    }
-
-    private String toPascalCase(String source) {
-        if (source == null || source.isEmpty()) {
-            return "";
-        }
-
-        return source.substring(0, 1).toUpperCase() + source.substring(1).toLowerCase();
     }
 
     @Subcommand("start")
@@ -339,8 +229,7 @@ public class ChessBoardCommand extends BaseCommand {
                 player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
 
                 if (target.type() == PieceType.KING) {
-                    gameManager.win(myPiece.team());
-                    timerManager.stopTimer();
+                    gameManager.win(plugin, boardManager, timerManager, myPiece.team());
                     return;
                 }
             } else {
@@ -360,7 +249,6 @@ public class ChessBoardCommand extends BaseCommand {
         timerManager.stopTimer();
         player.sendMessage(Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN));
     }
-
 
     private void finishTurn(Player player) {
         gameManager.nextTurn();

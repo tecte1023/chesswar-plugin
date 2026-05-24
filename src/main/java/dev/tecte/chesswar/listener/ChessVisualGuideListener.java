@@ -3,11 +3,13 @@ package dev.tecte.chesswar.listener;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.event.ChessGameResetEvent;
 import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -30,6 +32,18 @@ public class ChessVisualGuideListener implements Listener {
     private final MoveValidator moveValidator;
 
     private final Map<UUID, List<Coordinate>> activeGuides = new HashMap<>();
+
+    @EventHandler
+    public void onGameReset(ChessGameResetEvent event) {
+        for (UUID uuid : new ArrayList<>(activeGuides.keySet())) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player != null) {
+                clearGuide(player);
+            } else {
+                activeGuides.remove(uuid);
+            }
+        }
+    }
 
     @EventHandler
     public void onItemHeld(PlayerItemHeldEvent event) {

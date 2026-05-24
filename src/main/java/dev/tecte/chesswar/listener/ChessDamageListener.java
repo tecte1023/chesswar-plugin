@@ -125,6 +125,10 @@ public class ChessDamageListener implements Listener {
         event.setCancelled(false);
         targetParticipant.setNoDamageTicks(0);
 
+        // 통계 기록: 가한 피해/받은 피해
+        gameManager.getStats(attackerParticipant.getUniqueId()).addDamageDealt(attackingPiece.type().baseDamage());
+        gameManager.getStats(targetParticipant.getUniqueId()).addDamageTaken(attackingPiece.type().baseDamage());
+
         final Coordinate finalAttackingCoordinate = attackingCoordinate;
         final Coordinate finalTargetCoordinate = targetCoordinate;
         final Piece finalAttackingPiece = attackingPiece;
@@ -134,6 +138,10 @@ public class ChessDamageListener implements Listener {
             finalTargetPiece.currentHealth(targetParticipant.getHealth());
 
             if (targetParticipant.getHealth() <= 0) {
+                // 통계 기록: 킬/데스
+                gameManager.getStats(attackerParticipant.getUniqueId()).addKill();
+                gameManager.getStats(targetParticipant.getUniqueId()).addDeath();
+
                 attackerParticipant.sendMessage(Component.text(
                         "%s을(를) 처치했습니다!".formatted(finalTargetPiece.type().displayName()),
                         NamedTextColor.AQUA
@@ -151,8 +159,7 @@ public class ChessDamageListener implements Listener {
                         .add(0, 1, 0));
 
                 if (finalTargetPiece.type() == PieceType.KING) {
-                    gameManager.win(finalAttackingPiece.team());
-                    timerManager.stopTimer();
+                    gameManager.win(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), boardManager, timerManager, finalAttackingPiece.team());
                     return;
                 }
             }
