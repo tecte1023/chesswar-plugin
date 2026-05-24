@@ -8,6 +8,10 @@ import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
+import io.lumine.mythic.api.MythicProvider;
+import io.lumine.mythic.api.mobs.MobManager;
+import io.lumine.mythic.bukkit.BukkitAdapter;
+import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -20,13 +24,18 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
+import org.bukkit.block.data.type.Chest;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -42,11 +51,13 @@ import java.util.UUID;
 @Accessors(fluent = true)
 public class GameManager {
     private final Map<UUID, Participant> participants = new HashMap<>();
+    private final Map<UUID, Statistics> statistics = new HashMap<>();
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final List<UUID> turnOrder = new ArrayList<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
-    private final Set<UUID> readyPlayers = new HashSet<>();
     private final Set<Location> barracksChests = new HashSet<>();
+    private final Map<Location, Team> chestTeamOwnership = new HashMap<>();
+    private final Set<UUID> readyPlayers = new HashSet<>();
 
     @Setter
     private GamePhase phase = GamePhase.WAITING;
@@ -56,12 +67,18 @@ public class GameManager {
         spawnedEntities.add(entityId);
     }
 
-    public void addBarracksChest(Location location) {
-        barracksChests.add(location);
+    public void addBarracksChest(Location location, Team team) {
+        Location blockLoc = location.getBlock().getLocation();
+        barracksChests.add(blockLoc);
+        chestTeamOwnership.put(blockLoc, team);
     }
 
     public boolean isBarracksChest(Location location) {
-        return barracksChests.contains(location);
+        return barracksChests.contains(location.getBlock().getLocation());
+    }
+
+    public boolean isTeamChest(Location location, Team team) {
+        return chestTeamOwnership.get(location.getBlock().getLocation()) == team;
     }
 
     public void toggleReady(UUID playerId, boolean ready) {
@@ -89,7 +106,7 @@ public class GameManager {
             return false;
         }
 
-        return participants.values().stream().allMatch(p -> p.pieceType() != null);
+        return participants.values().stream().allMatch(p -> p.initialCoordinate() != null);
     }
 
     public void advancePhase(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
@@ -102,14 +119,22 @@ public class GameManager {
         };
 
         phase = nextPhase;
+        Bukkit.broadcast(Component.text()
+                .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                .append(Component.text("게임 단계가 변경되었습니다: ", NamedTextColor.YELLOW))
+                .append(Component.text(nextPhase.displayName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                .build());
 
         switch (nextPhase) {
             case PIECE_SELECTION -> {
+                setupBarracks(plugin, boardManager);
                 teleportToBarracks(boardManager);
                 timerManager.startTurnTimer(300);
             }
             case TURN_ORDER -> {
-                clearSpawnedEntities();
+                enforceMandatoryKing();
+                assignRandomRemainingPieces();
+                setupTurnOrderChests(plugin, boardManager);
                 timerManager.startTurnTimer(180);
             }
             case BATTLE -> {
@@ -125,9 +150,257 @@ public class GameManager {
                     }
                 });
             }
-            case ENDED -> timerManager.stopTimer();
-            case WAITING -> reset();
+            case ENDED -> {
+                timerManager.stopTimer();
+                displayStatisticsHologram(boardManager);
+            }
+            case WAITING -> {
+                timerManager.reset();
+                reset();
+            }
         }
+    }
+
+    private void setupBarracks(Plugin plugin, BoardManager boardManager) {
+        if (!boardManager.hasBoard()) {
+            return;
+        }
+
+        ChessBoard mainBoard = boardManager.currentBoard();
+        int cellSize = mainBoard.cellSize();
+        int offsetDistance = 5 + (8 * cellSize);
+        Location whiteOrigin = mainBoard.origin().clone()
+                .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard whiteBarracks = new ChessBoard(whiteOrigin, mainBoard.forward(), cellSize);
+        Location blackOrigin = mainBoard.origin().clone()
+                .add(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard blackBarracks = new ChessBoard(blackOrigin, mainBoard.forward(), cellSize);
+
+        PieceType[] backRow = {
+                PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP, PieceType.QUEEN,
+                PieceType.KING, PieceType.BISHOP, PieceType.KNIGHT, PieceType.ROOK
+        };
+        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
+        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        MobManager mobManager = MythicProvider.get().getMobManager();
+
+        for (int x = 0; x < 8; x++) {
+            PieceType type = backRow[x];
+
+            spawnBarracksPiece(
+                    whiteBarracks.toCenterLocation(Coordinate.of(x, 0)),
+                    type,
+                    Team.WHITE,
+                    mainBoard.forward().getDirection(),
+                    typeKey,
+                    teamKey,
+                    mobManager
+            );
+            spawnBarracksPiece(
+                    blackBarracks.toCenterLocation(Coordinate.of(x, 7)),
+                    type,
+                    Team.BLACK,
+                    mainBoard.forward().getDirection().multiply(-1),
+                    typeKey,
+                    teamKey,
+                    mobManager
+            );
+        }
+    }
+
+    private void setupTurnOrderChests(Plugin plugin, BoardManager boardManager) {
+        if (!boardManager.hasBoard()) {
+            return;
+        }
+
+        ChessBoard mainBoard = boardManager.currentBoard();
+        int cellSize = mainBoard.cellSize();
+        int offsetDistance = 5 + (8 * cellSize);
+
+        Location whiteBarracksLoc = mainBoard.origin().clone()
+                .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard whiteBarracks = new ChessBoard(whiteBarracksLoc, mainBoard.forward(), cellSize);
+
+        Location blackBarracksLoc = mainBoard.origin().clone()
+                .add(mainBoard.forward().getDirection().multiply(offsetDistance));
+        ChessBoard blackBarracks = new ChessBoard(blackBarracksLoc, mainBoard.forward(), cellSize);
+
+        setupReadyChest(plugin, whiteBarracks, Team.WHITE, 4);
+        setupReadyChest(plugin, blackBarracks, Team.BLACK, 3);
+    }
+
+    private void setupReadyChest(Plugin plugin, ChessBoard barracks, Team team, int row) {
+        Location origin = barracks.origin();
+        BlockFace forward = barracks.forward();
+        BlockFace right = barracks.right();
+        int cellSize = barracks.cellSize();
+
+        int dFileRight = 11;
+        int eFileLeft = 12;
+        int rankCenter = row * cellSize + 1;
+
+        Location b1 = origin.clone()
+                .add(right.getDirection().multiply(dFileRight))
+                .add(forward.getDirection().multiply(rankCenter));
+        Location b2 = origin.clone()
+                .add(right.getDirection().multiply(eFileLeft))
+                .add(forward.getDirection().multiply(rankCenter));
+
+        BlockFace chestFacing;
+        Chest.Type b1Type;
+        Chest.Type b2Type;
+
+        if (team == Team.WHITE) {
+            chestFacing = forward.getOppositeFace();
+            b1Type = Chest.Type.RIGHT;
+            b2Type = Chest.Type.LEFT;
+        } else {
+            chestFacing = forward;
+            b1Type = Chest.Type.LEFT;
+            b2Type = Chest.Type.RIGHT;
+        }
+
+        b1.getBlock().setType(Material.CHEST, false);
+        b2.getBlock().setType(Material.CHEST, false);
+
+        BlockState state1 = b1.getBlock().getState();
+        BlockState state2 = b2.getBlock().getState();
+
+        Chest data1 = (Chest) state1.getBlockData();
+        Chest data2 = (Chest) state2.getBlockData();
+
+        data1.setFacing(chestFacing);
+        data1.setType(b1Type);
+        data2.setFacing(chestFacing);
+        data2.setType(b2Type);
+
+        state1.setBlockData(data1);
+        state2.setBlockData(data2);
+
+        state1.update(true, false);
+        state2.update(true, false);
+
+        addBarracksChest(b1, team);
+        addBarracksChest(b2, team);
+
+        boolean b1IsTop = b1.getBlockX() < b2.getBlockX() || (b1.getBlockX() == b2.getBlockX() && b1.getBlockZ() < b2.getBlockZ());
+        Inventory chestInv = ((InventoryHolder) (b1IsTop ? b1 : b2).getBlock().getState()).getInventory();
+
+        chestInv.clear();
+
+        int participantCount = (int) participants.values().stream()
+                .filter(p -> p.team() == team)
+                .count();
+
+        if (participantCount > 0) {
+            NamespacedKey orderKey = new NamespacedKey(plugin, "turn_order");
+
+            for (int i = 1; i <= participantCount; i++) {
+                ItemStack item = new ItemStack(Material.PAPER);
+                ItemMeta meta = item.getItemMeta();
+
+                meta.displayName(Component.text(i + "번 순서", NamedTextColor.GOLD, TextDecoration.BOLD));
+                meta.getPersistentDataContainer().set(orderKey, PersistentDataType.INTEGER, i);
+                item.setItemMeta(meta);
+                chestInv.addItem(item);
+            }
+        }
+
+        NamespacedKey readyKey = new NamespacedKey(plugin, "ready_button");
+        ItemStack readyBtn = new ItemStack(Material.LIME_STAINED_GLASS_PANE);
+        ItemMeta readyMeta = readyBtn.getItemMeta();
+
+        readyMeta.displayName(Component.text("[ 준비 완료 ]", NamedTextColor.GREEN, TextDecoration.BOLD));
+        readyMeta.getPersistentDataContainer().set(readyKey, PersistentDataType.BYTE, (byte) 1);
+        readyBtn.setItemMeta(readyMeta);
+
+        // 큰 상자(54칸)면 49번, 작은 상자(27칸)면 22번 슬롯 사용 (맨 하단 중앙)
+        int readySlot = (chestInv.getSize() == 54) ? 49 : 22;
+        chestInv.setItem(readySlot, readyBtn);
+    }
+
+    private void spawnBarracksPiece(
+            Location location,
+            PieceType type,
+            Team team,
+            Vector direction,
+            NamespacedKey typeKey,
+            NamespacedKey teamKey,
+            MobManager mobManager
+    ) {
+        String mobId = toPascalCase(team.name()) + toPascalCase(type.name());
+
+        mobManager.getMythicMob(mobId).ifPresent(mythicMob -> {
+            location.setDirection(direction);
+            ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), 1);
+
+            if (activeMob == null) {
+                return;
+            }
+
+            Entity entity = activeMob.getEntity().getBukkitEntity();
+            entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
+            entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
+            addSpawnedEntity(entity.getUniqueId());
+        });
+    }
+
+    private String toPascalCase(String source) {
+        if (source == null || source.isEmpty()) {
+            return "";
+        }
+
+        return source.substring(0, 1).toUpperCase() + source.substring(1).toLowerCase();
+    }
+
+    private void enforceMandatoryKing() {
+        Set<Team> teamsWithKings = new HashSet<>();
+        participants.values().forEach(p -> {
+            if (p.initialCoordinate() != null && getPieceTypeAt(p.initialCoordinate()) == PieceType.KING) {
+                teamsWithKings.add(p.team());
+            }
+        });
+
+        for (Team team : Team.values()) {
+            if (teamsWithKings.contains(team)) continue;
+
+            List<Participant> teamMembers = participants.values().stream()
+                    .filter(p -> p.team() == team)
+                    .toList();
+
+            if (teamMembers.isEmpty()) continue;
+
+            Participant luckyMember = teamMembers.get((int) (Math.random() * teamMembers.size()));
+            Coordinate kingCoord = (team == Team.WHITE) ? Coordinate.of(4, 0) : Coordinate.of(4, 7);
+
+            participants.put(luckyMember.playerId(), Participant.of(luckyMember.playerId(), team, kingCoord));
+
+            Player player = Bukkit.getPlayer(luckyMember.playerId());
+            if (player != null) {
+                player.sendMessage(Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD));
+                applyStats(player, PieceType.KING);
+
+                // 기존 기물 무기 제거
+                for (int i = 0; i < player.getInventory().getSize(); i++) {
+                    ItemStack item = player.getInventory().getItem(i);
+                    if (PieceItemUtils.isPieceItem(item)) {
+                        player.getInventory().setItem(i, null);
+                    }
+                }
+
+                player.getInventory().addItem(PieceItemUtils.createPieceItem(PieceType.KING));
+            }
+        }
+    }
+
+    private void assignRandomRemainingPieces() {
+        participants.values().forEach(p -> {
+            if (p.initialCoordinate() == null) {
+                // TODO: 남은 기물 중 랜덤 배정 로직 고도화
+                Coordinate randomPawn = (p.team() == Team.WHITE) ? Coordinate.of(0, 1) : Coordinate.of(0, 6);
+                participants.put(p.playerId(), Participant.of(p.playerId(), p.team(), randomPawn));
+            }
+        });
     }
 
     private void teleportToBarracks(BoardManager boardManager) {
@@ -136,18 +409,23 @@ public class GameManager {
         }
 
         ChessBoard mainBoard = boardManager.currentBoard();
-        int offsetDistance = 5 + (8 * mainBoard.cellSize());
+        int cellSize = mainBoard.cellSize();
+        int offsetDistance = 5 + (8 * cellSize);
+
         Location whiteBarracksLoc = mainBoard.origin().clone()
                 .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
-        ChessBoard whiteBarracks = new ChessBoard(whiteBarracksLoc, mainBoard.forward(), mainBoard.cellSize());
-        Location whiteTeleportPos = whiteBarracks.toCenterLocation(Coordinate.of(4, 7));
+        ChessBoard whiteBarracks = new ChessBoard(whiteBarracksLoc, mainBoard.forward(), cellSize);
+        Location whiteTeleportPos = whiteBarracks.toCenterLocation(Coordinate.of(3, 6))
+                .add(whiteBarracks.right().getDirection().multiply(cellSize / 2.0));
+        whiteTeleportPos.setDirection(mainBoard.forward().getDirection().multiply(-1));
+
         Location blackBarracksLoc = mainBoard.origin().clone()
                 .add(mainBoard.forward().getDirection().multiply(offsetDistance));
-        ChessBoard blackBarracks = new ChessBoard(blackBarracksLoc, mainBoard.forward(), mainBoard.cellSize());
-        Location blackTeleportPos = blackBarracks.toCenterLocation(Coordinate.of(4, 0));
+        ChessBoard blackBarracks = new ChessBoard(blackBarracksLoc, mainBoard.forward(), cellSize);
+        Location blackTeleportPos = blackBarracks.toCenterLocation(Coordinate.of(3, 1))
+                .add(blackBarracks.right().getDirection().multiply(cellSize / 2.0));
+        blackTeleportPos.setDirection(mainBoard.forward().getDirection());
 
-        whiteTeleportPos.setDirection(mainBoard.forward().getDirection());
-        blackTeleportPos.setDirection(mainBoard.forward().getDirection().multiply(-1));
         participants.values().forEach(p -> {
             Player onlinePlayer = Bukkit.getPlayer(p.playerId());
 
@@ -163,25 +441,39 @@ public class GameManager {
         }
 
         ChessBoard mainBoard = boardManager.currentBoard();
-        int whiteX = 0;
-        int blackX = 0;
 
-        for (Participant participant : participants.values()) {
-            Player onlinePlayer = Bukkit.getPlayer(participant.playerId());
+        participants.values().forEach(p -> {
+            Player onlinePlayer = Bukkit.getPlayer(p.playerId());
 
-            if (onlinePlayer == null || participant.pieceType() == null) {
-                continue;
+            if (onlinePlayer == null || p.initialCoordinate() == null) {
+                return;
             }
 
-            Coordinate startCoordinate = participant.team() == Team.WHITE
-                    ? Coordinate.of(whiteX++, 0)
-                    : Coordinate.of(blackX++, 7);
-            Piece piece = Piece.of(participant.playerId(), participant.team(), participant.pieceType());
+            Coordinate startCoordinate = p.initialCoordinate();
+            Piece piece = Piece.of(p.playerId(), p.team(), getPieceTypeAt(startCoordinate));
             Location spawnLocation = mainBoard.toCenterLocation(startCoordinate).add(0, 1, 0);
 
             placePiece(startCoordinate, piece);
             onlinePlayer.teleport(spawnLocation);
+        });
+    }
+
+    private PieceType getPieceTypeAt(Coordinate coordinate) {
+        int y = coordinate.y();
+        int x = coordinate.x();
+
+        if (y == 1 || y == 6) {
+            return PieceType.PAWN;
         }
+
+        return switch (x) {
+            case 0, 7 -> PieceType.ROOK;
+            case 1, 6 -> PieceType.KNIGHT;
+            case 2, 5 -> PieceType.BISHOP;
+            case 3 -> PieceType.QUEEN;
+            case 4 -> PieceType.KING;
+            default -> PieceType.PAWN;
+        };
     }
 
     public void join(Player player, Team team) {
@@ -190,7 +482,7 @@ public class GameManager {
         participants.put(playerId, Participant.of(playerId, team));
     }
 
-    public void selectPiece(Player participant, PieceType pieceType) {
+    public void selectPiece(Player participant, Coordinate coordinate) {
         UUID participantId = participant.getUniqueId();
         Participant currentParticipant = participants.get(participantId);
 
@@ -201,17 +493,18 @@ public class GameManager {
         boolean isAlreadyTaken = participants.values().stream()
                 .filter(p -> p.team() == currentParticipant.team())
                 .filter(p -> !p.playerId().equals(participantId))
-                .anyMatch(p -> pieceType.equals(p.pieceType()));
+                .anyMatch(p -> coordinate.equals(p.initialCoordinate()));
 
         if (isAlreadyTaken) {
             participant.sendMessage(Component.text(
-                    pieceType.displayName() + " 기물은 이미 팀원이 선택했습니다!",
+                    "해당 위치의 기물은 이미 팀원이 선택했습니다!",
                     NamedTextColor.RED
             ));
             return;
         }
 
-        participants.put(participantId, Participant.of(participantId, currentParticipant.team(), pieceType));
+        participants.put(participantId, Participant.of(participantId, currentParticipant.team(), coordinate));
+        PieceType pieceType = getPieceTypeAt(coordinate);
         applyStats(participant, pieceType);
 
         for (int i = 0; i < participant.getInventory().getSize(); i++) {
@@ -293,6 +586,21 @@ public class GameManager {
             }
         }
 
+        // 순서 아이템 제거
+        for (UUID playerId : participants.keySet()) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                for (int i = 0; i < player.getInventory().getSize(); i++) {
+                    ItemStack item = player.getInventory().getItem(i);
+                    if (item != null && item.hasItemMeta()) {
+                        if (item.getItemMeta().getPersistentDataContainer().has(orderKey, PersistentDataType.INTEGER)) {
+                            player.getInventory().setItem(i, null);
+                        }
+                    }
+                }
+            }
+        }
+
         currentTurnIndex = 0;
     }
 
@@ -335,9 +643,7 @@ public class GameManager {
         return Optional.ofNullable(boardPieces.get(coordinate));
     }
 
-    public void win(Team winner) {
-        phase = GamePhase.ENDED;
-
+    public void win(Plugin plugin, BoardManager boardManager, TimerManager timerManager, Team winner) {
         Component winMessage = Component.text()
                 .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text(winner.displayName(), winner.textColor(), TextDecoration.BOLD))
@@ -345,16 +651,68 @@ public class GameManager {
                 .build();
 
         Bukkit.broadcast(winMessage);
+        advancePhase(plugin, boardManager, timerManager);
+    }
+
+    public Statistics getStats(UUID playerId) {
+        return statistics.computeIfAbsent(playerId, id -> new Statistics());
+    }
+
+    private void displayStatisticsHologram(BoardManager boardManager) {
+        if (!boardManager.hasBoard()) return;
+
+        Location center = boardManager.currentBoard().toCenterLocation(Coordinate.of(3, 3))
+                .add(boardManager.currentBoard().right().getDirection().multiply(boardManager.currentBoard().cellSize() / 2.0))
+                .add(0, 2, 0);
+
+        List<Component> lines = new ArrayList<>();
+        lines.add(Component.text(" [ 전투 결과 통계 ] ", NamedTextColor.GOLD, TextDecoration.BOLD));
+        lines.add(Component.empty());
+
+        participants.values().forEach(p -> {
+            Statistics s = getStats(p.playerId());
+            Player player = Bukkit.getPlayer(p.playerId());
+            String name = (player != null) ? player.getName() : "오프라인";
+
+            lines.add(Component.text()
+                    .append(Component.text(name, p.team().textColor()))
+                    .append(Component.text(" | ", NamedTextColor.GRAY))
+                    .append(Component.text("⚔" + (int) s.getDamageDealt(), NamedTextColor.RED))
+                    .append(Component.text(" 🛡" + (int) s.getDamageTaken(), NamedTextColor.BLUE))
+                    .append(Component.text(" ➕" + (int) s.getHealingDone(), NamedTextColor.GREEN))
+                    .append(Component.text(" ☠" + s.getKills() + "/" + s.getDeaths(), NamedTextColor.DARK_RED))
+                    .build());
+        });
+
+        for (int i = 0; i < lines.size(); i++) {
+            final int index = i;
+            Location lineLoc = center.clone().subtract(0, i * 0.3, 0);
+            lineLoc.getWorld().spawn(lineLoc, org.bukkit.entity.ArmorStand.class, as -> {
+                as.setVisible(false);
+                as.setGravity(false);
+                as.setCustomNameVisible(true);
+                as.customName(lines.get(index));
+                as.setMarker(true);
+                addSpawnedEntity(as.getUniqueId());
+            });
+        }
     }
 
     public void reset() {
+        Bukkit.getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessGameResetEvent());
         phase = GamePhase.WAITING;
         boardPieces.clear();
         turnOrder.clear();
         currentTurnIndex = -1;
         readyPlayers.clear();
+        statistics.clear();
         clearSpawnedEntities();
         clearBarracksChests();
+
+        participants.keySet().forEach(id -> {
+            Participant p = participants.get(id);
+            participants.put(id, Participant.of(id, p.team(), null));
+        });
 
         for (Participant participant : participants.values()) {
             Player player = Bukkit.getPlayer(participant.playerId());
@@ -385,6 +743,7 @@ public class GameManager {
         }
 
         barracksChests.clear();
+        chestTeamOwnership.clear();
     }
 
     private void clearSpawnedEntities() {
