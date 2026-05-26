@@ -139,7 +139,6 @@ public class ChessDamageListener implements Listener {
 
             if (myOriginalPiece != null && myOriginalPiece.type() == PieceType.KING) {
                 if (commandTarget.isPresent() && commandTarget.get().equals(targetCoordinate)) {
-                    // 동일 대상 클릭 시 지휘 해제 (Toggle OFF)
                     gameManager.clearCommandTarget(attackerParticipant.getUniqueId());
                     attackerParticipant.sendMessage(Component.text(
                             "%s 지휘를 해제했습니다.".formatted(targetPiece.type().displayName()),
@@ -148,7 +147,6 @@ public class ChessDamageListener implements Listener {
                     attackerParticipant.playSound(attackerParticipant.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
                     Bukkit.getPluginManager().callEvent(new ChessCommandTargetSelectedEvent(attackerParticipant, null));
                 } else if (!targetPiece.isPlayerPiece()) {
-                    // 새로운 NPC 클릭 시 지휘 대상 지정/변경
                     gameManager.setCommandTarget(attackerParticipant.getUniqueId(), targetCoordinate);
                     attackerParticipant.sendMessage(Component.text(
                             "%s을(를) 지휘 대상으로 선택했습니다!".formatted(targetPiece.type().displayName()),
@@ -178,7 +176,6 @@ public class ChessDamageListener implements Listener {
         event.setCancelled(false);
         targetEntity.setNoDamageTicks(0);
 
-        // 통계 기록: 가한 피해
         gameManager.getStats(attackerParticipant.getUniqueId()).addDamageDealt(attackingPiece.type().baseDamage());
         
         if (targetEntity instanceof Player playerTarget) {
@@ -195,7 +192,6 @@ public class ChessDamageListener implements Listener {
             capturedFinalTargetPiece.currentHealth(capturedFinalTargetEntity.getHealth());
 
             if (capturedFinalTargetEntity.getHealth() <= 0) {
-                // 통계 기록: 킬
                 gameManager.getStats(attackerParticipant.getUniqueId()).addKill();
                 
                 if (capturedFinalTargetEntity instanceof Player playerTarget) {
@@ -217,7 +213,7 @@ public class ChessDamageListener implements Listener {
                 gameManager.placePiece(capturedFinalTargetCoordinate, capturedFinalAttackingPiece);
                 
                 if (!(capturedFinalTargetEntity instanceof Player)) {
-                    capturedFinalTargetEntity.remove(); // NPC 엔티티 제거
+                    capturedFinalTargetEntity.remove();
                 }
 
                 if (capturedFinalAttackingPiece.isPlayerPiece()) {
@@ -225,7 +221,6 @@ public class ChessDamageListener implements Listener {
                             .toCenterLocation(capturedFinalTargetCoordinate)
                             .add(0, 1, 0));
                 } else {
-                    // NPC 기물이 처치 후 이동
                     NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
                     NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
 

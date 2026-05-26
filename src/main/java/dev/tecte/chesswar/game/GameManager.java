@@ -157,7 +157,7 @@ public class GameManager {
                 timerManager.startTurnTimer(180);
             }
             case BATTLE -> {
-                clearSpawnedEntities(true); // 막사 기물만 제거 (메인 보드 기물 유지)
+                clearSpawnedEntities(true);
                 clearBarracksChests();
                 calculateTurnOrder(plugin);
                 deployToBattlefield(boardManager);
@@ -305,7 +305,6 @@ public class GameManager {
                 if (participant.isPresent()) {
                     piece = Piece.of(participant.get().playerId(), team, type);
                     placePiece(coord, piece);
-                    // 플레이어가 직접 조종하는 기물은 시각적 NPC를 생성하지 않음
                     continue;
                 } else {
                     piece = Piece.of(null, team, type);
@@ -436,7 +435,6 @@ public class GameManager {
         readyMeta.getPersistentDataContainer().set(readyKey, PersistentDataType.BYTE, (byte) 1);
         readyBtn.setItemMeta(readyMeta);
 
-        // 큰 상자(54칸)면 49번, 작은 상자(27칸)면 22번 슬롯 사용 (맨 하단 중앙)
         int readySlot = (chestInv.getSize() == 54) ? 49 : 22;
         chestInv.setItem(readySlot, readyBtn);
     }
@@ -514,7 +512,6 @@ public class GameManager {
                 player.sendMessage(Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD));
                 applyStats(player, PieceType.KING);
 
-                // 기존 기물 무기 제거
                 for (int i = 0; i < player.getInventory().getSize(); i++) {
                     ItemStack item = player.getInventory().getItem(i);
                     if (PieceItemUtils.isPieceItem(item)) {
@@ -567,7 +564,6 @@ public class GameManager {
                     PieceType type = getPieceTypeAt(randomCoord);
                     applyStats(player, type);
 
-                    // 기존 기물 무기 제거
                     for (int j = 0; j < player.getInventory().getSize(); j++) {
                         ItemStack item = player.getInventory().getItem(j);
                         if (PieceItemUtils.isPieceItem(item)) {
@@ -631,7 +627,6 @@ public class GameManager {
             Coordinate startCoordinate = p.initialCoordinate();
             Location spawnLocation = mainBoard.toCenterLocation(startCoordinate).add(0, 1, 0);
 
-            // 진영에 따른 시선 고정 (백팀: 앞, 흑팀: 뒤)
             if (p.team() == Team.WHITE) {
                 spawnLocation.setDirection(mainBoard.forward().getDirection());
             } else {
@@ -770,7 +765,6 @@ public class GameManager {
             }
         }
 
-        // 순서 아이템 제거
         for (UUID playerId : participants.keySet()) {
             Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
@@ -821,7 +815,6 @@ public class GameManager {
         Team myTeam = participant.team();
         boolean isKing = false;
 
-        // 킹 여부 확인
         for (Piece p : boardPieces.values()) {
             if (currentPlayer.getUniqueId().equals(p.ownerId()) && p.type() == PieceType.KING) {
                 isKing = true;
@@ -842,16 +835,13 @@ public class GameManager {
             boolean shouldBeVulnerable = false;
 
             if (piece.team() != myTeam) {
-                // 적군 기물은 무조건 타격 가능 (무적 해제)
                 shouldBeVulnerable = true;
             } else if (isKing && !piece.isPlayerPiece()) {
-                // 아군 NPC는 킹이 지휘할 수 있으므로 무적 해제
                 shouldBeVulnerable = true;
             }
 
             living.setInvulnerable(!shouldBeVulnerable);
-        }
-    }
+        }    }
 
     public void finishTurn() {
         nextTurn();
@@ -969,7 +959,6 @@ public class GameManager {
             org.bukkit.block.Block block = loc.getBlock();
             if (block.getState() instanceof InventoryHolder holder) {
                 Inventory inv = holder.getInventory();
-                // 상자를 열고 있는 플레이어들의 인벤토리 강제 종료
                 new ArrayList<>(inv.getViewers()).forEach(org.bukkit.entity.HumanEntity::closeInventory);
                 inv.clear();
             }

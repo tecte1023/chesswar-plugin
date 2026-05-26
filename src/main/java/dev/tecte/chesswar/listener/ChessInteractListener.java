@@ -154,7 +154,6 @@ public class ChessInteractListener implements Listener {
         gameManager.placePiece(to, movingPiece);
 
         if (commandTarget.isPresent()) {
-            // NPC 엔티티 물리적 이동
             NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
             NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
 

@@ -75,6 +75,15 @@ public class ChessVisualGuideListener implements Listener {
 
     @EventHandler
     public void onTurnStarted(ChessTurnStartedEvent event) {
+        for (UUID uuid : new ArrayList<>(activeGuides.keySet())) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null) {
+                clearGuide(p);
+            } else {
+                activeGuides.remove(uuid);
+            }
+        }
+
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
@@ -102,6 +111,11 @@ public class ChessVisualGuideListener implements Listener {
 
     private void showGuide(Player player) {
         if (!boardManager.hasBoard()) return;
+
+        Optional<UUID> currentTurnId = gameManager.currentTurnPlayer();
+        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
+            return;
+        }
 
         Coordinate from = null;
         Team myTeam = null;

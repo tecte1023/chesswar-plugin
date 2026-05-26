@@ -44,7 +44,6 @@ public class ChessReadyListener implements Listener {
             plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
 
             if (isReadyButton(item)) {
-                // 팀 막사 상자 검증: 클릭한 상자의 위치가 내 팀의 상자인지 확인
                 Location invLoc = event.getInventory().getLocation();
                 if (invLoc != null && !isMyTeamBarracksChest(player, invLoc)) {
                     player.sendMessage(Component.text("자신의 팀 막사에 있는 상자에서만 준비를 완료할 수 있습니다!", NamedTextColor.RED));
