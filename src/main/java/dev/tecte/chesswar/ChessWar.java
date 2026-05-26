@@ -64,7 +64,7 @@ public class ChessWar extends JavaPlugin {
                 moveValidator
         ));
         pluginManager.registerEvents(
-                new PieceInteractListener(gameManager, boardManager, pieceManager, moveValidator),
+                new PieceInteractListener(this, gameManager, boardManager, pieceManager, moveValidator),
                 this
         );
         pluginManager.registerEvents(

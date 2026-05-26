@@ -1,12 +1,16 @@
 package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.board.BoardTargetSelectedEvent;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
+import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceMoveEvent;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
@@ -22,12 +26,11 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.data.type.Chest;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
@@ -47,6 +50,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Getter
 @Accessors(fluent = true)
@@ -114,43 +118,55 @@ public class GameManager {
         };
 
         phase = nextPhase;
+        broadcastPhaseChange(nextPhase);
+
+        switch (nextPhase) {
+            case TURN_ORDER -> setupTurnOrderPhase(plugin, boardManager, pieceManager, timerManager);
+            case BATTLE -> setupBattlePhase(plugin, boardManager, pieceManager, timerManager);
+            case ENDED -> setupEndedPhase(boardManager, pieceManager, timerManager);
+            case WAITING -> setupWaitingPhase(boardManager, pieceManager, timerManager);
+        }
+    }
+
+    private void broadcastPhaseChange(GamePhase nextPhase) {
         Bukkit.broadcast(Component.text()
                 .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text("게임 단계가 변경되었습니다: ", NamedTextColor.YELLOW))
                 .append(Component.text(nextPhase.displayName(), NamedTextColor.WHITE, TextDecoration.BOLD))
                 .build());
+    }
 
-        switch (nextPhase) {
-            case TURN_ORDER -> {
-                enforceMandatoryKing();
-                assignRandomRemainingPieces();
-                spawnAllPiecesOnMainBoard(plugin, boardManager, pieceManager);
-                setupTurnOrderChests(plugin, boardManager);
-                timerManager.startTurnTimer(180);
+    private void setupTurnOrderPhase(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
+        enforceMandatoryKing(pieceManager);
+        assignRandomRemainingPieces(pieceManager);
+        spawnAllPiecesOnMainBoard(plugin, boardManager, pieceManager);
+        setupTurnOrderChests(plugin, boardManager);
+        timerManager.startTurnTimer(180);
+    }
+
+    private void setupBattlePhase(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
+        pieceManager.clearSpawnedEntities(plugin, true);
+        boardManager.clearBarracksChests();
+        calculateTurnOrder(plugin);
+        deployToBattlefield(boardManager);
+        timerManager.startTurnTimer(30);
+        currentTurnPlayer().ifPresent(uuid -> {
+            Player firstPlayer = Bukkit.getPlayer(uuid);
+            if (firstPlayer != null) {
+                updateInvulnerability(firstPlayer, pieceManager);
+                Bukkit.getPluginManager().callEvent(new TurnStartedEvent(firstPlayer));
             }
-            case BATTLE -> {
-                pieceManager.clearSpawnedEntities(plugin, true);
-                boardManager.clearBarracksChests();
-                calculateTurnOrder(plugin);
-                deployToBattlefield(boardManager);
-                timerManager.startTurnTimer(30);
-                currentTurnPlayer().ifPresent(uuid -> {
-                    Player firstPlayer = Bukkit.getPlayer(uuid);
-                    if (firstPlayer != null) {
-                        updateInvulnerability(firstPlayer, pieceManager);
-                        Bukkit.getPluginManager().callEvent(new TurnStartedEvent(firstPlayer));
-                    }
-                });
-            }
-            case ENDED -> {
-                timerManager.stopTimer();
-                displayStatisticsHologram(boardManager, pieceManager);
-            }
-            case WAITING -> {
-                timerManager.reset();
-                reset(pieceManager, boardManager);
-            }
-        }
+        });
+    }
+
+    private void setupEndedPhase(BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
+        timerManager.stopTimer();
+        displayStatisticsHologram(boardManager, pieceManager);
+    }
+
+    private void setupWaitingPhase(BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
+        timerManager.reset();
+        reset(pieceManager, boardManager);
     }
 
     private void startStartSequence(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
@@ -175,12 +191,7 @@ public class GameManager {
                 } else {
                     cancel();
                     phase = GamePhase.PIECE_SELECTION;
-                    Bukkit.broadcast(Component.text()
-                            .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
-                            .append(Component.text("게임 단계가 변경되었습니다: ", NamedTextColor.YELLOW))
-                            .append(Component.text(phase.displayName(), NamedTextColor.WHITE, TextDecoration.BOLD))
-                            .build());
-
+                    broadcastPhaseChange(phase);
                     teleportToBarracks(boardManager);
                     timerManager.startTurnTimer(300);
                 }
@@ -236,18 +247,21 @@ public class GameManager {
         if (!boardManager.hasBoard()) return;
         ChessBoard mainBoard = boardManager.currentBoard();
 
-        for (int y : new int[]{0, 1, 6, 7}) {
+        for (int y : new int[]{
+                ChessFormation.WHITE_BACK_RANK, ChessFormation.WHITE_PAWN_RANK,
+                ChessFormation.BLACK_PAWN_RANK, ChessFormation.BLACK_BACK_RANK
+        }) {
             Team team = (y < 4) ? Team.WHITE : Team.BLACK;
             Vector direction = (team == Team.WHITE) ? mainBoard.forward().getDirection() : mainBoard.forward().getDirection().multiply(-1);
 
-            for (int x = 0; x < 8; x++) {
+            for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
                 Coordinate coord = Coordinate.of(x, y);
 
                 Optional<Participant> participant = participants.values().stream()
                         .filter(p -> coord.equals(p.initialCoordinate()))
                         .findFirst();
 
-                PieceType type = getPieceTypeAt(coord);
+                PieceType type = ChessFormation.getInitialPieceType(coord);
                 Piece piece;
 
                 if (participant.isPresent()) {
@@ -382,10 +396,10 @@ public class GameManager {
         chestInv.setItem(readySlot, readyBtn);
     }
 
-    private void enforceMandatoryKing() {
+    private void enforceMandatoryKing(PieceManager pieceManager) {
         Set<Team> teamsWithKings = new HashSet<>();
         participants.values().forEach(p -> {
-            if (p.initialCoordinate() != null && getPieceTypeAt(p.initialCoordinate()) == PieceType.KING) {
+            if (p.initialCoordinate() != null && ChessFormation.getInitialPieceType(p.initialCoordinate()) == PieceType.KING) {
                 teamsWithKings.add(p.team());
             }
         });
@@ -400,14 +414,14 @@ public class GameManager {
             if (teamMembers.isEmpty()) continue;
 
             Participant luckyMember = teamMembers.get((int) (Math.random() * teamMembers.size()));
-            Coordinate kingCoord = (team == Team.WHITE) ? Coordinate.of(4, 0) : Coordinate.of(4, 7);
+            Coordinate kingCoord = ChessFormation.getKingCoordinate(team);
 
             participants.put(luckyMember.playerId(), Participant.of(luckyMember.playerId(), team, kingCoord));
 
             Player player = Bukkit.getPlayer(luckyMember.playerId());
             if (player != null) {
                 player.sendMessage(Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD));
-                applyStats(player, PieceType.KING);
+                pieceManager.applyStats(player, PieceType.KING);
 
                 for (int i = 0; i < player.getInventory().getSize(); i++) {
                     ItemStack item = player.getInventory().getItem(i);
@@ -421,7 +435,7 @@ public class GameManager {
         }
     }
 
-    private void assignRandomRemainingPieces() {
+    private void assignRandomRemainingPieces(PieceManager pieceManager) {
         for (Team team : Team.values()) {
             List<Participant> teamMembersWithoutPiece = participants.values().stream()
                     .filter(p -> p.team() == team && p.initialCoordinate() == null)
@@ -432,13 +446,13 @@ public class GameManager {
             Set<Coordinate> takenCoordinates = participants.values().stream()
                     .filter(p -> p.team() == team && p.initialCoordinate() != null)
                     .map(Participant::initialCoordinate)
-                    .collect(java.util.stream.Collectors.toSet());
+                    .collect(Collectors.toSet());
 
             List<Coordinate> availableCoordinates = new ArrayList<>();
-            int backRank = (team == Team.WHITE) ? 0 : 7;
-            int pawnRank = (team == Team.WHITE) ? 1 : 6;
+            int backRank = (team == Team.WHITE) ? ChessFormation.WHITE_BACK_RANK : ChessFormation.BLACK_BACK_RANK;
+            int pawnRank = (team == Team.WHITE) ? ChessFormation.WHITE_PAWN_RANK : ChessFormation.BLACK_PAWN_RANK;
 
-            for (int x = 0; x < 8; x++) {
+            for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
                 Coordinate backCoord = Coordinate.of(x, backRank);
                 if (!takenCoordinates.contains(backCoord)) {
                     availableCoordinates.add(backCoord);
@@ -458,8 +472,8 @@ public class GameManager {
 
                 Player player = Bukkit.getPlayer(p.playerId());
                 if (player != null) {
-                    PieceType type = getPieceTypeAt(randomCoord);
-                    applyStats(player, type);
+                    PieceType type = ChessFormation.getInitialPieceType(randomCoord);
+                    pieceManager.applyStats(player, type);
 
                     for (int j = 0; j < player.getInventory().getSize(); j++) {
                         ItemStack item = player.getInventory().getItem(j);
@@ -534,30 +548,12 @@ public class GameManager {
         });
     }
 
-    private PieceType getPieceTypeAt(Coordinate coordinate) {
-        int y = coordinate.y();
-        int x = coordinate.x();
-
-        if (y == 1 || y == 6) {
-            return PieceType.PAWN;
-        }
-
-        return switch (x) {
-            case 0, 7 -> PieceType.ROOK;
-            case 1, 6 -> PieceType.KNIGHT;
-            case 2, 5 -> PieceType.BISHOP;
-            case 3 -> PieceType.QUEEN;
-            case 4 -> PieceType.KING;
-            default -> PieceType.PAWN;
-        };
-    }
-
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
         participants.put(playerId, Participant.of(playerId, team));
     }
 
-    public void selectPiece(Player participant, Coordinate coordinate) {
+    public void selectPiece(Player participant, PieceManager pieceManager, Coordinate coordinate) {
         UUID participantId = participant.getUniqueId();
         Participant currentParticipant = participants.get(participantId);
 
@@ -579,8 +575,8 @@ public class GameManager {
         }
 
         participants.put(participantId, Participant.of(participantId, currentParticipant.team(), coordinate));
-        PieceType pieceType = getPieceTypeAt(coordinate);
-        applyStats(participant, pieceType);
+        PieceType pieceType = ChessFormation.getInitialPieceType(coordinate);
+        pieceManager.applyStats(participant, pieceType);
 
         for (int i = 0; i < participant.getInventory().getSize(); i++) {
             ItemStack item = participant.getInventory().getItem(i);
@@ -723,7 +719,7 @@ public class GameManager {
             UUID entityId = entry.getValue();
             Entity entity = Bukkit.getEntity(entityId);
 
-            if (!(entity instanceof org.bukkit.entity.LivingEntity living)) continue;
+            if (!(entity instanceof LivingEntity living)) continue;
 
             Piece piece = pieceManager.boardPieces().get(coord);
             if (piece == null) continue;
@@ -738,6 +734,213 @@ public class GameManager {
 
             living.setInvulnerable(!shouldBeVulnerable);
         }
+    }
+
+    public void handleAttack(Player attacker, LivingEntity victim, BoardManager boardManager, PieceManager pieceManager, MoveValidator moveValidator, TimerManager timerManager, Plugin plugin) {
+        if (attacker.getGameMode() == GameMode.SPECTATOR) return;
+
+        Optional<UUID> currentTurnPlayerId = currentTurnPlayer();
+        if (currentTurnPlayerId.isEmpty() || !currentTurnPlayerId.get().equals(attacker.getUniqueId())) {
+            attacker.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
+            return;
+        }
+
+        if (!boardManager.hasBoard()) return;
+
+        Coordinate attackingCoordinate = findAttackingCoordinate(attacker.getUniqueId(), pieceManager);
+        if (attackingCoordinate == null) return;
+
+        Optional<Coordinate> commandTarget = getCommandTarget(attacker.getUniqueId());
+        Coordinate finalAttackingCoordinate = commandTarget.orElse(attackingCoordinate);
+
+        Coordinate targetCoordinate = findTargetCoordinate(victim, pieceManager, plugin);
+        if (targetCoordinate == null) return;
+
+        Piece attackingPiece = pieceManager.boardPieces().get(finalAttackingCoordinate);
+        Piece targetPiece = pieceManager.boardPieces().get(targetCoordinate);
+
+        if (targetPiece.team() == attackingPiece.team()) {
+            handleCommanderOrFriendlyFire(attacker, attackingCoordinate, targetCoordinate, targetPiece, commandTarget, pieceManager);
+            return;
+        }
+
+        if (!moveValidator.canMove(finalAttackingCoordinate, targetCoordinate)) {
+            attacker.sendMessage(Component.text("그곳에 있는 적은 공격할 수 없는 범위에 있습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece, boardManager, pieceManager, timerManager, plugin);
+    }
+
+    private Coordinate findAttackingCoordinate(UUID attackerId, PieceManager pieceManager) {
+        for (var entry : pieceManager.boardPieces().entrySet()) {
+            if (attackerId.equals(entry.getValue().ownerId())) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    private Coordinate findTargetCoordinate(LivingEntity victim, PieceManager pieceManager, Plugin plugin) {
+        if (victim instanceof Player targetParticipant) {
+            if (!isParticipant(targetParticipant)) return null;
+            for (var entry : pieceManager.boardPieces().entrySet()) {
+                if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
+                    return entry.getKey();
+                }
+            }
+        } else {
+            NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+            NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
+            Integer tx = victim.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+            Integer ty = victim.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+            if (tx != null && ty != null) return Coordinate.of(tx, ty);
+        }
+        return null;
+    }
+
+    private void handleCommanderOrFriendlyFire(Player attacker, Coordinate myCoord, Coordinate targetCoord, Piece targetPiece, Optional<Coordinate> currentCommandTarget, PieceManager pieceManager) {
+        Piece myPiece = pieceManager.boardPieces().get(myCoord);
+        if (myPiece != null && myPiece.type() == PieceType.KING) {
+            if (currentCommandTarget.isPresent() && currentCommandTarget.get().equals(targetCoord)) {
+                clearCommandTarget(attacker.getUniqueId());
+                attacker.sendMessage(Component.text("%s 지휘를 해제했습니다.".formatted(targetPiece.type().displayName()), NamedTextColor.YELLOW));
+                attacker.playSound(attacker.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
+                Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, null));
+            } else if (!targetPiece.isPlayerPiece()) {
+                setCommandTarget(attacker.getUniqueId(), targetCoord);
+                attacker.sendMessage(Component.text("%s을(를) 지휘 대상으로 선택했습니다!".formatted(targetPiece.type().displayName()), NamedTextColor.GOLD));
+                attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+                Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, targetCoord));
+            } else {
+                attacker.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+            }
+        } else {
+            attacker.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+        }
+    }
+
+    private void performAttack(Player attacker, LivingEntity victim, Coordinate targetCoord, Coordinate attackCoord, Piece attackingPiece, Piece targetPiece, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager, Plugin plugin) {
+        double damage = attackingPiece.type().baseDamage();
+        victim.setNoDamageTicks(0);
+        victim.damage(damage, attacker);
+
+        getStats(attacker.getUniqueId()).addDamageDealt(damage);
+        if (victim instanceof Player playerTarget) {
+            getStats(playerTarget.getUniqueId()).addDamageTaken(damage);
+        }
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            targetPiece.currentHealth(victim.getHealth());
+            if (victim.getHealth() <= 0) {
+                handleKill(attacker, victim, targetCoord, attackCoord, attackingPiece, targetPiece, boardManager, pieceManager, timerManager, plugin);
+            }
+            clearCommandTarget(attacker.getUniqueId());
+            finishTurn(pieceManager);
+        });
+    }
+
+    private void handleKill(Player attacker, LivingEntity victim, Coordinate targetCoord, Coordinate attackCoord, Piece attackingPiece, Piece targetPiece, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager, Plugin plugin) {
+        getStats(attacker.getUniqueId()).addKill();
+        if (victim instanceof Player playerTarget) {
+            getStats(playerTarget.getUniqueId()).addDeath();
+            playerTarget.sendMessage(Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED));
+            playerTarget.setGameMode(GameMode.SPECTATOR);
+        }
+
+        attacker.sendMessage(Component.text("%s을(를) 처치했습니다!".formatted(targetPiece.type().displayName()), NamedTextColor.AQUA));
+        pieceManager.removePiece(targetCoord);
+        pieceManager.removePiece(attackCoord);
+        pieceManager.placePiece(targetCoord, attackingPiece);
+
+        if (!(victim instanceof Player)) victim.remove();
+
+        if (attackingPiece.isPlayerPiece()) {
+            attacker.teleport(boardManager.currentBoard().toCenterLocation(targetCoord).add(0, 1, 0));
+        } else {
+            relocateNPCEntity(attackCoord, targetCoord, boardManager, plugin);
+        }
+
+        if (targetPiece.type() == PieceType.KING) {
+            win(plugin, boardManager, pieceManager, timerManager, attackingPiece.team());
+        }
+    }
+
+    private void relocateNPCEntity(Coordinate from, Coordinate to, BoardManager boardManager, Plugin plugin) {
+        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
+
+        for (Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
+            Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+            Integer ey = entity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+
+            if (ex != null && ey != null && from.x() == ex && from.y() == ey) {
+                entity.teleport(boardManager.currentBoard().toCenterLocation(to));
+                entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, to.x());
+                entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, to.y());
+                break;
+            }
+        }
+    }
+
+    public void handleMove(Player player, BoardManager boardManager, PieceManager pieceManager, MoveValidator moveValidator, Plugin plugin) {
+        if (player.getGameMode() == GameMode.SPECTATOR) return;
+
+        Optional<UUID> currentTurnId = currentTurnPlayer();
+        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
+            player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
+            return;
+        }
+
+        if (!boardManager.hasBoard()) {
+            player.sendMessage(Component.text("체스판이 설정되지 않았습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
+        if (!to.isValid()) {
+            player.sendMessage(Component.text("체스판 밖에서는 이동을 확정할 수 없습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        Coordinate from = findAttackingCoordinate(player.getUniqueId(), pieceManager);
+        if (from == null) {
+            player.sendMessage(Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        Optional<Coordinate> commandTarget = getCommandTarget(player.getUniqueId());
+        Coordinate finalFrom = commandTarget.orElse(from);
+
+        if (finalFrom.equals(to)) {
+            player.sendMessage(Component.text("현재 위치와 같은 곳으로 이동할 수 없습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        if (!moveValidator.canMove(finalFrom, to)) {
+            player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        Piece movingPiece = pieceManager.boardPieces().get(finalFrom);
+        if (pieceManager.findPieceAt(to).isPresent()) {
+            player.sendMessage(Component.text("그곳에 다른 기물이 있어 이동할 수 없습니다. (공격은 좌클릭으로 하세요!)", NamedTextColor.YELLOW));
+            return;
+        }
+
+        pieceManager.removePiece(finalFrom);
+        pieceManager.placePiece(to, movingPiece);
+
+        if (commandTarget.isPresent()) {
+            relocateNPCEntity(finalFrom, to, boardManager, plugin);
+            clearCommandTarget(player.getUniqueId());
+            player.sendMessage(Component.text(movingPiece.type().displayName() + " 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
+        }
+
+        Bukkit.getPluginManager().callEvent(new PieceMoveEvent(player));
+        finishTurn(pieceManager);
     }
 
     public void finishTurn(PieceManager pieceManager) {
@@ -820,7 +1023,7 @@ public class GameManager {
             Player player = Bukkit.getPlayer(participant.playerId());
 
             if (player != null) {
-                resetStats(player);
+                pieceManager.resetStats(player);
                 player.setGameMode(GameMode.SURVIVAL);
 
                 for (int i = 0; i < player.getInventory().getSize(); i++) {
@@ -831,34 +1034,6 @@ public class GameManager {
                     }
                 }
             }
-        }
-    }
-
-    private void applyStats(Player player, PieceType type) {
-        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
-        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
-
-        if (maxHealth != null) {
-            maxHealth.setBaseValue(type.baseHealth());
-            player.setHealth(type.baseHealth());
-        }
-
-        if (attackDamage != null) {
-            attackDamage.setBaseValue(type.baseDamage());
-        }
-    }
-
-    private void resetStats(Player player) {
-        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
-        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
-
-        if (maxHealth != null) {
-            maxHealth.setBaseValue(20.0);
-            player.setHealth(20.0);
-        }
-
-        if (attackDamage != null) {
-            attackDamage.setBaseValue(1.0);
         }
     }
 }

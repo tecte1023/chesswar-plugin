@@ -61,7 +61,7 @@ public class BoardCommand extends BaseCommand {
         }
 
         Coordinate coordinate = Coordinate.of(x, y);
-        gameManager.selectPiece(player, coordinate);
+        gameManager.selectPiece(player, pieceManager, coordinate);
 
         if (gameManager.areAllPiecesSelected()) {
             timerManager.accelerateTo(10);
@@ -140,91 +140,7 @@ public class BoardCommand extends BaseCommand {
 
     @Subcommand("dev move")
     public void onMove(Player player, int x, int y) {
-        if (gameManager.phase() != GamePhase.BATTLE) {
-            player.sendMessage(Component.text("전투 단계가 아닙니다!", NamedTextColor.RED));
-            return;
-        }
-
-        Optional<UUID> currentTurnId = gameManager.currentTurnPlayer();
-
-        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
-            player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
-            return;
-        }
-
-        Coordinate to = Coordinate.of(x, y);
-
-        if (!to.isValid()) {
-            player.sendMessage(Component.text("유효하지 않은 좌표입니다!", NamedTextColor.RED));
-            return;
-        }
-
-        Coordinate from = null;
-
-        for (Map.Entry<Coordinate, Piece> entry : pieceManager.boardPieces().entrySet()) {
-            if (player.getUniqueId().equals(entry.getValue().ownerId())) {
-                from = entry.getKey();
-                break;
-            }
-        }
-
-        if (from == null) {
-            player.sendMessage(Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED));
-            return;
-        }
-
-        if (!moveValidator.canMove(from, to)) {
-            player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
-            return;
-        }
-
-        Piece myPiece = pieceManager.boardPieces().get(from);
-        Optional<Piece> targetPiece = pieceManager.findPieceAt(to);
-
-        if (targetPiece.isEmpty()) {
-            pieceManager.removePiece(from);
-            pieceManager.placePiece(to, myPiece);
-            player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
-            player.sendMessage(Component.text(x + ", " + y + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
-            finishTurn(player);
-        } else {
-            Piece target = targetPiece.get();
-
-            if (target.team() == myPiece.team()) {
-                player.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
-                return;
-            }
-
-            double damage = myPiece.type().baseDamage();
-
-            target.currentHealth(target.currentHealth() - damage);
-            player.sendMessage(Component.text(
-                    "%s에게 %s의 피해를 입혔습니다!".formatted(target.type().displayName(), damage),
-                    NamedTextColor.GOLD
-            ));
-
-            if (target.currentHealth() <= 0) {
-                player.sendMessage(Component.text(
-                        "%s 기물을 처치했습니다!".formatted(target.type().displayName()),
-                        NamedTextColor.AQUA
-                ));
-                pieceManager.removePiece(from);
-                pieceManager.placePiece(to, myPiece);
-                player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
-
-                if (target.type() == PieceType.KING) {
-                    gameManager.win(plugin, boardManager, pieceManager, timerManager, myPiece.team());
-                    return;
-                }
-            } else {
-                player.sendMessage(Component.text(
-                        "상대가 아직 살아있어 제자리에 유지됩니다. (남은 체력: %s)".formatted(target.currentHealth()),
-                        NamedTextColor.YELLOW
-                ));
-            }
-
-            finishTurn(player);
-        }
+        gameManager.handleMove(player, boardManager, pieceManager, moveValidator, plugin);
     }
 
     @Subcommand("reset")
@@ -232,11 +148,6 @@ public class BoardCommand extends BaseCommand {
         gameManager.reset(pieceManager, boardManager);
         timerManager.stopTimer();
         player.sendMessage(Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN));
-    }
-
-    private void finishTurn(Player player) {
-        gameManager.nextTurn(pieceManager);
-        timerManager.startTurnTimer(30);
     }
 
     private BlockFace getCardinalDirection(Player player) {

@@ -11,7 +11,10 @@ import lombok.experimental.Accessors;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
@@ -121,6 +124,34 @@ public class PieceManager {
             return "";
         }
         return source.substring(0, 1).toUpperCase() + source.substring(1).toLowerCase();
+    }
+
+    public void applyStats(Player player, PieceType type) {
+        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
+
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(type.baseHealth());
+            player.setHealth(type.baseHealth());
+        }
+
+        if (attackDamage != null) {
+            attackDamage.setBaseValue(type.baseDamage());
+        }
+    }
+
+    public void resetStats(Player player) {
+        AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
+
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(20.0);
+            player.setHealth(20.0);
+        }
+
+        if (attackDamage != null) {
+            attackDamage.setBaseValue(1.0);
+        }
     }
 
     public void reset() {
