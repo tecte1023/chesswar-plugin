@@ -20,6 +20,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -56,15 +57,29 @@ public class GameManager {
     private final Map<UUID, Participant> participants = new HashMap<>();
     private final Map<UUID, Statistics> statistics = new HashMap<>();
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
+    private final Map<Coordinate, UUID> pieceEntities = new HashMap<>();
     private final List<UUID> turnOrder = new ArrayList<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
     private final Set<Location> barracksChests = new HashSet<>();
     private final Map<Location, Team> chestTeamOwnership = new HashMap<>();
     private final Set<UUID> readyPlayers = new HashSet<>();
+    private final Map<UUID, Coordinate> commanderCommands = new HashMap<>();
 
     @Setter
     private GamePhase phase = GamePhase.WAITING;
     private int currentTurnIndex = -1;
+
+    public void setCommandTarget(UUID commanderId, Coordinate targetCoord) {
+        commanderCommands.put(commanderId, targetCoord);
+    }
+
+    public void clearCommandTarget(UUID commanderId) {
+        commanderCommands.remove(commanderId);
+    }
+
+    public Optional<Coordinate> getCommandTarget(UUID commanderId) {
+        return Optional.ofNullable(commanderCommands.get(commanderId));
+    }
 
     public void addSpawnedEntity(UUID entityId) {
         spawnedEntities.add(entityId);
@@ -151,6 +166,7 @@ public class GameManager {
                     Player firstPlayer = Bukkit.getPlayer(uuid);
 
                     if (firstPlayer != null) {
+                        updateInvulnerability(firstPlayer);
                         Bukkit.getPluginManager().callEvent(new ChessTurnStartedEvent(firstPlayer));
                     }
                 });
@@ -179,7 +195,7 @@ public class GameManager {
                 if (count > 0) {
                     Component mainTitle = Component.text(count, NamedTextColor.GOLD, TextDecoration.BOLD);
                     Component subTitle = Component.text("초 후 기물 선택이 시작됩니다.", NamedTextColor.YELLOW);
-                    
+
                     Bukkit.getOnlinePlayers().forEach(p -> {
                         p.showTitle(Title.title(mainTitle, subTitle));
                         p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
@@ -193,7 +209,7 @@ public class GameManager {
                             .append(Component.text("게임 단계가 변경되었습니다: ", NamedTextColor.YELLOW))
                             .append(Component.text(phase.displayName(), NamedTextColor.WHITE, TextDecoration.BOLD))
                             .build());
-                    
+
                     teleportToBarracks(boardManager);
                     timerManager.startTurnTimer(300);
                 }
@@ -456,6 +472,10 @@ public class GameManager {
             entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, logicCoord.y());
             entity.getPersistentDataContainer().set(isBarracksKey, PersistentDataType.BYTE, (byte) (isBarracks ? 1 : 0));
             addSpawnedEntity(entity.getUniqueId());
+
+            if (!isBarracks) {
+                registerPieceEntity(logicCoord, entity.getUniqueId());
+            }
         });
     }
 
@@ -781,14 +801,56 @@ public class GameManager {
             return;
         }
 
+        currentTurnPlayer().ifPresent(uuid -> clearCommandTarget(uuid));
+
         currentTurnIndex = (currentTurnIndex + 1) % turnOrder.size();
         currentTurnPlayer().ifPresent(uuid -> {
             Player player = Bukkit.getPlayer(uuid);
 
             if (player != null) {
+                updateInvulnerability(player);
                 Bukkit.getPluginManager().callEvent(new ChessTurnStartedEvent(player));
             }
         });
+    }
+
+    private void updateInvulnerability(Player currentPlayer) {
+        Participant participant = participants.get(currentPlayer.getUniqueId());
+        if (participant == null) return;
+
+        Team myTeam = participant.team();
+        boolean isKing = false;
+
+        // 킹 여부 확인
+        for (Piece p : boardPieces.values()) {
+            if (currentPlayer.getUniqueId().equals(p.ownerId()) && p.type() == PieceType.KING) {
+                isKing = true;
+                break;
+            }
+        }
+
+        for (Map.Entry<Coordinate, UUID> entry : pieceEntities.entrySet()) {
+            Coordinate coord = entry.getKey();
+            UUID entityId = entry.getValue();
+            Entity entity = Bukkit.getEntity(entityId);
+
+            if (!(entity instanceof org.bukkit.entity.LivingEntity living)) continue;
+
+            Piece piece = boardPieces.get(coord);
+            if (piece == null) continue;
+
+            boolean shouldBeVulnerable = false;
+
+            if (piece.team() != myTeam) {
+                // 적군 기물은 무조건 타격 가능 (무적 해제)
+                shouldBeVulnerable = true;
+            } else if (isKing && !piece.isPlayerPiece()) {
+                // 아군 NPC는 킹이 지휘할 수 있으므로 무적 해제
+                shouldBeVulnerable = true;
+            }
+
+            living.setInvulnerable(!shouldBeVulnerable);
+        }
     }
 
     public void finishTurn() {
@@ -799,8 +861,13 @@ public class GameManager {
         boardPieces.put(coordinate, piece);
     }
 
+    public void registerPieceEntity(Coordinate coordinate, UUID entityId) {
+        pieceEntities.put(coordinate, entityId);
+    }
+
     public void removePiece(Coordinate coordinate) {
         boardPieces.remove(coordinate);
+        pieceEntities.remove(coordinate);
     }
 
     public Optional<Piece> findPieceAt(Coordinate coordinate) {
@@ -870,6 +937,7 @@ public class GameManager {
         currentTurnIndex = -1;
         readyPlayers.clear();
         statistics.clear();
+        commanderCommands.clear();
         clearSpawnedEntities(false);
         clearBarracksChests();
 
@@ -883,6 +951,7 @@ public class GameManager {
 
             if (player != null) {
                 resetStats(player);
+                player.setGameMode(GameMode.SURVIVAL);
 
                 for (int i = 0; i < player.getInventory().getSize(); i++) {
                     ItemStack item = player.getInventory().getItem(i);
@@ -913,7 +982,7 @@ public class GameManager {
 
     private void clearSpawnedEntities(boolean onlyBarracks) {
         NamespacedKey isBarracksKey = new NamespacedKey(Bukkit.getPluginManager().getPlugin("ChessWar"), "is_barracks_entity");
-        
+
         for (java.util.Iterator<UUID> it = spawnedEntities.iterator(); it.hasNext(); ) {
             UUID entityId = it.next();
             Entity entity = Bukkit.getEntity(entityId);

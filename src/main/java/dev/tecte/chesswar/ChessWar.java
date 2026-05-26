@@ -9,6 +9,7 @@ import dev.tecte.chesswar.game.ScoreboardManager;
 import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.listener.ChessBlockListener;
 import dev.tecte.chesswar.listener.ChessDamageListener;
+import dev.tecte.chesswar.listener.ChessEntityListener;
 import dev.tecte.chesswar.listener.ChessInteractListener;
 import dev.tecte.chesswar.listener.ChessPieceSelectionListener;
 import dev.tecte.chesswar.listener.ChessReadyListener;
@@ -68,6 +69,10 @@ public class ChessWar extends JavaPlugin {
         );
         pluginManager.registerEvents(
                 new ChessVisualGuideListener(gameManager, boardManager, moveValidator),
+                this
+        );
+        pluginManager.registerEvents(
+                new ChessEntityListener(gameManager),
                 this
         );
         pluginManager.registerEvents(

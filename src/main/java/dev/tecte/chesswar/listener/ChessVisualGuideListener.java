@@ -3,6 +3,7 @@ package dev.tecte.chesswar.listener;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.event.ChessCommandTargetSelectedEvent;
 import dev.tecte.chesswar.event.ChessGameResetEvent;
 import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.event.ChessTurnStartedEvent;
@@ -83,6 +84,18 @@ public class ChessVisualGuideListener implements Listener {
     }
 
     @EventHandler
+    public void onCommandTargetSelected(ChessCommandTargetSelectedEvent event) {
+        Player player = event.getPlayer();
+        ItemStack item = player.getInventory().getItemInMainHand();
+
+        clearGuide(player);
+
+        if (PieceItemUtils.isPieceItem(item)) {
+            showGuide(player);
+        }
+    }
+
+    @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         activeGuides.remove(event.getPlayer().getUniqueId());
     }
@@ -93,15 +106,25 @@ public class ChessVisualGuideListener implements Listener {
         Coordinate from = null;
         Team myTeam = null;
 
-        for (var entry : gameManager.boardPieces().entrySet()) {
-            if (player.getUniqueId().equals(entry.getValue().ownerId())) {
-                from = entry.getKey();
-                myTeam = entry.getValue().team();
-                break;
+        Optional<Coordinate> commandTarget = gameManager.getCommandTarget(player.getUniqueId());
+
+        if (commandTarget.isPresent()) {
+            from = commandTarget.get();
+            Piece targetPiece = gameManager.boardPieces().get(from);
+            if (targetPiece != null) {
+                myTeam = targetPiece.team();
+            }
+        } else {
+            for (var entry : gameManager.boardPieces().entrySet()) {
+                if (player.getUniqueId().equals(entry.getValue().ownerId())) {
+                    from = entry.getKey();
+                    myTeam = entry.getValue().team();
+                    break;
+                }
             }
         }
 
-        if (from == null) {
+        if (from == null || myTeam == null) {
             return;
         }
 

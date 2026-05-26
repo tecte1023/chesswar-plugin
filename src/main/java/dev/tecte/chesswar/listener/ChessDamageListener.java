@@ -3,6 +3,7 @@ package dev.tecte.chesswar.listener;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.event.ChessCommandTargetSelectedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.TimerManager;
@@ -93,6 +94,9 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
+        Optional<Coordinate> commandTarget = gameManager.getCommandTarget(attackerParticipant.getUniqueId());
+        Coordinate finalAttackingCoordinate = (commandTarget.isPresent()) ? commandTarget.get() : attackingCoordinate;
+
         Coordinate targetCoordinate = null;
         Piece targetPiece = null;
         org.bukkit.entity.LivingEntity targetEntity = null;
@@ -128,19 +132,45 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        if (!moveValidator.canMove(attackingCoordinate, targetCoordinate)) {
+        Piece attackingPiece = gameManager.boardPieces().get(finalAttackingCoordinate);
+
+        if (targetPiece.team() == attackingPiece.team()) {
+            Piece myOriginalPiece = gameManager.boardPieces().get(attackingCoordinate);
+
+            if (myOriginalPiece != null && myOriginalPiece.type() == PieceType.KING) {
+                if (commandTarget.isPresent() && commandTarget.get().equals(targetCoordinate)) {
+                    // 동일 대상 클릭 시 지휘 해제 (Toggle OFF)
+                    gameManager.clearCommandTarget(attackerParticipant.getUniqueId());
+                    attackerParticipant.sendMessage(Component.text(
+                            "%s 지휘를 해제했습니다.".formatted(targetPiece.type().displayName()),
+                            NamedTextColor.YELLOW
+                    ));
+                    attackerParticipant.playSound(attackerParticipant.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
+                    Bukkit.getPluginManager().callEvent(new ChessCommandTargetSelectedEvent(attackerParticipant, null));
+                } else if (!targetPiece.isPlayerPiece()) {
+                    // 새로운 NPC 클릭 시 지휘 대상 지정/변경
+                    gameManager.setCommandTarget(attackerParticipant.getUniqueId(), targetCoordinate);
+                    attackerParticipant.sendMessage(Component.text(
+                            "%s을(를) 지휘 대상으로 선택했습니다!".formatted(targetPiece.type().displayName()),
+                            NamedTextColor.GOLD
+                    ));
+                    attackerParticipant.playSound(attackerParticipant.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+                    Bukkit.getPluginManager().callEvent(new ChessCommandTargetSelectedEvent(attackerParticipant, targetCoordinate));
+                } else {
+                    attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+                }
+            } else {
+                attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+            }
+            return;
+        }
+
+        if (!moveValidator.canMove(finalAttackingCoordinate, targetCoordinate)) {
             attackerParticipant.sendMessage(Component.text(
                     "그곳에 있는 적은 공격할 수 없는 범위에 있습니다!",
                     NamedTextColor.RED
             ));
 
-            return;
-        }
-
-        Piece attackingPiece = gameManager.boardPieces().get(attackingCoordinate);
-
-        if (targetPiece.team() == attackingPiece.team()) {
-            attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
             return;
         }
 
@@ -155,20 +185,20 @@ public class ChessDamageListener implements Listener {
             gameManager.getStats(playerTarget.getUniqueId()).addDamageTaken(attackingPiece.type().baseDamage());
         }
 
-        final Coordinate finalAttackingCoordinate = attackingCoordinate;
-        final Coordinate finalTargetCoordinate = targetCoordinate;
-        final Piece finalAttackingPiece = attackingPiece;
-        final Piece finalTargetPiece = targetPiece;
-        final org.bukkit.entity.LivingEntity finalTargetEntity = targetEntity;
+        final Coordinate capturedFinalAttackingCoordinate = finalAttackingCoordinate;
+        final Coordinate capturedFinalTargetCoordinate = targetCoordinate;
+        final Piece capturedFinalAttackingPiece = attackingPiece;
+        final Piece capturedFinalTargetPiece = targetPiece;
+        final org.bukkit.entity.LivingEntity capturedFinalTargetEntity = targetEntity;
 
         Bukkit.getScheduler().runTask(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), () -> {
-            finalTargetPiece.currentHealth(finalTargetEntity.getHealth());
+            capturedFinalTargetPiece.currentHealth(capturedFinalTargetEntity.getHealth());
 
-            if (finalTargetEntity.getHealth() <= 0) {
+            if (capturedFinalTargetEntity.getHealth() <= 0) {
                 // 통계 기록: 킬
                 gameManager.getStats(attackerParticipant.getUniqueId()).addKill();
                 
-                if (finalTargetEntity instanceof Player playerTarget) {
+                if (capturedFinalTargetEntity instanceof Player playerTarget) {
                     gameManager.getStats(playerTarget.getUniqueId()).addDeath();
                     playerTarget.sendMessage(Component.text(
                             "처치당했습니다! 관전자로 전환됩니다.",
@@ -178,28 +208,47 @@ public class ChessDamageListener implements Listener {
                 }
 
                 attackerParticipant.sendMessage(Component.text(
-                        "%s을(를) 처치했습니다!".formatted(finalTargetPiece.type().displayName()),
+                        "%s을(를) 처치했습니다!".formatted(capturedFinalTargetPiece.type().displayName()),
                         NamedTextColor.AQUA
                 ));
 
-                gameManager.removePiece(finalTargetCoordinate);
-                gameManager.removePiece(finalAttackingCoordinate);
-                gameManager.placePiece(finalTargetCoordinate, finalAttackingPiece);
+                gameManager.removePiece(capturedFinalTargetCoordinate);
+                gameManager.removePiece(capturedFinalAttackingCoordinate);
+                gameManager.placePiece(capturedFinalTargetCoordinate, capturedFinalAttackingPiece);
                 
-                if (!(finalTargetEntity instanceof Player)) {
-                    finalTargetEntity.remove(); // NPC 엔티티 제거
+                if (!(capturedFinalTargetEntity instanceof Player)) {
+                    capturedFinalTargetEntity.remove(); // NPC 엔티티 제거
                 }
 
-                attackerParticipant.teleport(boardManager.currentBoard()
-                        .toCenterLocation(finalTargetCoordinate)
-                        .add(0, 1, 0));
+                if (capturedFinalAttackingPiece.isPlayerPiece()) {
+                    attackerParticipant.teleport(boardManager.currentBoard()
+                            .toCenterLocation(capturedFinalTargetCoordinate)
+                            .add(0, 1, 0));
+                } else {
+                    // NPC 기물이 처치 후 이동
+                    NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
+                    NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
 
-                if (finalTargetPiece.type() == PieceType.KING) {
-                    gameManager.win(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), boardManager, timerManager, finalAttackingPiece.team());
+                    for (org.bukkit.entity.Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
+                        Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+                        Integer ey = entity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+
+                        if (ex != null && ey != null && capturedFinalAttackingCoordinate.x() == ex && capturedFinalAttackingCoordinate.y() == ey) {
+                            entity.teleport(boardManager.currentBoard().toCenterLocation(capturedFinalTargetCoordinate));
+                            entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, capturedFinalTargetCoordinate.x());
+                            entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, capturedFinalTargetCoordinate.y());
+                            break;
+                        }
+                    }
+                }
+
+                if (capturedFinalTargetPiece.type() == PieceType.KING) {
+                    gameManager.win(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), boardManager, timerManager, capturedFinalAttackingPiece.team());
                     return;
                 }
             }
 
+            gameManager.clearCommandTarget(attackerParticipant.getUniqueId());
             gameManager.finishTurn();
         });
     }

@@ -15,6 +15,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -22,6 +23,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
 import java.util.Optional;
@@ -122,17 +125,20 @@ public class ChessInteractListener implements Listener {
             return;
         }
 
-        if (from.equals(to)) {
+        Optional<Coordinate> commandTarget = gameManager.getCommandTarget(player.getUniqueId());
+        Coordinate finalFrom = (commandTarget.isPresent()) ? commandTarget.get() : from;
+
+        if (finalFrom.equals(to)) {
             player.sendMessage(Component.text("현재 위치와 같은 곳으로 이동할 수 없습니다!", NamedTextColor.RED));
             return;
         }
 
-        if (!moveValidator.canMove(from, to)) {
+        if (!moveValidator.canMove(finalFrom, to)) {
             player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
             return;
         }
 
-        Piece myPiece = gameManager.boardPieces().get(from);
+        Piece movingPiece = gameManager.boardPieces().get(finalFrom);
         Optional<Piece> targetPiece = gameManager.findPieceAt(to);
 
         if (targetPiece.isPresent()) {
@@ -144,9 +150,31 @@ public class ChessInteractListener implements Listener {
             return;
         }
 
-        gameManager.removePiece(from);
-        gameManager.placePiece(to, myPiece);
-        player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
+        gameManager.removePiece(finalFrom);
+        gameManager.placePiece(to, movingPiece);
+
+        if (commandTarget.isPresent()) {
+            // NPC 엔티티 물리적 이동
+            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
+            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+
+            for (org.bukkit.entity.Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
+                Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+                Integer ey = entity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+
+                if (ex != null && ey != null && finalFrom.x() == ex && finalFrom.y() == ey) {
+                    entity.teleport(boardManager.currentBoard().toCenterLocation(to));
+                    entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, to.x());
+                    entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, to.y());
+                    break;
+                }
+            }
+            gameManager.clearCommandTarget(player.getUniqueId());
+            player.sendMessage(Component.text(movingPiece.type().displayName() + " 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN));
+        } else {
+            player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
+        }
+
         Bukkit.getPluginManager().callEvent(new ChessPieceMoveEvent(player));
         gameManager.finishTurn();
     }
