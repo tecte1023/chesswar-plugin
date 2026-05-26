@@ -7,7 +7,9 @@ import dev.tecte.chesswar.event.ChessGameResetEvent;
 import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
+import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -23,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -88,10 +91,12 @@ public class ChessVisualGuideListener implements Listener {
         if (!boardManager.hasBoard()) return;
 
         Coordinate from = null;
+        Team myTeam = null;
 
         for (var entry : gameManager.boardPieces().entrySet()) {
             if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                 from = entry.getKey();
+                myTeam = entry.getValue().team();
                 break;
             }
         }
@@ -101,19 +106,31 @@ public class ChessVisualGuideListener implements Listener {
         }
 
         List<Coordinate> validMoves = new ArrayList<>();
+        Map<Coordinate, Material> guideMaterials = new HashMap<>();
 
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
                 Coordinate to = Coordinate.of(x, y);
 
                 if (moveValidator.canMove(from, to)) {
-                    validMoves.add(to);
+                    Optional<Piece> target = gameManager.findPieceAt(to);
+                    
+                    if (target.isEmpty()) {
+                        validMoves.add(to);
+                        guideMaterials.put(to, Material.LIME_STAINED_GLASS);
+                    } else if (target.get().team() != myTeam) {
+                        validMoves.add(to);
+                        guideMaterials.put(to, Material.RED_STAINED_GLASS);
+                    }
                 }
             }
         }
 
         for (Coordinate coordinate : validMoves) {
-            player.sendBlockChange(boardManager.currentBoard().toCenterLocation(coordinate), Material.RED_WOOL.createBlockData());
+            player.sendBlockChange(
+                    boardManager.currentBoard().toCenterLocation(coordinate),
+                    guideMaterials.get(coordinate).createBlockData()
+            );
         }
 
         activeGuides.put(player.getUniqueId(), validMoves);
