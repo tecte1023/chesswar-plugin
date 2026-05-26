@@ -14,12 +14,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
+import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Optional;
@@ -49,6 +51,10 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
+        if (attackerParticipant.getGameMode() == GameMode.SPECTATOR) {
+            return;
+        }
+
         if (gameManager.isParticipant(attackerParticipant)) {
             event.setCancelled(true);
         }
@@ -70,14 +76,6 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        if (!(event.getEntity() instanceof Player targetParticipant)) {
-            return;
-        }
-
-        if (!gameManager.isParticipant(targetParticipant)) {
-            return;
-        }
-
         if (!boardManager.hasBoard()) {
             return;
         }
@@ -91,16 +89,42 @@ public class ChessDamageListener implements Listener {
             }
         }
 
-        Coordinate targetCoordinate = null;
+        if (attackingCoordinate == null) {
+            return;
+        }
 
-        for (var entry : gameManager.boardPieces().entrySet()) {
-            if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
-                targetCoordinate = entry.getKey();
-                break;
+        Coordinate targetCoordinate = null;
+        Piece targetPiece = null;
+        org.bukkit.entity.LivingEntity targetEntity = null;
+
+        if (event.getEntity() instanceof Player targetParticipant) {
+            if (!gameManager.isParticipant(targetParticipant)) {
+                return;
+            }
+
+            for (var entry : gameManager.boardPieces().entrySet()) {
+                if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
+                    targetCoordinate = entry.getKey();
+                    targetPiece = entry.getValue();
+                    targetEntity = targetParticipant;
+                    break;
+                }
+            }
+        } else if (event.getEntity() instanceof org.bukkit.entity.LivingEntity livingTarget) {
+            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
+            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+
+            Integer tx = livingTarget.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+            Integer ty = livingTarget.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+
+            if (tx != null && ty != null) {
+                targetCoordinate = Coordinate.of(tx, ty);
+                targetPiece = gameManager.boardPieces().get(targetCoordinate);
+                targetEntity = livingTarget;
             }
         }
 
-        if (attackingCoordinate == null || targetCoordinate == null) {
+        if (targetCoordinate == null || targetPiece == null || targetEntity == null) {
             return;
         }
 
@@ -114,7 +138,6 @@ public class ChessDamageListener implements Listener {
         }
 
         Piece attackingPiece = gameManager.boardPieces().get(attackingCoordinate);
-        Piece targetPiece = gameManager.boardPieces().get(targetCoordinate);
 
         if (targetPiece.team() == attackingPiece.team()) {
             attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
@@ -123,37 +146,50 @@ public class ChessDamageListener implements Listener {
 
         event.setDamage(attackingPiece.type().baseDamage());
         event.setCancelled(false);
-        targetParticipant.setNoDamageTicks(0);
+        targetEntity.setNoDamageTicks(0);
 
-        // 통계 기록: 가한 피해/받은 피해
+        // 통계 기록: 가한 피해
         gameManager.getStats(attackerParticipant.getUniqueId()).addDamageDealt(attackingPiece.type().baseDamage());
-        gameManager.getStats(targetParticipant.getUniqueId()).addDamageTaken(attackingPiece.type().baseDamage());
+        
+        if (targetEntity instanceof Player playerTarget) {
+            gameManager.getStats(playerTarget.getUniqueId()).addDamageTaken(attackingPiece.type().baseDamage());
+        }
 
         final Coordinate finalAttackingCoordinate = attackingCoordinate;
         final Coordinate finalTargetCoordinate = targetCoordinate;
         final Piece finalAttackingPiece = attackingPiece;
         final Piece finalTargetPiece = targetPiece;
+        final org.bukkit.entity.LivingEntity finalTargetEntity = targetEntity;
 
         Bukkit.getScheduler().runTask(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), () -> {
-            finalTargetPiece.currentHealth(targetParticipant.getHealth());
+            finalTargetPiece.currentHealth(finalTargetEntity.getHealth());
 
-            if (targetParticipant.getHealth() <= 0) {
-                // 통계 기록: 킬/데스
+            if (finalTargetEntity.getHealth() <= 0) {
+                // 통계 기록: 킬
                 gameManager.getStats(attackerParticipant.getUniqueId()).addKill();
-                gameManager.getStats(targetParticipant.getUniqueId()).addDeath();
+                
+                if (finalTargetEntity instanceof Player playerTarget) {
+                    gameManager.getStats(playerTarget.getUniqueId()).addDeath();
+                    playerTarget.sendMessage(Component.text(
+                            "처치당했습니다! 관전자로 전환됩니다.",
+                            NamedTextColor.DARK_RED
+                    ));
+                    playerTarget.setGameMode(GameMode.SPECTATOR);
+                }
 
                 attackerParticipant.sendMessage(Component.text(
                         "%s을(를) 처치했습니다!".formatted(finalTargetPiece.type().displayName()),
                         NamedTextColor.AQUA
                 ));
-                targetParticipant.sendMessage(Component.text(
-                        "처치당했습니다! 관전자로 전환됩니다.",
-                        NamedTextColor.DARK_RED
-                ));
-                targetParticipant.setGameMode(GameMode.SPECTATOR);
+
                 gameManager.removePiece(finalTargetCoordinate);
                 gameManager.removePiece(finalAttackingCoordinate);
                 gameManager.placePiece(finalTargetCoordinate, finalAttackingPiece);
+                
+                if (!(finalTargetEntity instanceof Player)) {
+                    finalTargetEntity.remove(); // NPC 엔티티 제거
+                }
+
                 attackerParticipant.teleport(boardManager.currentBoard()
                         .toCenterLocation(finalTargetCoordinate)
                         .add(0, 1, 0));

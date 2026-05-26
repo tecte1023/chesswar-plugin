@@ -20,6 +20,12 @@ public class MoveValidator {
             return false;
         }
 
+        // 도착지에 아군 기물이 있는 경우 이동 불가
+        Piece targetPiece = gameManager.findPieceAt(to).orElse(null);
+        if (targetPiece != null && targetPiece.team() == piece.team()) {
+            return false;
+        }
+
         int dx = to.x() - from.x();
         int dy = to.y() - from.y();
         int absDx = Math.abs(dx);
