@@ -151,7 +151,6 @@ public class ChessBoardCommand extends BaseCommand {
         }
 
         gameManager.advancePhase(plugin, boardManager, timerManager);
-        player.sendMessage(Component.text("게임을 시작합니다! 기물 선택 단계로 이동합니다.", NamedTextColor.GREEN));
     }
 
     @Subcommand("dev move")

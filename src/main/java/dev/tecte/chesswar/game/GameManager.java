@@ -18,10 +18,12 @@ import lombok.experimental.Accessors;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.block.BlockFace;
@@ -35,6 +37,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -110,12 +113,17 @@ public class GameManager {
     }
 
     public void advancePhase(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
+        if (phase == GamePhase.WAITING) {
+            startStartSequence(plugin, boardManager, timerManager);
+            return;
+        }
+
         GamePhase nextPhase = switch (phase) {
-            case WAITING -> GamePhase.PIECE_SELECTION;
             case PIECE_SELECTION -> GamePhase.TURN_ORDER;
             case TURN_ORDER -> GamePhase.BATTLE;
             case BATTLE -> GamePhase.ENDED;
             case ENDED -> GamePhase.WAITING;
+            default -> GamePhase.WAITING;
         };
 
         phase = nextPhase;
@@ -126,18 +134,15 @@ public class GameManager {
                 .build());
 
         switch (nextPhase) {
-            case PIECE_SELECTION -> {
-                setupBarracks(plugin, boardManager);
-                teleportToBarracks(boardManager);
-                timerManager.startTurnTimer(300);
-            }
             case TURN_ORDER -> {
                 enforceMandatoryKing();
                 assignRandomRemainingPieces();
+                spawnAllPiecesOnMainBoard(plugin, boardManager);
                 setupTurnOrderChests(plugin, boardManager);
                 timerManager.startTurnTimer(180);
             }
             case BATTLE -> {
+                clearSpawnedEntities(true); // 막사 기물만 제거 (메인 보드 기물 유지)
                 clearBarracksChests();
                 calculateTurnOrder(plugin);
                 deployToBattlefield(boardManager);
@@ -161,6 +166,41 @@ public class GameManager {
         }
     }
 
+    private void startStartSequence(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
+        new BukkitRunnable() {
+            int count = 3;
+
+            @Override
+            public void run() {
+                if (count == 3) {
+                    setupBarracks(plugin, boardManager);
+                }
+
+                if (count > 0) {
+                    Component mainTitle = Component.text(count, NamedTextColor.GOLD, TextDecoration.BOLD);
+                    Component subTitle = Component.text("초 후 기물 선택이 시작됩니다.", NamedTextColor.YELLOW);
+                    
+                    Bukkit.getOnlinePlayers().forEach(p -> {
+                        p.showTitle(Title.title(mainTitle, subTitle));
+                        p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
+                    });
+                    count--;
+                } else {
+                    cancel();
+                    phase = GamePhase.PIECE_SELECTION;
+                    Bukkit.broadcast(Component.text()
+                            .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                            .append(Component.text("게임 단계가 변경되었습니다: ", NamedTextColor.YELLOW))
+                            .append(Component.text(phase.displayName(), NamedTextColor.WHITE, TextDecoration.BOLD))
+                            .build());
+                    
+                    teleportToBarracks(boardManager);
+                    timerManager.startTurnTimer(300);
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
     private void setupBarracks(Plugin plugin, BoardManager boardManager) {
         if (!boardManager.hasBoard()) {
             return;
@@ -182,6 +222,9 @@ public class GameManager {
         };
         NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
         NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
+        NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
         MobManager mobManager = MythicProvider.get().getMobManager();
 
         for (int x = 0; x < 8; x++) {
@@ -191,20 +234,83 @@ public class GameManager {
                     whiteBarracks.toCenterLocation(Coordinate.of(x, 0)),
                     type,
                     Team.WHITE,
+                    Coordinate.of(x, 0),
                     mainBoard.forward().getDirection(),
                     typeKey,
                     teamKey,
+                    coordXKey,
+                    coordYKey,
+                    isBarracksKey,
+                    true,
                     mobManager
             );
             spawnBarracksPiece(
                     blackBarracks.toCenterLocation(Coordinate.of(x, 7)),
                     type,
                     Team.BLACK,
+                    Coordinate.of(x, 7),
                     mainBoard.forward().getDirection().multiply(-1),
                     typeKey,
                     teamKey,
+                    coordXKey,
+                    coordYKey,
+                    isBarracksKey,
+                    true,
                     mobManager
             );
+        }
+    }
+
+    private void spawnAllPiecesOnMainBoard(Plugin plugin, BoardManager boardManager) {
+        if (!boardManager.hasBoard()) return;
+        ChessBoard mainBoard = boardManager.currentBoard();
+
+        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
+        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
+        NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
+        MobManager mobManager = MythicProvider.get().getMobManager();
+
+        for (int y : new int[]{0, 1, 6, 7}) {
+            Team team = (y < 4) ? Team.WHITE : Team.BLACK;
+            Vector direction = (team == Team.WHITE) ? mainBoard.forward().getDirection() : mainBoard.forward().getDirection().multiply(-1);
+
+            for (int x = 0; x < 8; x++) {
+                Coordinate coord = Coordinate.of(x, y);
+
+                Optional<Participant> participant = participants.values().stream()
+                        .filter(p -> coord.equals(p.initialCoordinate()))
+                        .findFirst();
+
+                PieceType type = getPieceTypeAt(coord);
+                Piece piece;
+
+                if (participant.isPresent()) {
+                    piece = Piece.of(participant.get().playerId(), team, type);
+                    placePiece(coord, piece);
+                    // 플레이어가 직접 조종하는 기물은 시각적 NPC를 생성하지 않음
+                    continue;
+                } else {
+                    piece = Piece.of(null, team, type);
+                    placePiece(coord, piece);
+                }
+
+                spawnBarracksPiece(
+                        mainBoard.toCenterLocation(coord),
+                        type,
+                        team,
+                        coord,
+                        direction,
+                        typeKey,
+                        teamKey,
+                        coordXKey,
+                        coordYKey,
+                        isBarracksKey,
+                        false,
+                        mobManager
+                );
+            }
         }
     }
 
@@ -323,9 +429,14 @@ public class GameManager {
             Location location,
             PieceType type,
             Team team,
+            Coordinate logicCoord,
             Vector direction,
             NamespacedKey typeKey,
             NamespacedKey teamKey,
+            NamespacedKey coordXKey,
+            NamespacedKey coordYKey,
+            NamespacedKey isBarracksKey,
+            boolean isBarracks,
             MobManager mobManager
     ) {
         String mobId = toPascalCase(team.name()) + toPascalCase(type.name());
@@ -341,6 +452,9 @@ public class GameManager {
             Entity entity = activeMob.getEntity().getBukkitEntity();
             entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
             entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
+            entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, logicCoord.x());
+            entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, logicCoord.y());
+            entity.getPersistentDataContainer().set(isBarracksKey, PersistentDataType.BYTE, (byte) (isBarracks ? 1 : 0));
             addSpawnedEntity(entity.getUniqueId());
         });
     }
@@ -394,13 +508,58 @@ public class GameManager {
     }
 
     private void assignRandomRemainingPieces() {
-        participants.values().forEach(p -> {
-            if (p.initialCoordinate() == null) {
-                // TODO: 남은 기물 중 랜덤 배정 로직 고도화
-                Coordinate randomPawn = (p.team() == Team.WHITE) ? Coordinate.of(0, 1) : Coordinate.of(0, 6);
-                participants.put(p.playerId(), Participant.of(p.playerId(), p.team(), randomPawn));
+        for (Team team : Team.values()) {
+            List<Participant> teamMembersWithoutPiece = participants.values().stream()
+                    .filter(p -> p.team() == team && p.initialCoordinate() == null)
+                    .toList();
+
+            if (teamMembersWithoutPiece.isEmpty()) continue;
+
+            Set<Coordinate> takenCoordinates = participants.values().stream()
+                    .filter(p -> p.team() == team && p.initialCoordinate() != null)
+                    .map(Participant::initialCoordinate)
+                    .collect(java.util.stream.Collectors.toSet());
+
+            List<Coordinate> availableCoordinates = new ArrayList<>();
+            int backRank = (team == Team.WHITE) ? 0 : 7;
+            int pawnRank = (team == Team.WHITE) ? 1 : 6;
+
+            for (int x = 0; x < 8; x++) {
+                Coordinate backCoord = Coordinate.of(x, backRank);
+                if (!takenCoordinates.contains(backCoord)) {
+                    availableCoordinates.add(backCoord);
+                }
+                Coordinate pawnCoord = Coordinate.of(x, pawnRank);
+                if (!takenCoordinates.contains(pawnCoord)) {
+                    availableCoordinates.add(pawnCoord);
+                }
             }
-        });
+
+            java.util.Collections.shuffle(availableCoordinates);
+
+            for (int i = 0; i < teamMembersWithoutPiece.size() && i < availableCoordinates.size(); i++) {
+                Participant p = teamMembersWithoutPiece.get(i);
+                Coordinate randomCoord = availableCoordinates.get(i);
+                participants.put(p.playerId(), Participant.of(p.playerId(), team, randomCoord));
+
+                Player player = Bukkit.getPlayer(p.playerId());
+                if (player != null) {
+                    PieceType type = getPieceTypeAt(randomCoord);
+                    applyStats(player, type);
+
+                    // 기존 기물 무기 제거
+                    for (int j = 0; j < player.getInventory().getSize(); j++) {
+                        ItemStack item = player.getInventory().getItem(j);
+                        if (PieceItemUtils.isPieceItem(item)) {
+                            player.getInventory().setItem(j, null);
+                        }
+                    }
+
+                    player.getInventory().addItem(PieceItemUtils.createPieceItem(type));
+                    player.sendMessage(Component.text("기물을 선택하지 않아 무작위 기물(" + type.displayName() + ")이 배정되었습니다.", NamedTextColor.YELLOW));
+                }
+            }
+        }
     }
 
     private void teleportToBarracks(BoardManager boardManager) {
@@ -450,10 +609,15 @@ public class GameManager {
             }
 
             Coordinate startCoordinate = p.initialCoordinate();
-            Piece piece = Piece.of(p.playerId(), p.team(), getPieceTypeAt(startCoordinate));
             Location spawnLocation = mainBoard.toCenterLocation(startCoordinate).add(0, 1, 0);
 
-            placePiece(startCoordinate, piece);
+            // 진영에 따른 시선 고정 (백팀: 앞, 흑팀: 뒤)
+            if (p.team() == Team.WHITE) {
+                spawnLocation.setDirection(mainBoard.forward().getDirection());
+            } else {
+                spawnLocation.setDirection(mainBoard.forward().getDirection().multiply(-1));
+            }
+
             onlinePlayer.teleport(spawnLocation);
         });
     }
@@ -706,7 +870,7 @@ public class GameManager {
         currentTurnIndex = -1;
         readyPlayers.clear();
         statistics.clear();
-        clearSpawnedEntities();
+        clearSpawnedEntities(false);
         clearBarracksChests();
 
         participants.keySet().forEach(id -> {
@@ -733,29 +897,42 @@ public class GameManager {
 
     private void clearBarracksChests() {
         for (Location loc : barracksChests) {
-            BlockState state = loc.getBlock().getState();
-
-            if (state instanceof InventoryHolder holder) {
-                holder.getInventory().clear();
+            org.bukkit.block.Block block = loc.getBlock();
+            if (block.getState() instanceof InventoryHolder holder) {
+                Inventory inv = holder.getInventory();
+                // 상자를 열고 있는 플레이어들의 인벤토리 강제 종료
+                new ArrayList<>(inv.getViewers()).forEach(org.bukkit.entity.HumanEntity::closeInventory);
+                inv.clear();
             }
-
-            loc.getBlock().setType(Material.AIR);
+            block.setType(Material.AIR);
         }
 
         barracksChests.clear();
         chestTeamOwnership.clear();
     }
 
-    private void clearSpawnedEntities() {
-        for (UUID entityId : spawnedEntities) {
+    private void clearSpawnedEntities(boolean onlyBarracks) {
+        NamespacedKey isBarracksKey = new NamespacedKey(Bukkit.getPluginManager().getPlugin("ChessWar"), "is_barracks_entity");
+        
+        for (java.util.Iterator<UUID> it = spawnedEntities.iterator(); it.hasNext(); ) {
+            UUID entityId = it.next();
             Entity entity = Bukkit.getEntity(entityId);
 
             if (entity != null) {
-                entity.remove();
+                if (onlyBarracks) {
+                    Byte isBarracks = entity.getPersistentDataContainer().get(isBarracksKey, PersistentDataType.BYTE);
+                    if (isBarracks != null && isBarracks == 1) {
+                        entity.remove();
+                        it.remove();
+                    }
+                } else {
+                    entity.remove();
+                    it.remove();
+                }
+            } else {
+                it.remove();
             }
         }
-
-        spawnedEntities.clear();
     }
 
     private void applyStats(Player player, PieceType type) {

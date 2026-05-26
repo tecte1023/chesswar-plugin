@@ -46,6 +46,8 @@ public class ChessPieceSelectionListener implements Listener {
         Entity clickedEntity = event.getRightClicked();
         NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
         NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
 
         if (!clickedEntity.getPersistentDataContainer().has(typeKey, PersistentDataType.STRING)) {
             return;
@@ -55,14 +57,14 @@ public class ChessPieceSelectionListener implements Listener {
 
         String typeStr = clickedEntity.getPersistentDataContainer().get(typeKey, PersistentDataType.STRING);
         String teamStr = clickedEntity.getPersistentDataContainer().get(teamKey, PersistentDataType.STRING);
+        Integer coordX = clickedEntity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+        Integer coordY = clickedEntity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
 
-        if (typeStr == null || teamStr == null) {
+        if (typeStr == null || teamStr == null || coordX == null || coordY == null) {
             return;
         }
 
-        // 1그룹 핵심: 클릭한 엔티티의 위치에서 논리 좌표를 역산함 (또는 추후 NBT에 저장된 좌표 사용)
-        if (!plugin.boardManager().hasBoard()) return;
-        Coordinate clickedCoordinate = plugin.boardManager().currentBoard().toCoordinate(clickedEntity.getLocation());
+        Coordinate clickedCoordinate = Coordinate.of(coordX, coordY);
 
         PieceType pieceType = PieceType.valueOf(typeStr);
         Team pieceTeam = Team.valueOf(teamStr);
