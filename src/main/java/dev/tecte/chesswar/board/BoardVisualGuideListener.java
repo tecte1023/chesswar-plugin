@@ -1,15 +1,12 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.event.ChessCommandTargetSelectedEvent;
-import dev.tecte.chesswar.event.ChessGameResetEvent;
-import dev.tecte.chesswar.event.ChessPieceMoveEvent;
-import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.game.GameResetEvent;
+import dev.tecte.chesswar.game.TurnStartedEvent;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
+import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceMoveEvent;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
@@ -30,15 +27,16 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class ChessVisualGuideListener implements Listener {
+public class BoardVisualGuideListener implements Listener {
     private final GameManager gameManager;
     private final BoardManager boardManager;
+    private final PieceManager pieceManager;
     private final MoveValidator moveValidator;
 
     private final Map<UUID, List<Coordinate>> activeGuides = new HashMap<>();
 
     @EventHandler
-    public void onGameReset(ChessGameResetEvent event) {
+    public void onGameReset(GameResetEvent event) {
         for (UUID uuid : new ArrayList<>(activeGuides.keySet())) {
             Player player = Bukkit.getPlayer(uuid);
             if (player != null) {
@@ -62,7 +60,7 @@ public class ChessVisualGuideListener implements Listener {
     }
 
     @EventHandler
-    public void onPieceMove(ChessPieceMoveEvent event) {
+    public void onPieceMove(PieceMoveEvent event) {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
@@ -74,7 +72,7 @@ public class ChessVisualGuideListener implements Listener {
     }
 
     @EventHandler
-    public void onTurnStarted(ChessTurnStartedEvent event) {
+    public void onTurnStarted(TurnStartedEvent event) {
         for (UUID uuid : new ArrayList<>(activeGuides.keySet())) {
             Player p = Bukkit.getPlayer(uuid);
             if (p != null) {
@@ -93,7 +91,7 @@ public class ChessVisualGuideListener implements Listener {
     }
 
     @EventHandler
-    public void onCommandTargetSelected(ChessCommandTargetSelectedEvent event) {
+    public void onCommandTargetSelected(BoardTargetSelectedEvent event) {
         Player player = event.getPlayer();
         ItemStack item = player.getInventory().getItemInMainHand();
 
@@ -124,12 +122,12 @@ public class ChessVisualGuideListener implements Listener {
 
         if (commandTarget.isPresent()) {
             from = commandTarget.get();
-            Piece targetPiece = gameManager.boardPieces().get(from);
+            Piece targetPiece = pieceManager.boardPieces().get(from);
             if (targetPiece != null) {
                 myTeam = targetPiece.team();
             }
         } else {
-            for (var entry : gameManager.boardPieces().entrySet()) {
+            for (var entry : pieceManager.boardPieces().entrySet()) {
                 if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                     from = entry.getKey();
                     myTeam = entry.getValue().team();
@@ -150,7 +148,7 @@ public class ChessVisualGuideListener implements Listener {
                 Coordinate to = Coordinate.of(x, y);
 
                 if (moveValidator.canMove(from, to)) {
-                    Optional<Piece> target = gameManager.findPieceAt(to);
+                    Optional<Piece> target = pieceManager.findPieceAt(to);
                     
                     if (target.isEmpty()) {
                         validMoves.add(to);

@@ -1,15 +1,13 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.BoardTargetSelectedEvent;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.event.ChessCommandTargetSelectedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.TimerManager;
-import dev.tecte.chesswar.piece.Piece;
-import dev.tecte.chesswar.piece.PieceItemUtils;
-import dev.tecte.chesswar.piece.PieceType;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -29,9 +27,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class ChessDamageListener implements Listener {
+public class PieceDamageListener implements Listener {
+    private final ChessWar plugin;
     private final GameManager gameManager;
     private final BoardManager boardManager;
+    private final PieceManager pieceManager;
     private final MoveValidator moveValidator;
     private final TimerManager timerManager;
 
@@ -83,7 +83,7 @@ public class ChessDamageListener implements Listener {
 
         Coordinate attackingCoordinate = null;
 
-        for (var entry : gameManager.boardPieces().entrySet()) {
+        for (var entry : pieceManager.boardPieces().entrySet()) {
             if (attackerParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
                 attackingCoordinate = entry.getKey();
                 break;
@@ -106,7 +106,7 @@ public class ChessDamageListener implements Listener {
                 return;
             }
 
-            for (var entry : gameManager.boardPieces().entrySet()) {
+            for (var entry : pieceManager.boardPieces().entrySet()) {
                 if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
                     targetCoordinate = entry.getKey();
                     targetPiece = entry.getValue();
@@ -115,15 +115,15 @@ public class ChessDamageListener implements Listener {
                 }
             }
         } else if (event.getEntity() instanceof org.bukkit.entity.LivingEntity livingTarget) {
-            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
-            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_x");
+            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_y");
 
             Integer tx = livingTarget.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
             Integer ty = livingTarget.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
 
             if (tx != null && ty != null) {
                 targetCoordinate = Coordinate.of(tx, ty);
-                targetPiece = gameManager.boardPieces().get(targetCoordinate);
+                targetPiece = pieceManager.boardPieces().get(targetCoordinate);
                 targetEntity = livingTarget;
             }
         }
@@ -132,10 +132,10 @@ public class ChessDamageListener implements Listener {
             return;
         }
 
-        Piece attackingPiece = gameManager.boardPieces().get(finalAttackingCoordinate);
+        Piece attackingPiece = pieceManager.boardPieces().get(finalAttackingCoordinate);
 
         if (targetPiece.team() == attackingPiece.team()) {
-            Piece myOriginalPiece = gameManager.boardPieces().get(attackingCoordinate);
+            Piece myOriginalPiece = pieceManager.boardPieces().get(attackingCoordinate);
 
             if (myOriginalPiece != null && myOriginalPiece.type() == PieceType.KING) {
                 if (commandTarget.isPresent() && commandTarget.get().equals(targetCoordinate)) {
@@ -145,7 +145,7 @@ public class ChessDamageListener implements Listener {
                             NamedTextColor.YELLOW
                     ));
                     attackerParticipant.playSound(attackerParticipant.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
-                    Bukkit.getPluginManager().callEvent(new ChessCommandTargetSelectedEvent(attackerParticipant, null));
+                    Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attackerParticipant, null));
                 } else if (!targetPiece.isPlayerPiece()) {
                     gameManager.setCommandTarget(attackerParticipant.getUniqueId(), targetCoordinate);
                     attackerParticipant.sendMessage(Component.text(
@@ -153,7 +153,7 @@ public class ChessDamageListener implements Listener {
                             NamedTextColor.GOLD
                     ));
                     attackerParticipant.playSound(attackerParticipant.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-                    Bukkit.getPluginManager().callEvent(new ChessCommandTargetSelectedEvent(attackerParticipant, targetCoordinate));
+                    Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attackerParticipant, targetCoordinate));
                 } else {
                     attackerParticipant.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
                 }
@@ -188,7 +188,7 @@ public class ChessDamageListener implements Listener {
         final Piece capturedFinalTargetPiece = targetPiece;
         final org.bukkit.entity.LivingEntity capturedFinalTargetEntity = targetEntity;
 
-        Bukkit.getScheduler().runTask(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), () -> {
+        Bukkit.getScheduler().runTask(JavaPlugin.getPlugin(ChessWar.class), () -> {
             capturedFinalTargetPiece.currentHealth(capturedFinalTargetEntity.getHealth());
 
             if (capturedFinalTargetEntity.getHealth() <= 0) {
@@ -208,9 +208,9 @@ public class ChessDamageListener implements Listener {
                         NamedTextColor.AQUA
                 ));
 
-                gameManager.removePiece(capturedFinalTargetCoordinate);
-                gameManager.removePiece(capturedFinalAttackingCoordinate);
-                gameManager.placePiece(capturedFinalTargetCoordinate, capturedFinalAttackingPiece);
+                pieceManager.removePiece(capturedFinalTargetCoordinate);
+                pieceManager.removePiece(capturedFinalAttackingCoordinate);
+                pieceManager.placePiece(capturedFinalTargetCoordinate, capturedFinalAttackingPiece);
                 
                 if (!(capturedFinalTargetEntity instanceof Player)) {
                     capturedFinalTargetEntity.remove();
@@ -221,8 +221,8 @@ public class ChessDamageListener implements Listener {
                             .toCenterLocation(capturedFinalTargetCoordinate)
                             .add(0, 1, 0));
                 } else {
-                    NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
-                    NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+                    NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_x");
+                    NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_y");
 
                     for (org.bukkit.entity.Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
                         Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
@@ -238,13 +238,13 @@ public class ChessDamageListener implements Listener {
                 }
 
                 if (capturedFinalTargetPiece.type() == PieceType.KING) {
-                    gameManager.win(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), boardManager, timerManager, capturedFinalAttackingPiece.team());
+                    gameManager.win(plugin, boardManager, pieceManager, timerManager, capturedFinalAttackingPiece.team());
                     return;
                 }
             }
 
             gameManager.clearCommandTarget(attackerParticipant.getUniqueId());
-            gameManager.finishTurn();
+            gameManager.finishTurn(pieceManager);
         });
     }
 }

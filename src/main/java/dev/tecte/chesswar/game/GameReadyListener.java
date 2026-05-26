@@ -1,10 +1,7 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.game.GameManager;
-import dev.tecte.chesswar.game.GamePhase;
-import dev.tecte.chesswar.game.Participant;
-import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -23,9 +20,10 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class ChessReadyListener implements Listener {
+public class GameReadyListener implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
+    private final BoardManager boardManager;
     private final TimerManager timerManager;
 
     @EventHandler
@@ -56,7 +54,7 @@ public class ChessReadyListener implements Listener {
 
     private boolean isMyTeamBarracksChest(Player player, Location location) {
         return gameManager.findParticipant(player.getUniqueId())
-                .map(p -> gameManager.isTeamChest(location, p.team()))
+                .map(p -> boardManager.isTeamChest(location, p.team()))
                 .orElse(false);
     }
 

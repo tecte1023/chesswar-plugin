@@ -1,6 +1,5 @@
-package dev.tecte.chesswar.event;
+package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.board.Coordinate;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
@@ -16,7 +15,7 @@ import java.util.Optional;
 @Getter
 @RequiredArgsConstructor
 @SuppressWarnings("unused")
-public class ChessCommandTargetSelectedEvent extends Event {
+public class BoardTargetSelectedEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
     private final Player player;

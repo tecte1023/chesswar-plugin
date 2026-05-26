@@ -2,25 +2,27 @@ package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public class MoveValidator {
     private final GameManager gameManager;
+    private final PieceManager pieceManager;
 
     public boolean canMove(Coordinate from, Coordinate to) {
         if (!from.isValid() || !to.isValid() || from.equals(to)) {
             return false;
         }
 
-        Piece piece = gameManager.findPieceAt(from).orElse(null);
+        Piece piece = pieceManager.findPieceAt(from).orElse(null);
 
         if (piece == null) {
             return false;
         }
 
-        Piece targetPiece = gameManager.findPieceAt(to).orElse(null);
+        Piece targetPiece = pieceManager.findPieceAt(to).orElse(null);
         if (targetPiece != null && targetPiece.team() == piece.team()) {
             return false;
         }
@@ -43,15 +45,15 @@ public class MoveValidator {
                 boolean isCapture = absDx == 1 && dy == direction;
 
                 if (isForward) {
-                    yield gameManager.findPieceAt(to).isEmpty();
+                    yield pieceManager.findPieceAt(to).isEmpty();
                 }
 
                 if (isFirstMove) {
-                    yield gameManager.findPieceAt(to).isEmpty() && isPathClear(from, to);
+                    yield pieceManager.findPieceAt(to).isEmpty() && isPathClear(from, to);
                 }
 
                 if (isCapture) {
-                    yield gameManager.findPieceAt(to).isPresent();
+                    yield pieceManager.findPieceAt(to).isPresent();
                 }
 
                 yield false;
@@ -68,7 +70,7 @@ public class MoveValidator {
             int currentX = from.x() + (xDirection * i);
             int currentY = from.y() + (yDirection * i);
 
-            if (gameManager.findPieceAt(Coordinate.of(currentX, currentY)).isPresent()) {
+            if (pieceManager.findPieceAt(Coordinate.of(currentX, currentY)).isPresent()) {
                 return false;
             }
         }

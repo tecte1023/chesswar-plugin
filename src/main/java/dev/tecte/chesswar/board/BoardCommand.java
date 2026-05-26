@@ -1,26 +1,18 @@
-package dev.tecte.chesswar.command;
+package dev.tecte.chesswar.board;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.ChessBoard;
-import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
 import dev.tecte.chesswar.game.Statistics;
 import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
-import io.lumine.mythic.api.MythicProvider;
-import io.lumine.mythic.api.mobs.MobManager;
-import io.lumine.mythic.bukkit.BukkitAdapter;
-import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -29,19 +21,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Particle;
 import org.bukkit.block.BlockFace;
-import org.bukkit.block.data.type.Chest;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Vector;
 
 import java.util.Map;
 import java.util.Optional;
@@ -50,10 +34,11 @@ import java.util.UUID;
 @CommandAlias("chesswar|cw")
 @RequiredArgsConstructor
 @SuppressWarnings("unused")
-public class ChessBoardCommand extends BaseCommand {
+public class BoardCommand extends BaseCommand {
     private final ChessWar plugin;
     private final GameManager gameManager;
     private final BoardManager boardManager;
+    private final PieceManager pieceManager;
     private final TimerManager timerManager;
     private final MoveValidator moveValidator;
 
@@ -150,7 +135,7 @@ public class ChessBoardCommand extends BaseCommand {
             return;
         }
 
-        gameManager.advancePhase(plugin, boardManager, timerManager);
+        gameManager.advancePhase(plugin, boardManager, pieceManager, timerManager);
     }
 
     @Subcommand("dev move")
@@ -176,7 +161,7 @@ public class ChessBoardCommand extends BaseCommand {
 
         Coordinate from = null;
 
-        for (Map.Entry<Coordinate, Piece> entry : gameManager.boardPieces().entrySet()) {
+        for (Map.Entry<Coordinate, Piece> entry : pieceManager.boardPieces().entrySet()) {
             if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                 from = entry.getKey();
                 break;
@@ -193,12 +178,12 @@ public class ChessBoardCommand extends BaseCommand {
             return;
         }
 
-        Piece myPiece = gameManager.boardPieces().get(from);
-        Optional<Piece> targetPiece = gameManager.findPieceAt(to);
+        Piece myPiece = pieceManager.boardPieces().get(from);
+        Optional<Piece> targetPiece = pieceManager.findPieceAt(to);
 
         if (targetPiece.isEmpty()) {
-            gameManager.removePiece(from);
-            gameManager.placePiece(to, myPiece);
+            pieceManager.removePiece(from);
+            pieceManager.placePiece(to, myPiece);
             player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
             player.sendMessage(Component.text(x + ", " + y + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
             finishTurn(player);
@@ -223,12 +208,12 @@ public class ChessBoardCommand extends BaseCommand {
                         "%s 기물을 처치했습니다!".formatted(target.type().displayName()),
                         NamedTextColor.AQUA
                 ));
-                gameManager.removePiece(from);
-                gameManager.placePiece(to, myPiece);
+                pieceManager.removePiece(from);
+                pieceManager.placePiece(to, myPiece);
                 player.teleport(boardManager.currentBoard().toCenterLocation(to).add(0, 1, 0));
 
                 if (target.type() == PieceType.KING) {
-                    gameManager.win(plugin, boardManager, timerManager, myPiece.team());
+                    gameManager.win(plugin, boardManager, pieceManager, timerManager, myPiece.team());
                     return;
                 }
             } else {
@@ -244,13 +229,13 @@ public class ChessBoardCommand extends BaseCommand {
 
     @Subcommand("reset")
     public void onReset(Player player) {
-        gameManager.reset();
+        gameManager.reset(pieceManager, boardManager);
         timerManager.stopTimer();
         player.sendMessage(Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN));
     }
 
     private void finishTurn(Player player) {
-        gameManager.nextTurn();
+        gameManager.nextTurn(pieceManager);
         timerManager.startTurnTimer(30);
     }
 

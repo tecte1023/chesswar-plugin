@@ -1,11 +1,17 @@
-package dev.tecte.chesswar.event;
+package dev.tecte.chesswar.game;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
-public class ChessGameResetEvent extends Event {
+@Getter
+@RequiredArgsConstructor
+public class TurnStartedEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
+    private final Player player;
 
     @Override
     public @NotNull HandlerList getHandlers() {

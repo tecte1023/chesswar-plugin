@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.Coordinate;
@@ -6,7 +6,6 @@ import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
 import dev.tecte.chesswar.game.TimerManager;
-import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -26,7 +25,7 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class ChessPieceSelectionListener implements Listener {
+public class PieceSelectionListener implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
     private final TimerManager timerManager;

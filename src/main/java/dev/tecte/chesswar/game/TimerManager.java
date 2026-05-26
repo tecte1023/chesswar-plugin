@@ -1,7 +1,7 @@
 package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.event.ChessTurnStartedEvent;
+import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +21,7 @@ import java.util.UUID;
 public class TimerManager implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
+    private final PieceManager pieceManager;
 
     @Setter
     private ScoreboardManager scoreboardManager;
@@ -31,7 +32,7 @@ public class TimerManager implements Listener {
     private int blackTeamTime = 600;
 
     @EventHandler
-    public void onTurnStart(ChessTurnStartedEvent event) {
+    public void onTurnStart(TurnStartedEvent event) {
         if (gameManager.phase() != GamePhase.BATTLE) {
             return;
         }
@@ -58,9 +59,9 @@ public class TimerManager implements Listener {
 
                 if (remainingSeconds < 0) {
                     if (gameManager.phase() == GamePhase.BATTLE) {
-                        gameManager.nextTurn();
+                        gameManager.nextTurn(pieceManager);
                     } else {
-                        gameManager.advancePhase(plugin, plugin.boardManager(), TimerManager.this);
+                        gameManager.advancePhase(plugin, plugin.boardManager(), pieceManager, TimerManager.this);
                     }
 
                     return;

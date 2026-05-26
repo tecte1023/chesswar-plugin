@@ -1,13 +1,11 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.event.ChessPieceMoveEvent;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
-import dev.tecte.chesswar.piece.Piece;
-import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -31,9 +29,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public class ChessInteractListener implements Listener {
+public class PieceInteractListener implements Listener {
     private final GameManager gameManager;
     private final BoardManager boardManager;
+    private final PieceManager pieceManager;
     private final MoveValidator moveValidator;
 
     @EventHandler
@@ -113,7 +112,7 @@ public class ChessInteractListener implements Listener {
 
         Coordinate from = null;
 
-        for (Map.Entry<Coordinate, Piece> entry : gameManager.boardPieces().entrySet()) {
+        for (Map.Entry<Coordinate, Piece> entry : pieceManager.boardPieces().entrySet()) {
             if (player.getUniqueId().equals(entry.getValue().ownerId())) {
                 from = entry.getKey();
                 break;
@@ -138,8 +137,8 @@ public class ChessInteractListener implements Listener {
             return;
         }
 
-        Piece movingPiece = gameManager.boardPieces().get(finalFrom);
-        Optional<Piece> targetPiece = gameManager.findPieceAt(to);
+        Piece movingPiece = pieceManager.boardPieces().get(finalFrom);
+        Optional<Piece> targetPiece = pieceManager.findPieceAt(to);
 
         if (targetPiece.isPresent()) {
             player.sendMessage(Component.text(
@@ -150,12 +149,12 @@ public class ChessInteractListener implements Listener {
             return;
         }
 
-        gameManager.removePiece(finalFrom);
-        gameManager.placePiece(to, movingPiece);
+        pieceManager.removePiece(finalFrom);
+        pieceManager.placePiece(to, movingPiece);
 
         if (commandTarget.isPresent()) {
-            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
-            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+            NamespacedKey coordXKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_x");
+            NamespacedKey coordYKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_y");
 
             for (org.bukkit.entity.Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
                 Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
@@ -174,7 +173,7 @@ public class ChessInteractListener implements Listener {
             player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
         }
 
-        Bukkit.getPluginManager().callEvent(new ChessPieceMoveEvent(player));
-        gameManager.finishTurn();
+        Bukkit.getPluginManager().callEvent(new PieceMoveEvent(player));
+        gameManager.finishTurn(pieceManager);
     }
 }

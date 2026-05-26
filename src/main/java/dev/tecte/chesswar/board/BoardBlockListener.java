@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
@@ -12,12 +12,13 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 
 @RequiredArgsConstructor
-public class ChessBlockListener implements Listener {
+public class BoardBlockListener implements Listener {
     private final GameManager gameManager;
+    private final BoardManager boardManager;
 
     @EventHandler
     public void onBlockBreak(BlockBreakEvent event) {
-        if (gameManager.isBarracksChest(event.getBlock().getLocation())) {
+        if (boardManager.isBarracksChest(event.getBlock().getLocation())) {
             event.setCancelled(true);
             return;
         }

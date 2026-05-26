@@ -1,17 +1,14 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.event.ChessTurnStartedEvent;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
+import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
-import io.lumine.mythic.api.MythicProvider;
-import io.lumine.mythic.api.mobs.MobManager;
-import io.lumine.mythic.bukkit.BukkitAdapter;
-import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -56,12 +53,7 @@ import java.util.UUID;
 public class GameManager {
     private final Map<UUID, Participant> participants = new HashMap<>();
     private final Map<UUID, Statistics> statistics = new HashMap<>();
-    private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
-    private final Map<Coordinate, UUID> pieceEntities = new HashMap<>();
     private final List<UUID> turnOrder = new ArrayList<>();
-    private final Set<UUID> spawnedEntities = new HashSet<>();
-    private final Set<Location> barracksChests = new HashSet<>();
-    private final Map<Location, Team> chestTeamOwnership = new HashMap<>();
     private final Set<UUID> readyPlayers = new HashSet<>();
     private final Map<UUID, Coordinate> commanderCommands = new HashMap<>();
 
@@ -81,24 +73,6 @@ public class GameManager {
         return Optional.ofNullable(commanderCommands.get(commanderId));
     }
 
-    public void addSpawnedEntity(UUID entityId) {
-        spawnedEntities.add(entityId);
-    }
-
-    public void addBarracksChest(Location location, Team team) {
-        Location blockLoc = location.getBlock().getLocation();
-        barracksChests.add(blockLoc);
-        chestTeamOwnership.put(blockLoc, team);
-    }
-
-    public boolean isBarracksChest(Location location) {
-        return barracksChests.contains(location.getBlock().getLocation());
-    }
-
-    public boolean isTeamChest(Location location, Team team) {
-        return chestTeamOwnership.get(location.getBlock().getLocation()) == team;
-    }
-
     public void toggleReady(UUID playerId, boolean ready) {
         if (ready) {
             readyPlayers.add(playerId);
@@ -115,7 +89,6 @@ public class GameManager {
         if (participants.isEmpty()) {
             return false;
         }
-
         return readyPlayers.containsAll(participants.keySet());
     }
 
@@ -123,13 +96,12 @@ public class GameManager {
         if (participants.isEmpty()) {
             return false;
         }
-
         return participants.values().stream().allMatch(p -> p.initialCoordinate() != null);
     }
 
-    public void advancePhase(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
+    public void advancePhase(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
         if (phase == GamePhase.WAITING) {
-            startStartSequence(plugin, boardManager, timerManager);
+            startStartSequence(plugin, boardManager, pieceManager, timerManager);
             return;
         }
 
@@ -152,44 +124,43 @@ public class GameManager {
             case TURN_ORDER -> {
                 enforceMandatoryKing();
                 assignRandomRemainingPieces();
-                spawnAllPiecesOnMainBoard(plugin, boardManager);
+                spawnAllPiecesOnMainBoard(plugin, boardManager, pieceManager);
                 setupTurnOrderChests(plugin, boardManager);
                 timerManager.startTurnTimer(180);
             }
             case BATTLE -> {
-                clearSpawnedEntities(true);
-                clearBarracksChests();
+                pieceManager.clearSpawnedEntities(plugin, true);
+                boardManager.clearBarracksChests();
                 calculateTurnOrder(plugin);
                 deployToBattlefield(boardManager);
                 timerManager.startTurnTimer(30);
                 currentTurnPlayer().ifPresent(uuid -> {
                     Player firstPlayer = Bukkit.getPlayer(uuid);
-
                     if (firstPlayer != null) {
-                        updateInvulnerability(firstPlayer);
-                        Bukkit.getPluginManager().callEvent(new ChessTurnStartedEvent(firstPlayer));
+                        updateInvulnerability(firstPlayer, pieceManager);
+                        Bukkit.getPluginManager().callEvent(new TurnStartedEvent(firstPlayer));
                     }
                 });
             }
             case ENDED -> {
                 timerManager.stopTimer();
-                displayStatisticsHologram(boardManager);
+                displayStatisticsHologram(boardManager, pieceManager);
             }
             case WAITING -> {
                 timerManager.reset();
-                reset();
+                reset(pieceManager, boardManager);
             }
         }
     }
 
-    private void startStartSequence(Plugin plugin, BoardManager boardManager, TimerManager timerManager) {
+    private void startStartSequence(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager) {
         new BukkitRunnable() {
             int count = 3;
 
             @Override
             public void run() {
                 if (count == 3) {
-                    setupBarracks(plugin, boardManager);
+                    setupBarracks(plugin, boardManager, pieceManager);
                 }
 
                 if (count > 0) {
@@ -217,7 +188,7 @@ public class GameManager {
         }.runTaskTimer(plugin, 0L, 20L);
     }
 
-    private void setupBarracks(Plugin plugin, BoardManager boardManager) {
+    private void setupBarracks(Plugin plugin, BoardManager boardManager, PieceManager pieceManager) {
         if (!boardManager.hasBoard()) {
             return;
         }
@@ -236,57 +207,34 @@ public class GameManager {
                 PieceType.ROOK, PieceType.KNIGHT, PieceType.BISHOP, PieceType.QUEEN,
                 PieceType.KING, PieceType.BISHOP, PieceType.KNIGHT, PieceType.ROOK
         };
-        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
-        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
-        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
-        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
-        NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
-        MobManager mobManager = MythicProvider.get().getMobManager();
 
         for (int x = 0; x < 8; x++) {
             PieceType type = backRow[x];
 
-            spawnBarracksPiece(
+            pieceManager.spawnPiece(
+                    plugin,
                     whiteBarracks.toCenterLocation(Coordinate.of(x, 0)),
                     type,
                     Team.WHITE,
                     Coordinate.of(x, 0),
                     mainBoard.forward().getDirection(),
-                    typeKey,
-                    teamKey,
-                    coordXKey,
-                    coordYKey,
-                    isBarracksKey,
-                    true,
-                    mobManager
+                    true
             );
-            spawnBarracksPiece(
+            pieceManager.spawnPiece(
+                    plugin,
                     blackBarracks.toCenterLocation(Coordinate.of(x, 7)),
                     type,
                     Team.BLACK,
                     Coordinate.of(x, 7),
                     mainBoard.forward().getDirection().multiply(-1),
-                    typeKey,
-                    teamKey,
-                    coordXKey,
-                    coordYKey,
-                    isBarracksKey,
-                    true,
-                    mobManager
+                    true
             );
         }
     }
 
-    private void spawnAllPiecesOnMainBoard(Plugin plugin, BoardManager boardManager) {
+    private void spawnAllPiecesOnMainBoard(Plugin plugin, BoardManager boardManager, PieceManager pieceManager) {
         if (!boardManager.hasBoard()) return;
         ChessBoard mainBoard = boardManager.currentBoard();
-
-        NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
-        NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
-        NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
-        NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
-        NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
-        MobManager mobManager = MythicProvider.get().getMobManager();
 
         for (int y : new int[]{0, 1, 6, 7}) {
             Team team = (y < 4) ? Team.WHITE : Team.BLACK;
@@ -304,26 +252,21 @@ public class GameManager {
 
                 if (participant.isPresent()) {
                     piece = Piece.of(participant.get().playerId(), team, type);
-                    placePiece(coord, piece);
+                    pieceManager.placePiece(coord, piece);
                     continue;
                 } else {
                     piece = Piece.of(null, team, type);
-                    placePiece(coord, piece);
+                    pieceManager.placePiece(coord, piece);
                 }
 
-                spawnBarracksPiece(
+                pieceManager.spawnPiece(
+                        plugin,
                         mainBoard.toCenterLocation(coord),
                         type,
                         team,
                         coord,
                         direction,
-                        typeKey,
-                        teamKey,
-                        coordXKey,
-                        coordYKey,
-                        isBarracksKey,
-                        false,
-                        mobManager
+                        false
                 );
             }
         }
@@ -346,11 +289,11 @@ public class GameManager {
                 .add(mainBoard.forward().getDirection().multiply(offsetDistance));
         ChessBoard blackBarracks = new ChessBoard(blackBarracksLoc, mainBoard.forward(), cellSize);
 
-        setupReadyChest(plugin, whiteBarracks, Team.WHITE, 4);
-        setupReadyChest(plugin, blackBarracks, Team.BLACK, 3);
+        setupReadyChest(plugin, boardManager, whiteBarracks, Team.WHITE, 4);
+        setupReadyChest(plugin, boardManager, blackBarracks, Team.BLACK, 3);
     }
 
-    private void setupReadyChest(Plugin plugin, ChessBoard barracks, Team team, int row) {
+    private void setupReadyChest(Plugin plugin, BoardManager boardManager, ChessBoard barracks, Team team, int row) {
         Location origin = barracks.origin();
         BlockFace forward = barracks.forward();
         BlockFace right = barracks.right();
@@ -401,8 +344,8 @@ public class GameManager {
         state1.update(true, false);
         state2.update(true, false);
 
-        addBarracksChest(b1, team);
-        addBarracksChest(b2, team);
+        boardManager.addBarracksChest(b1, team);
+        boardManager.addBarracksChest(b2, team);
 
         boolean b1IsTop = b1.getBlockX() < b2.getBlockX() || (b1.getBlockX() == b2.getBlockX() && b1.getBlockZ() < b2.getBlockZ());
         Inventory chestInv = ((InventoryHolder) (b1IsTop ? b1 : b2).getBlock().getState()).getInventory();
@@ -437,52 +380,6 @@ public class GameManager {
 
         int readySlot = (chestInv.getSize() == 54) ? 49 : 22;
         chestInv.setItem(readySlot, readyBtn);
-    }
-
-    private void spawnBarracksPiece(
-            Location location,
-            PieceType type,
-            Team team,
-            Coordinate logicCoord,
-            Vector direction,
-            NamespacedKey typeKey,
-            NamespacedKey teamKey,
-            NamespacedKey coordXKey,
-            NamespacedKey coordYKey,
-            NamespacedKey isBarracksKey,
-            boolean isBarracks,
-            MobManager mobManager
-    ) {
-        String mobId = toPascalCase(team.name()) + toPascalCase(type.name());
-
-        mobManager.getMythicMob(mobId).ifPresent(mythicMob -> {
-            location.setDirection(direction);
-            ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), 1);
-
-            if (activeMob == null) {
-                return;
-            }
-
-            Entity entity = activeMob.getEntity().getBukkitEntity();
-            entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
-            entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
-            entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, logicCoord.x());
-            entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, logicCoord.y());
-            entity.getPersistentDataContainer().set(isBarracksKey, PersistentDataType.BYTE, (byte) (isBarracks ? 1 : 0));
-            addSpawnedEntity(entity.getUniqueId());
-
-            if (!isBarracks) {
-                registerPieceEntity(logicCoord, entity.getUniqueId());
-            }
-        });
-    }
-
-    private String toPascalCase(String source) {
-        if (source == null || source.isEmpty()) {
-            return "";
-        }
-
-        return source.substring(0, 1).toUpperCase() + source.substring(1).toLowerCase();
     }
 
     private void enforceMandatoryKing() {
@@ -657,7 +554,6 @@ public class GameManager {
 
     public void join(Player player, Team team) {
         UUID playerId = player.getUniqueId();
-
         participants.put(playerId, Participant.of(playerId, team));
     }
 
@@ -790,7 +686,7 @@ public class GameManager {
         return Optional.of(turnOrder.get(currentTurnIndex));
     }
 
-    public void nextTurn() {
+    public void nextTurn(PieceManager pieceManager) {
         if (turnOrder.isEmpty()) {
             return;
         }
@@ -802,34 +698,34 @@ public class GameManager {
             Player player = Bukkit.getPlayer(uuid);
 
             if (player != null) {
-                updateInvulnerability(player);
-                Bukkit.getPluginManager().callEvent(new ChessTurnStartedEvent(player));
+                updateInvulnerability(player, pieceManager);
+                Bukkit.getPluginManager().callEvent(new TurnStartedEvent(player));
             }
         });
     }
 
-    private void updateInvulnerability(Player currentPlayer) {
+    private void updateInvulnerability(Player currentPlayer, PieceManager pieceManager) {
         Participant participant = participants.get(currentPlayer.getUniqueId());
         if (participant == null) return;
 
         Team myTeam = participant.team();
         boolean isKing = false;
 
-        for (Piece p : boardPieces.values()) {
+        for (Piece p : pieceManager.boardPieces().values()) {
             if (currentPlayer.getUniqueId().equals(p.ownerId()) && p.type() == PieceType.KING) {
                 isKing = true;
                 break;
             }
         }
 
-        for (Map.Entry<Coordinate, UUID> entry : pieceEntities.entrySet()) {
+        for (Map.Entry<Coordinate, UUID> entry : pieceManager.pieceEntities().entrySet()) {
             Coordinate coord = entry.getKey();
             UUID entityId = entry.getValue();
             Entity entity = Bukkit.getEntity(entityId);
 
             if (!(entity instanceof org.bukkit.entity.LivingEntity living)) continue;
 
-            Piece piece = boardPieces.get(coord);
+            Piece piece = pieceManager.boardPieces().get(coord);
             if (piece == null) continue;
 
             boolean shouldBeVulnerable = false;
@@ -841,30 +737,14 @@ public class GameManager {
             }
 
             living.setInvulnerable(!shouldBeVulnerable);
-        }    }
-
-    public void finishTurn() {
-        nextTurn();
+        }
     }
 
-    public void placePiece(Coordinate coordinate, Piece piece) {
-        boardPieces.put(coordinate, piece);
+    public void finishTurn(PieceManager pieceManager) {
+        nextTurn(pieceManager);
     }
 
-    public void registerPieceEntity(Coordinate coordinate, UUID entityId) {
-        pieceEntities.put(coordinate, entityId);
-    }
-
-    public void removePiece(Coordinate coordinate) {
-        boardPieces.remove(coordinate);
-        pieceEntities.remove(coordinate);
-    }
-
-    public Optional<Piece> findPieceAt(Coordinate coordinate) {
-        return Optional.ofNullable(boardPieces.get(coordinate));
-    }
-
-    public void win(Plugin plugin, BoardManager boardManager, TimerManager timerManager, Team winner) {
+    public void win(Plugin plugin, BoardManager boardManager, PieceManager pieceManager, TimerManager timerManager, Team winner) {
         Component winMessage = Component.text()
                 .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
                 .append(Component.text(winner.displayName(), winner.textColor(), TextDecoration.BOLD))
@@ -872,14 +752,14 @@ public class GameManager {
                 .build();
 
         Bukkit.broadcast(winMessage);
-        advancePhase(plugin, boardManager, timerManager);
+        advancePhase(plugin, boardManager, pieceManager, timerManager);
     }
 
     public Statistics getStats(UUID playerId) {
         return statistics.computeIfAbsent(playerId, id -> new Statistics());
     }
 
-    private void displayStatisticsHologram(BoardManager boardManager) {
+    private void displayStatisticsHologram(BoardManager boardManager, PieceManager pieceManager) {
         if (!boardManager.hasBoard()) return;
 
         Location center = boardManager.currentBoard().toCenterLocation(Coordinate.of(3, 3))
@@ -914,22 +794,22 @@ public class GameManager {
                 as.setCustomNameVisible(true);
                 as.customName(lines.get(index));
                 as.setMarker(true);
-                addSpawnedEntity(as.getUniqueId());
+                pieceManager.addSpawnedEntity(as.getUniqueId());
             });
         }
     }
 
-    public void reset() {
-        Bukkit.getPluginManager().callEvent(new dev.tecte.chesswar.event.ChessGameResetEvent());
+    public void reset(PieceManager pieceManager, BoardManager boardManager) {
+        Bukkit.getPluginManager().callEvent(new GameResetEvent());
         phase = GamePhase.WAITING;
-        boardPieces.clear();
         turnOrder.clear();
         currentTurnIndex = -1;
         readyPlayers.clear();
         statistics.clear();
         commanderCommands.clear();
-        clearSpawnedEntities(false);
-        clearBarracksChests();
+        pieceManager.clearSpawnedEntities(Bukkit.getPluginManager().getPlugin("ChessWar"), false);
+        boardManager.clearBarracksChests();
+        pieceManager.reset();
 
         participants.keySet().forEach(id -> {
             Participant p = participants.get(id);
@@ -950,45 +830,6 @@ public class GameManager {
                         player.getInventory().setItem(i, null);
                     }
                 }
-            }
-        }
-    }
-
-    private void clearBarracksChests() {
-        for (Location loc : barracksChests) {
-            org.bukkit.block.Block block = loc.getBlock();
-            if (block.getState() instanceof InventoryHolder holder) {
-                Inventory inv = holder.getInventory();
-                new ArrayList<>(inv.getViewers()).forEach(org.bukkit.entity.HumanEntity::closeInventory);
-                inv.clear();
-            }
-            block.setType(Material.AIR);
-        }
-
-        barracksChests.clear();
-        chestTeamOwnership.clear();
-    }
-
-    private void clearSpawnedEntities(boolean onlyBarracks) {
-        NamespacedKey isBarracksKey = new NamespacedKey(Bukkit.getPluginManager().getPlugin("ChessWar"), "is_barracks_entity");
-
-        for (java.util.Iterator<UUID> it = spawnedEntities.iterator(); it.hasNext(); ) {
-            UUID entityId = it.next();
-            Entity entity = Bukkit.getEntity(entityId);
-
-            if (entity != null) {
-                if (onlyBarracks) {
-                    Byte isBarracks = entity.getPersistentDataContainer().get(isBarracksKey, PersistentDataType.BYTE);
-                    if (isBarracks != null && isBarracks == 1) {
-                        entity.remove();
-                        it.remove();
-                    }
-                } else {
-                    entity.remove();
-                    it.remove();
-                }
-            } else {
-                it.remove();
             }
         }
     }

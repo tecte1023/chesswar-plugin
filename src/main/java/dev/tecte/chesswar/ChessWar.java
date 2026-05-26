@@ -1,19 +1,20 @@
 package dev.tecte.chesswar;
 
 import co.aikar.commands.PaperCommandManager;
+import dev.tecte.chesswar.board.BoardBlockListener;
+import dev.tecte.chesswar.board.BoardCommand;
 import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.BoardVisualGuideListener;
 import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.command.ChessBoardCommand;
+import dev.tecte.chesswar.game.GameEntityListener;
 import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.game.GameReadyListener;
 import dev.tecte.chesswar.game.ScoreboardManager;
 import dev.tecte.chesswar.game.TimerManager;
-import dev.tecte.chesswar.listener.ChessBlockListener;
-import dev.tecte.chesswar.listener.ChessDamageListener;
-import dev.tecte.chesswar.listener.ChessEntityListener;
-import dev.tecte.chesswar.listener.ChessInteractListener;
-import dev.tecte.chesswar.listener.ChessPieceSelectionListener;
-import dev.tecte.chesswar.listener.ChessReadyListener;
-import dev.tecte.chesswar.listener.ChessVisualGuideListener;
+import dev.tecte.chesswar.piece.PieceDamageListener;
+import dev.tecte.chesswar.piece.PieceInteractListener;
+import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceSelectionListener;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,7 @@ import java.nio.file.Files;
 @Slf4j(topic = "ChessWar")
 public class ChessWar extends JavaPlugin {
     private BoardManager boardManager;
+    private PieceManager pieceManager;
     private GameManager gameManager;
     private TimerManager timerManager;
     private ScoreboardManager scoreboardManager;
@@ -43,44 +45,46 @@ public class ChessWar extends JavaPlugin {
     @Override
     public void onEnable() {
         boardManager = new BoardManager();
+        pieceManager = new PieceManager();
         gameManager = new GameManager();
-        timerManager = new TimerManager(this, gameManager);
+        timerManager = new TimerManager(this, gameManager, pieceManager);
         scoreboardManager = new ScoreboardManager(gameManager, timerManager);
-        moveValidator = new MoveValidator(gameManager);
+        moveValidator = new MoveValidator(gameManager, pieceManager);
 
         PaperCommandManager commandManager = new PaperCommandManager(this);
         PluginManager pluginManager = getServer().getPluginManager();
 
         timerManager.scoreboardManager(scoreboardManager);
-        commandManager.registerCommand(new ChessBoardCommand(
+        commandManager.registerCommand(new BoardCommand(
                 this,
                 gameManager,
                 boardManager,
+                pieceManager,
                 timerManager,
                 moveValidator
         ));
         pluginManager.registerEvents(
-                new ChessInteractListener(gameManager, boardManager, moveValidator),
+                new PieceInteractListener(gameManager, boardManager, pieceManager, moveValidator),
                 this
         );
         pluginManager.registerEvents(
-                new ChessDamageListener(gameManager, boardManager, moveValidator, timerManager),
+                new PieceDamageListener(this, gameManager, boardManager, pieceManager, moveValidator, timerManager),
                 this
         );
         pluginManager.registerEvents(
-                new ChessVisualGuideListener(gameManager, boardManager, moveValidator),
+                new BoardVisualGuideListener(gameManager, boardManager, pieceManager, moveValidator),
                 this
         );
         pluginManager.registerEvents(
-                new ChessEntityListener(gameManager),
+                new GameEntityListener(gameManager, pieceManager),
                 this
         );
         pluginManager.registerEvents(
-                new ChessPieceSelectionListener(this, gameManager, timerManager),
+                new PieceSelectionListener(this, gameManager, timerManager),
                 this
         );
-        pluginManager.registerEvents(new ChessReadyListener(this, gameManager, timerManager), this);
-        pluginManager.registerEvents(new ChessBlockListener(gameManager), this);
+        pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager, timerManager), this);
+        pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
         pluginManager.registerEvents(timerManager, this);
         setupMythicMobs();
         setupOptimalEngineSettings();

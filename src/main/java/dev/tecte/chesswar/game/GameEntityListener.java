@@ -1,7 +1,8 @@
-package dev.tecte.chesswar.listener;
+package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.piece.PieceManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
@@ -12,8 +13,9 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
 @RequiredArgsConstructor
-public class ChessEntityListener implements Listener {
+public class GameEntityListener implements Listener {
     private final GameManager gameManager;
+    private final PieceManager pieceManager;
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -22,15 +24,15 @@ public class ChessEntityListener implements Listener {
     }
 
     private void syncBoardState(Entity entity) {
-        NamespacedKey xKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_x");
-        NamespacedKey yKey = new NamespacedKey(JavaPlugin.getPlugin(dev.tecte.chesswar.ChessWar.class), "barracks_piece_y");
+        NamespacedKey xKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_x");
+        NamespacedKey yKey = new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "barracks_piece_y");
 
         Integer x = entity.getPersistentDataContainer().get(xKey, PersistentDataType.INTEGER);
         Integer y = entity.getPersistentDataContainer().get(yKey, PersistentDataType.INTEGER);
 
         if (x != null && y != null) {
             Coordinate coord = Coordinate.of(x, y);
-            gameManager.removePiece(coord);
+            pieceManager.removePiece(coord);
         }
     }
 }

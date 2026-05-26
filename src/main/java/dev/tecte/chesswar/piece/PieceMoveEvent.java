@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.event;
+package dev.tecte.chesswar.piece;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +10,7 @@ import org.jetbrains.annotations.NotNull;
 @Getter
 @RequiredArgsConstructor
 @SuppressWarnings("unused")
-public class ChessPieceMoveEvent extends Event {
+public class PieceMoveEvent extends Event {
     private static final HandlerList HANDLERS = new HandlerList();
 
     private final Player player;
