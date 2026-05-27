@@ -25,6 +25,7 @@ import org.bukkit.World;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,17 +45,42 @@ public class ChessWar extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        initializeManagers();
+        registerCommands();
+        registerListeners();
+        startHeartbeat();
+        setupMythicMobs();
+        setupOptimalEngineSettings();
+        log.info("ChessWar has been enabled with optimized engine settings!");
+    }
+
+    @Override
+    public void onDisable() {
+        log.info("ChessWar has been disabled!");
+    }
+
+    private void initializeManagers() {
         boardManager = new BoardManager();
         pieceManager = new PieceManager();
         gameManager = new GameManager();
         timerManager = new TimerManager(this, gameManager, pieceManager);
         scoreboardManager = new ScoreboardManager(gameManager, timerManager);
         moveValidator = new MoveValidator(gameManager, pieceManager);
+    }
 
+    private void startHeartbeat() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                timerManager.tick();
+                scoreboardManager.updateAll();
+            }
+        }.runTaskTimer(this, 0L, 20L);
+    }
+
+    private void registerCommands() {
         PaperCommandManager commandManager = new PaperCommandManager(this);
-        PluginManager pluginManager = getServer().getPluginManager();
 
-        timerManager.scoreboardManager(scoreboardManager);
         commandManager.registerCommand(new BoardCommand(
                 this,
                 gameManager,
@@ -63,6 +89,11 @@ public class ChessWar extends JavaPlugin {
                 timerManager,
                 moveValidator
         ));
+    }
+
+    private void registerListeners() {
+        PluginManager pluginManager = getServer().getPluginManager();
+
         pluginManager.registerEvents(
                 new PieceInteractListener(this, gameManager, boardManager, pieceManager, moveValidator),
                 this
@@ -86,14 +117,6 @@ public class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager, timerManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
         pluginManager.registerEvents(timerManager, this);
-        setupMythicMobs();
-        setupOptimalEngineSettings();
-        log.info("ChessWar has been enabled with optimized engine settings!");
-    }
-
-    @Override
-    public void onDisable() {
-        log.info("ChessWar has been disabled!");
     }
 
     private void setupMythicMobs() {

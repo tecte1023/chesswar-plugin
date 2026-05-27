@@ -5,12 +5,9 @@ import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -23,13 +20,7 @@ public class TimerManager implements Listener {
     private final GameManager gameManager;
     private final PieceManager pieceManager;
 
-    @Setter
-    private ScoreboardManager scoreboardManager;
-    private BukkitTask currentTask;
-    private int remainingSeconds;
-
-    private int whiteTeamTime = 600;
-    private int blackTeamTime = 600;
+    private final TimerContext context = new TimerContext();
 
     @EventHandler
     public void onTurnStart(TurnStartedEvent event) {
@@ -41,37 +32,34 @@ public class TimerManager implements Listener {
                 .map(Participant::team)
                 .orElse(Team.WHITE);
 
-        int teamTime = (team == Team.WHITE) ? whiteTeamTime : blackTeamTime;
+        int teamTime = (team == Team.WHITE) ? context.whiteTeamTime() : context.blackTeamTime();
         startTurnTimer(Math.max(teamTime, 30));
     }
 
     public void startTurnTimer(int seconds) {
-        stopTimer();
-        remainingSeconds = seconds;
-        currentTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                remainingSeconds--;
+        context.remainingSeconds(seconds);
+        context.running(true);
+    }
 
-                if (gameManager.phase() == GamePhase.BATTLE) {
-                    updateSharedTime();
-                }
+    public void tick() {
+        if (!context.running()) {
+            return;
+        }
 
-                if (remainingSeconds < 0) {
-                    if (gameManager.phase() == GamePhase.BATTLE) {
-                        gameManager.nextTurn(pieceManager);
-                    } else {
-                        gameManager.advancePhase(plugin, plugin.boardManager(), pieceManager, TimerManager.this);
-                    }
+        context.remainingSeconds(context.remainingSeconds() - 1);
 
-                    return;
-                }
+        if (gameManager.phase() == GamePhase.BATTLE) {
+            updateSharedTime();
+        }
 
-                if (scoreboardManager != null) {
-                    scoreboardManager.updateAll();
-                }
+        if (context.remainingSeconds() < 0) {
+            context.running(false);
+            if (gameManager.phase() == GamePhase.BATTLE) {
+                gameManager.nextTurn(pieceManager);
+            } else {
+                gameManager.advancePhase(plugin, plugin.boardManager(), pieceManager, this);
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }
     }
 
     private void updateSharedTime() {
@@ -83,29 +71,27 @@ public class TimerManager implements Listener {
                 .orElse(null);
 
         if (team == Team.WHITE) {
-            if (whiteTeamTime > 30) whiteTeamTime = remainingSeconds;
+            if (context.whiteTeamTime() > 30) context.whiteTeamTime(context.remainingSeconds());
         } else if (team == Team.BLACK) {
-            if (blackTeamTime > 30) blackTeamTime = remainingSeconds;
+            if (context.blackTeamTime() > 30) context.blackTeamTime(context.remainingSeconds());
         }
     }
 
     public void stopTimer() {
-        if (currentTask != null) {
-            currentTask.cancel();
-            currentTask = null;
-        }
+        context.running(false);
     }
 
     public void reset() {
-        stopTimer();
-        whiteTeamTime = 600;
-        blackTeamTime = 600;
-        remainingSeconds = 0;
+        context.reset();
     }
 
     public void accelerateTo(int seconds) {
-        if (remainingSeconds > seconds) {
-            remainingSeconds = seconds;
+        if (context.remainingSeconds() > seconds) {
+            context.remainingSeconds(seconds);
         }
+    }
+
+    public int remainingSeconds() {
+        return context.remainingSeconds();
     }
 }
