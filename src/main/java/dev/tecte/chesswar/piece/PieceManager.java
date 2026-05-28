@@ -8,6 +8,7 @@ import io.lumine.mythic.bukkit.BukkitAdapter;
 import io.lumine.mythic.core.mobs.ActiveMob;
 import lombok.Getter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
@@ -19,6 +20,10 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -26,12 +31,43 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Getter
 @Accessors(fluent = true)
 public class PieceManager {
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final Map<Coordinate, UUID> pieceEntities = new HashMap<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
+
+    public void setupMythicMobs(Plugin plugin) {
+        Plugin mythicMobs = Bukkit.getPluginManager().getPlugin("MythicMobs");
+
+        if (mythicMobs == null) {
+            return;
+        }
+
+        File targetFile = new File(new File(mythicMobs.getDataFolder(), "Mobs"), "Piece.yml");
+
+        if (targetFile.exists()) {
+            return;
+        }
+
+        File parentDir = targetFile.getParentFile();
+
+        if (parentDir != null && !parentDir.exists() && !parentDir.mkdirs()) {
+            log.error("Failed to create MythicMobs piece directory.");
+            return;
+        }
+
+        try (InputStream in = plugin.getResource("mobs/Piece.yml")) {
+            if (in != null) {
+                Files.copy(in, targetFile.toPath());
+                log.info("Successfully synced Piece.yml to MythicMobs folder.");
+            }
+        } catch (IOException e) {
+            log.error("Failed to sync Piece.yml: {}", e.getMessage());
+        }
+    }
 
     public void placePiece(Coordinate coordinate, Piece piece) {
         boardPieces.put(coordinate, piece);

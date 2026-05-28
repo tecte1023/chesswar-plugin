@@ -2,12 +2,9 @@ package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -16,8 +13,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
-
-import java.util.Optional;
 
 @RequiredArgsConstructor
 public class GameReadyListener implements Listener {
@@ -47,7 +42,7 @@ public class GameReadyListener implements Listener {
                     player.sendMessage(Component.text("자신의 팀 막사에 있는 상자에서만 준비를 완료할 수 있습니다!", NamedTextColor.RED));
                     return;
                 }
-                handleReadyUp(player);
+                gameManager.handleReadyUp(player, timerManager, plugin);
             }
         }
     }
@@ -66,63 +61,5 @@ public class GameReadyListener implements Listener {
         NamespacedKey readyKey = new NamespacedKey(plugin, "ready_button");
 
         return item.getItemMeta().getPersistentDataContainer().has(readyKey, PersistentDataType.BYTE);
-    }
-
-    private void handleReadyUp(Player player) {
-        if (gameManager.phase() != GamePhase.TURN_ORDER) {
-            player.sendMessage(Component.text("지금은 준비 완료를 할 수 있는 단계가 아닙니다!", NamedTextColor.RED));
-            return;
-        }
-
-        if (gameManager.isReady(player.getUniqueId())) {
-            player.sendMessage(Component.text("이미 준비 완료 상태입니다!", NamedTextColor.YELLOW));
-            return;
-        }
-
-        gameManager.toggleReady(player.getUniqueId(), true);
-        player.sendMessage(Component.text("준비 완료! 모든 인원이 준비되면 게임이 시작됩니다.", NamedTextColor.GREEN));
-
-        Optional<Participant> participant = gameManager.findParticipant(player.getUniqueId());
-
-        participant.ifPresent(p -> {
-            Team team = p.team();
-            Component msg = Component.text(player.getName() + "님이 준비되었습니다! ", NamedTextColor.GRAY)
-                    .append(Component.text("(" + countReady(team) + "/" + countTeam(team) + ")", NamedTextColor.AQUA));
-
-            for (Participant other : gameManager.participants().values()) {
-                if (other.team() == team) {
-                    Player online = player.getServer().getPlayer(other.playerId());
-
-                    if (online != null) {
-                        online.sendMessage(msg);
-                    }
-                }
-            }
-        });
-
-        if (gameManager.areAllParticipantsReady()) {
-            timerManager.accelerateTo(10);
-            Bukkit.broadcast(Component.text()
-                    .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
-                    .append(Component.text("모든 플레이어가 준비를 마쳤습니다! 10초 후 전투가 시작됩니다.", NamedTextColor.GREEN, TextDecoration.BOLD))
-                    .build());
-        }
-    }
-
-    private int countReady(Team team) {
-        return (int) gameManager.participants().values().stream()
-                .filter(p -> p.team() == team && gameManager.isReady(p.playerId()))
-                .count();
-    }
-
-    private int countTeam(Team team) {
-        return (int) gameManager.participants().values().stream()
-                .filter(p -> p.team() == team)
-                .count();
-    }
-
-    private void startBattle(Player sender) {
-        gameManager.calculateTurnOrder(plugin);
-        sender.performCommand("cw start");
     }
 }

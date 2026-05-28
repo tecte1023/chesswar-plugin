@@ -5,6 +5,7 @@ import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.game.CombatManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -16,12 +17,7 @@ import dev.tecte.chesswar.game.GamePhase;
 
 @RequiredArgsConstructor
 public class PieceDamageListener implements Listener {
-    private final ChessWar plugin;
-    private final GameManager gameManager;
-    private final BoardManager boardManager;
-    private final PieceManager pieceManager;
-    private final MoveValidator moveValidator;
-    private final TimerManager timerManager;
+    private final CombatManager combatManager;
 
     @EventHandler
     public void onDamage(EntityDamageEvent event) {
@@ -29,7 +25,7 @@ public class PieceDamageListener implements Listener {
             return;
         }
 
-        if (gameManager.isParticipant(participant) && gameManager.phase() != GamePhase.BATTLE) {
+        if (!combatManager.canTakeDamage(participant)) {
             event.setCancelled(true);
         }
     }
@@ -44,9 +40,7 @@ public class PieceDamageListener implements Listener {
             return;
         }
 
-        if (gameManager.isParticipant(attacker)) {
-            event.setCancelled(true);
-            gameManager.handleAttack(attacker, victim, boardManager, pieceManager, moveValidator, timerManager, plugin);
-        }
+        event.setCancelled(true);
+        combatManager.handleAttack(attacker, victim);
     }
 }

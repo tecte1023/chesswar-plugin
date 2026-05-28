@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -20,7 +22,29 @@ public class TimerManager implements Listener {
     private final GameManager gameManager;
     private final PieceManager pieceManager;
 
+    private BukkitTask heartbeatTask;
+
     private final TimerContext context = new TimerContext();
+
+    public void startHeartbeat() {
+        if (heartbeatTask != null) {
+            return;
+        }
+
+        heartbeatTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                tick();
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    public void stopHeartbeat() {
+        if (heartbeatTask != null) {
+            heartbeatTask.cancel();
+            heartbeatTask = null;
+        }
+    }
 
     @EventHandler
     public void onTurnStart(TurnStartedEvent event) {

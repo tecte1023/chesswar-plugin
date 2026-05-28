@@ -37,7 +37,11 @@
 - [x] `_legacy` 패키지 참조 제거 및 의존성 격리
 - [x] 리스너 및 커맨드 로직을 각 도메인 패키지로 내재화
 - [x] 컴포넌트 기반 OOP 패턴을 위한 piece/component 구조 정립
-- [x] 타이머 및 스코어보드 순환 참조 해결 및 중앙 통제 방식 고도화 완료
+- [x] **(New)** 타이머 및 스코어보드 순환 참조 해결 및 자율적 관찰(Polling) 패턴 도입
+- [x] **(New)** 입력 컨트롤러(Command/Listener) 구조 정규화 및 GDD 시나리오 기반 순서 재배치
+- [x] **(New)** CombatManager, BoardVisualManager 신설을 통한 리스너 의존성 압축 및 위임 패턴 완성
+- [x] **(New)** EnvironmentManager 신설로 전역 서버 오염 방지 및 체스 월드 타겟팅 최적화 달성
+- [x] 관리자 전용 제어 도구 정규화 및 의존성 격리 완료
 
 ## 4. Feature Expansion (기획 구현) - [5%] ⏳
 ### 골드 경제 시스템

@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.ChessWar;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,8 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,8 +24,31 @@ import java.util.UUID;
 public class ScoreboardManager {
     private final Map<UUID, FastBoard> boards = new HashMap<>();
 
+    private final ChessWar plugin;
     private final GameManager gameManager;
     private final TimerManager timerManager;
+
+    private BukkitTask heartbeatTask;
+
+    public void startHeartbeat() {
+        if (heartbeatTask != null) {
+            return;
+        }
+
+        heartbeatTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                updateAll();
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
+
+    public void stopHeartbeat() {
+        if (heartbeatTask != null) {
+            heartbeatTask.cancel();
+            heartbeatTask = null;
+        }
+    }
 
     public void updateAll() {
         for (Player player : Bukkit.getOnlinePlayers()) {

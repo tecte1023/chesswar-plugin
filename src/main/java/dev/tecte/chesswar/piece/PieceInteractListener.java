@@ -1,8 +1,6 @@
 package dev.tecte.chesswar.piece;
 
-import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.game.CombatManager;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.team.Team;
@@ -19,11 +17,8 @@ import org.bukkit.inventory.ItemStack;
 
 @RequiredArgsConstructor
 public class PieceInteractListener implements Listener {
-    private final ChessWar plugin;
     private final GameManager gameManager;
-    private final BoardManager boardManager;
-    private final PieceManager pieceManager;
-    private final MoveValidator moveValidator;
+    private final CombatManager combatManager;
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
@@ -71,6 +66,6 @@ public class PieceInteractListener implements Listener {
             return;
         }
 
-        gameManager.handleMove(player, boardManager, pieceManager, moveValidator, plugin);
+        combatManager.handleMove(player);
     }
 }

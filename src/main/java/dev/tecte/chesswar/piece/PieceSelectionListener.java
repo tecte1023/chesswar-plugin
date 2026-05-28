@@ -5,7 +5,6 @@ import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.GameManager;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.Participant;
-import dev.tecte.chesswar.game.TimerManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -28,7 +27,6 @@ import java.util.Optional;
 public class PieceSelectionListener implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
-    private final TimerManager timerManager;
 
     @EventHandler
     public void onEntityInteract(PlayerInteractEntityEvent event) {
