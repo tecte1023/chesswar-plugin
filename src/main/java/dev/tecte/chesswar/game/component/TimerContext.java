@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.component;
 
 import lombok.Getter;
 import lombok.Setter;

@@ -3,9 +3,10 @@ package dev.tecte.chesswar.piece;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.game.GameManager;
-import dev.tecte.chesswar.game.TimerManager;
-import dev.tecte.chesswar.game.CombatManager;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.manager.CombatManager;
+import dev.tecte.chesswar.game.manager.GameManager;
+import dev.tecte.chesswar.game.manager.TimerManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
@@ -13,7 +14,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import dev.tecte.chesswar.game.GamePhase;
+
 
 @RequiredArgsConstructor
 public class PieceDamageListener implements Listener {

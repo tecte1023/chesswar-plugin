@@ -1,7 +1,11 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.game.component.PhaseTimerSettings;
+import dev.tecte.chesswar.game.component.TimerContext;
+import dev.tecte.chesswar.game.component.TurnStartedEvent;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -20,11 +24,31 @@ import java.util.UUID;
 public class TimerManager implements Listener {
     private final ChessWar plugin;
     private final GameManager gameManager;
-    private final PieceManager pieceManager;
 
     private BukkitTask heartbeatTask;
 
     private final TimerContext context = new TimerContext();
+
+    public void startCountdown(int startCount, Runnable onTick, Runnable onComplete) {
+        new BukkitRunnable() {
+            int count = startCount;
+
+            @Override
+            public void run() {
+                if (count > 0) {
+                    if (onTick != null) {
+                        onTick.run();
+                    }
+                    count--;
+                } else {
+                    cancel();
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 20L);
+    }
 
     public void startHeartbeat() {
         if (heartbeatTask != null) {
@@ -72,6 +96,12 @@ public class TimerManager implements Listener {
 
         context.remainingSeconds(context.remainingSeconds() - 1);
 
+        if (gameManager.phase() == GamePhase.TURN_ORDER) {
+            if (gameManager.areAllParticipantsReady()) {
+                accelerateTo(gameManager.timerSettings().readyAccelerateTime());
+            }
+        }
+
         if (gameManager.phase() == GamePhase.BATTLE) {
             updateSharedTime();
         }
@@ -79,9 +109,9 @@ public class TimerManager implements Listener {
         if (context.remainingSeconds() < 0) {
             context.running(false);
             if (gameManager.phase() == GamePhase.BATTLE) {
-                gameManager.nextTurn(pieceManager);
+                gameManager.nextTurn();
             } else {
-                gameManager.advancePhase(plugin, plugin.boardManager(), pieceManager, this);
+                gameManager.advancePhase();
             }
         }
     }

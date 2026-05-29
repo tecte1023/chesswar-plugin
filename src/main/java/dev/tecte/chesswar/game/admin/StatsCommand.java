@@ -1,8 +1,12 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.admin;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
+import co.aikar.commands.annotation.CommandPermission;
 import co.aikar.commands.annotation.Subcommand;
+import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.game.component.Statistics;
+import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -11,8 +15,10 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BookMeta;
 
 @CommandAlias("chesswar|cw")
+@CommandPermission("chesswar.admin")
 @RequiredArgsConstructor
 public class StatsCommand extends BaseCommand {
     private final GameManager gameManager;
@@ -20,7 +26,9 @@ public class StatsCommand extends BaseCommand {
     @Subcommand("record")
     public void onRecord(Player player) {
         ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-        org.bukkit.inventory.meta.BookMeta meta = (org.bukkit.inventory.meta.BookMeta) book.getItemMeta();
+        BookMeta meta = (BookMeta) book.getItemMeta();
+
+        if (meta == null) return;
 
         meta.setTitle("전투 기록 일지");
         meta.setAuthor("ChessWar System");
@@ -30,7 +38,7 @@ public class StatsCommand extends BaseCommand {
                 .build();
 
         for (Participant p : gameManager.participants().values()) {
-            Statistics s = gameManager.getStats(p.playerId());
+            Statistics s = gameManager.stats(p.playerId());
             Player participantPlayer = Bukkit.getPlayer(p.playerId());
             String name = (participantPlayer != null) ? participantPlayer.getName() : "오프라인";
 

@@ -1,8 +1,9 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.BoardTargetSelectedEvent;
+import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.piece.Piece;
@@ -21,7 +22,6 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.plugin.Plugin;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -29,14 +29,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CombatManager {
     private final ChessWar plugin;
-    private final GameManager gameManager;
-    private final BoardManager boardManager;
-    private final PieceManager pieceManager;
-    private final MoveValidator moveValidator;
-    private final TimerManager timerManager;
 
     public boolean canTakeDamage(Player participant) {
-        return gameManager.isParticipant(participant) && gameManager.phase() == GamePhase.BATTLE;
+        return plugin.gameManager().isParticipant(participant) && plugin.gameManager().phase() == GamePhase.BATTLE;
     }
 
     public void handleAttack(Player attacker, LivingEntity victim) {
@@ -44,13 +39,13 @@ public class CombatManager {
             return;
         }
 
-        Optional<UUID> currentTurnPlayerId = gameManager.currentTurnPlayer();
+        Optional<UUID> currentTurnPlayerId = plugin.gameManager().currentTurnPlayer();
         if (currentTurnPlayerId.isEmpty() || !currentTurnPlayerId.get().equals(attacker.getUniqueId())) {
             attacker.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
             return;
         }
 
-        if (!boardManager.hasBoard()) {
+        if (!plugin.boardManager().hasBoard()) {
             return;
         }
 
@@ -59,7 +54,7 @@ public class CombatManager {
             return;
         }
 
-        Optional<Coordinate> commandTarget = gameManager.getCommandTarget(attacker.getUniqueId());
+        Optional<Coordinate> commandTarget = plugin.gameManager().commandTarget(attacker.getUniqueId());
         Coordinate finalAttackingCoordinate = commandTarget.orElse(attackingCoordinate);
 
         Coordinate targetCoordinate = findTargetCoordinate(victim);
@@ -67,15 +62,15 @@ public class CombatManager {
             return;
         }
 
-        Piece attackingPiece = pieceManager.boardPieces().get(finalAttackingCoordinate);
-        Piece targetPiece = pieceManager.boardPieces().get(targetCoordinate);
+        Piece attackingPiece = plugin.pieceManager().boardPieces().get(finalAttackingCoordinate);
+        Piece targetPiece = plugin.pieceManager().boardPieces().get(targetCoordinate);
 
         if (targetPiece.team() == attackingPiece.team()) {
             handleCommanderOrFriendlyFire(attacker, attackingCoordinate, targetCoordinate, targetPiece, commandTarget);
             return;
         }
 
-        if (!moveValidator.canMove(finalAttackingCoordinate, targetCoordinate)) {
+        if (!plugin.moveValidator().canMove(finalAttackingCoordinate, targetCoordinate)) {
             attacker.sendMessage(Component.text("그곳에 있는 적은 공격할 수 없는 범위에 있습니다!", NamedTextColor.RED));
             return;
         }
@@ -88,18 +83,18 @@ public class CombatManager {
             return;
         }
 
-        Optional<UUID> currentTurnId = gameManager.currentTurnPlayer();
+        Optional<UUID> currentTurnId = plugin.gameManager().currentTurnPlayer();
         if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
             player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
             return;
         }
 
-        if (!boardManager.hasBoard()) {
+        if (!plugin.boardManager().hasBoard()) {
             player.sendMessage(Component.text("체스판이 설정되지 않았습니다!", NamedTextColor.RED));
             return;
         }
 
-        Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
+        Coordinate to = plugin.boardManager().currentBoard().toCoordinate(player.getLocation());
         if (!to.isValid()) {
             player.sendMessage(Component.text("체스판 밖에서는 이동을 확정할 수 없습니다!", NamedTextColor.RED));
             return;
@@ -111,7 +106,7 @@ public class CombatManager {
             return;
         }
 
-        Optional<Coordinate> commandTarget = gameManager.getCommandTarget(player.getUniqueId());
+        Optional<Coordinate> commandTarget = plugin.gameManager().commandTarget(player.getUniqueId());
         Coordinate finalFrom = commandTarget.orElse(from);
 
         if (finalFrom.equals(to)) {
@@ -119,34 +114,34 @@ public class CombatManager {
             return;
         }
 
-        if (!moveValidator.canMove(finalFrom, to)) {
+        if (!plugin.moveValidator().canMove(finalFrom, to)) {
             player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
             return;
         }
 
-        Piece movingPiece = pieceManager.boardPieces().get(finalFrom);
-        if (pieceManager.findPieceAt(to).isPresent()) {
+        Piece movingPiece = plugin.pieceManager().boardPieces().get(finalFrom);
+        if (plugin.pieceManager().findPieceAt(to).isPresent()) {
             player.sendMessage(Component.text("그곳에 다른 기물이 있어 이동할 수 없습니다. (공격은 좌클릭으로 하세요!)", NamedTextColor.YELLOW));
             return;
         }
 
-        pieceManager.removePiece(finalFrom);
-        pieceManager.placePiece(to, movingPiece);
+        plugin.pieceManager().removePiece(finalFrom);
+        plugin.pieceManager().placePiece(to, movingPiece);
 
         if (commandTarget.isPresent()) {
             relocateNPCEntity(finalFrom, to);
-            gameManager.clearCommandTarget(player.getUniqueId());
+            plugin.gameManager().clearCommandTarget(player.getUniqueId());
             player.sendMessage(Component.text(movingPiece.type().displayName() + " 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN));
         } else {
             player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
         }
 
         Bukkit.getPluginManager().callEvent(new PieceMoveEvent(player));
-        gameManager.nextTurn(pieceManager);
+        plugin.gameManager().nextTurn();
     }
 
     private Coordinate findAttackingCoordinate(UUID attackerId) {
-        for (var entry : pieceManager.boardPieces().entrySet()) {
+        for (var entry : plugin.pieceManager().boardPieces().entrySet()) {
             if (attackerId.equals(entry.getValue().ownerId())) {
                 return entry.getKey();
             }
@@ -156,10 +151,10 @@ public class CombatManager {
 
     private Coordinate findTargetCoordinate(LivingEntity victim) {
         if (victim instanceof Player targetParticipant) {
-            if (!gameManager.isParticipant(targetParticipant)) {
+            if (!plugin.gameManager().isParticipant(targetParticipant)) {
                 return null;
             }
-            for (var entry : pieceManager.boardPieces().entrySet()) {
+            for (var entry : plugin.pieceManager().boardPieces().entrySet()) {
                 if (targetParticipant.getUniqueId().equals(entry.getValue().ownerId())) {
                     return entry.getKey();
                 }
@@ -177,15 +172,15 @@ public class CombatManager {
     }
 
     private void handleCommanderOrFriendlyFire(Player attacker, Coordinate myCoord, Coordinate targetCoord, Piece targetPiece, Optional<Coordinate> currentCommandTarget) {
-        Piece myPiece = pieceManager.boardPieces().get(myCoord);
+        Piece myPiece = plugin.pieceManager().boardPieces().get(myCoord);
         if (myPiece != null && myPiece.type() == PieceType.KING) {
             if (currentCommandTarget.isPresent() && currentCommandTarget.get().equals(targetCoord)) {
-                gameManager.clearCommandTarget(attacker.getUniqueId());
+                plugin.gameManager().clearCommandTarget(attacker.getUniqueId());
                 attacker.sendMessage(Component.text("%s 지휘를 해제했습니다.".formatted(targetPiece.type().displayName()), NamedTextColor.YELLOW));
                 attacker.playSound(attacker.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
                 Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, null));
             } else if (!targetPiece.isPlayerPiece()) {
-                gameManager.setCommandTarget(attacker.getUniqueId(), targetCoord);
+                plugin.gameManager().commandTarget(attacker.getUniqueId(), targetCoord);
                 attacker.sendMessage(Component.text("%s을(를) 지휘 대상으로 선택했습니다!".formatted(targetPiece.type().displayName()), NamedTextColor.GOLD));
                 attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
                 Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, targetCoord));
@@ -202,9 +197,9 @@ public class CombatManager {
         victim.setNoDamageTicks(0);
         victim.damage(damage, attacker);
 
-        gameManager.getStats(attacker.getUniqueId()).addDamageDealt(damage);
+        plugin.gameManager().stats(attacker.getUniqueId()).addDamageDealt(damage);
         if (victim instanceof Player playerTarget) {
-            gameManager.getStats(playerTarget.getUniqueId()).addDamageTaken(damage);
+            plugin.gameManager().stats(playerTarget.getUniqueId()).addDamageTaken(damage);
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> {
@@ -212,36 +207,36 @@ public class CombatManager {
             if (victim.getHealth() <= 0) {
                 handleKill(attacker, victim, targetCoord, attackCoord, attackingPiece, targetPiece);
             }
-            gameManager.clearCommandTarget(attacker.getUniqueId());
-            gameManager.nextTurn(pieceManager);
+            plugin.gameManager().clearCommandTarget(attacker.getUniqueId());
+            plugin.gameManager().nextTurn();
         });
     }
 
     private void handleKill(Player attacker, LivingEntity victim, Coordinate targetCoord, Coordinate attackCoord, Piece attackingPiece, Piece targetPiece) {
-        gameManager.getStats(attacker.getUniqueId()).addKill();
+        plugin.gameManager().stats(attacker.getUniqueId()).addKill();
         if (victim instanceof Player playerTarget) {
-            gameManager.getStats(playerTarget.getUniqueId()).addDeath();
+            plugin.gameManager().stats(playerTarget.getUniqueId()).addDeath();
             playerTarget.sendMessage(Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED));
             playerTarget.setGameMode(GameMode.SPECTATOR);
         }
 
         attacker.sendMessage(Component.text("%s을(를) 처치했습니다!".formatted(targetPiece.type().displayName()), NamedTextColor.AQUA));
-        pieceManager.removePiece(targetCoord);
-        pieceManager.removePiece(attackCoord);
-        pieceManager.placePiece(targetCoord, attackingPiece);
+        plugin.pieceManager().removePiece(targetCoord);
+        plugin.pieceManager().removePiece(attackCoord);
+        plugin.pieceManager().placePiece(targetCoord, attackingPiece);
 
         if (!(victim instanceof Player)) {
             victim.remove();
         }
 
         if (attackingPiece.isPlayerPiece()) {
-            attacker.teleport(boardManager.currentBoard().toCenterLocation(targetCoord).add(0, 1, 0));
+            attacker.teleport(plugin.boardManager().currentBoard().toCenterLocation(targetCoord).add(0, 1, 0));
         } else {
             relocateNPCEntity(attackCoord, targetCoord);
         }
 
         if (targetPiece.type() == PieceType.KING) {
-            gameManager.win(plugin, boardManager, pieceManager, timerManager, attackingPiece.team());
+            plugin.gameManager().win(attackingPiece.team());
         }
     }
 
@@ -249,12 +244,12 @@ public class CombatManager {
         NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
         NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
 
-        for (Entity entity : boardManager.currentBoard().origin().getWorld().getEntities()) {
+        for (Entity entity : plugin.boardManager().currentBoard().origin().getWorld().getEntities()) {
             Integer ex = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
             Integer ey = entity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
 
             if (ex != null && ey != null && from.x() == ex && from.y() == ey) {
-                entity.teleport(boardManager.currentBoard().toCenterLocation(to));
+                entity.teleport(plugin.boardManager().currentBoard().toCenterLocation(to));
                 entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, to.x());
                 entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, to.y());
                 break;

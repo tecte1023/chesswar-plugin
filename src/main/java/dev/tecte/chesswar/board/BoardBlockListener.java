@@ -1,7 +1,7 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.game.GameManager;
-import dev.tecte.chesswar.game.GamePhase;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

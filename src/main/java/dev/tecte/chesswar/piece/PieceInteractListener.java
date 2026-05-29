@@ -1,8 +1,8 @@
 package dev.tecte.chesswar.piece;
 
-import dev.tecte.chesswar.game.CombatManager;
-import dev.tecte.chesswar.game.GameManager;
-import dev.tecte.chesswar.game.GamePhase;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.manager.CombatManager;
+import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;

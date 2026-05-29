@@ -79,4 +79,18 @@ public class PieceItemUtils {
             return null;
         }
     }
+
+    public static void replacePlayerPieceItem(org.bukkit.entity.Player player, PieceType type) {
+        removePlayerPieceItems(player);
+        player.getInventory().addItem(createPieceItem(type));
+    }
+
+    public static void removePlayerPieceItems(org.bukkit.entity.Player player) {
+        for (int i = 0; i < player.getInventory().getSize(); i++) {
+            ItemStack item = player.getInventory().getItem(i);
+            if (isPieceItem(item)) {
+                player.getInventory().setItem(i, null);
+            }
+        }
+    }
 }

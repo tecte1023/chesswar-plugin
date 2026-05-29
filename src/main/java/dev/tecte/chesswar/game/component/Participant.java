@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.component;
 
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.team.Team;

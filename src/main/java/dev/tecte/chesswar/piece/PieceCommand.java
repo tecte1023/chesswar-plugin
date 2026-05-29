@@ -4,9 +4,9 @@ import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.game.GameManager;
-import dev.tecte.chesswar.game.GamePhase;
-import dev.tecte.chesswar.game.TimerManager;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.manager.GameManager;
+import dev.tecte.chesswar.game.manager.TimerManager;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -18,7 +18,6 @@ import org.bukkit.entity.Player;
 @RequiredArgsConstructor
 public class PieceCommand extends BaseCommand {
     private final GameManager gameManager;
-    private final PieceManager pieceManager;
     private final TimerManager timerManager;
 
     @Subcommand("select")
@@ -34,7 +33,7 @@ public class PieceCommand extends BaseCommand {
         }
 
         Coordinate coordinate = Coordinate.of(x, y);
-        gameManager.selectPiece(player, pieceManager, coordinate);
+        gameManager.selectPiece(player, coordinate);
 
         if (gameManager.areAllPiecesSelected()) {
             timerManager.accelerateTo(10);

@@ -15,6 +15,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -36,8 +37,22 @@ import java.util.UUID;
 @Accessors(fluent = true)
 public class PieceManager {
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
-    private final Map<Coordinate, UUID> pieceEntities = new HashMap<>();
+    private final Map<Coordinate, LivingEntity> pieceEntities = new HashMap<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
+
+    private final NamespacedKey typeKey;
+    private final NamespacedKey teamKey;
+    private final NamespacedKey coordXKey;
+    private final NamespacedKey coordYKey;
+    private final NamespacedKey isBarracksKey;
+
+    public PieceManager(Plugin plugin) {
+        typeKey = new NamespacedKey(plugin, "barracks_piece_type");
+        teamKey = new NamespacedKey(plugin, "barracks_piece_team");
+        coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
+        coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
+        isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
+    }
 
     public void setupMythicMobs(Plugin plugin) {
         Plugin mythicMobs = Bukkit.getPluginManager().getPlugin("MythicMobs");
@@ -73,8 +88,8 @@ public class PieceManager {
         boardPieces.put(coordinate, piece);
     }
 
-    public void registerPieceEntity(Coordinate coordinate, UUID entityId) {
-        pieceEntities.put(coordinate, entityId);
+    public void registerPieceEntity(Coordinate coordinate, LivingEntity entity) {
+        pieceEntities.put(coordinate, entity);
     }
 
     public void removePiece(Coordinate coordinate) {
@@ -90,9 +105,15 @@ public class PieceManager {
         spawnedEntities.add(entityId);
     }
 
-    public void clearSpawnedEntities(Plugin plugin, boolean onlyBarracks) {
-        NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
+    public void purgeEntity(Entity entity) {
+        if (entity == null) return;
+        if (entity instanceof LivingEntity living) {
+            pieceEntities.values().removeIf(e -> e.equals(living));
+        }
+        spawnedEntities.remove(entity.getUniqueId());
+    }
 
+    public void clearSpawnedEntities(boolean onlyBarracks) {
         for (java.util.Iterator<UUID> it = spawnedEntities.iterator(); it.hasNext(); ) {
             UUID entityId = it.next();
             Entity entity = Bukkit.getEntity(entityId);
@@ -115,7 +136,6 @@ public class PieceManager {
     }
 
     public void spawnPiece(
-            Plugin plugin,
             Location location,
             PieceType type,
             Team team,
@@ -135,11 +155,6 @@ public class PieceManager {
             }
 
             Entity entity = activeMob.getEntity().getBukkitEntity();
-            NamespacedKey typeKey = new NamespacedKey(plugin, "barracks_piece_type");
-            NamespacedKey teamKey = new NamespacedKey(plugin, "barracks_piece_team");
-            NamespacedKey coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
-            NamespacedKey coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
-            NamespacedKey isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
 
             entity.getPersistentDataContainer().set(typeKey, PersistentDataType.STRING, type.name());
             entity.getPersistentDataContainer().set(teamKey, PersistentDataType.STRING, team.name());
@@ -149,10 +164,23 @@ public class PieceManager {
             
             addSpawnedEntity(entity.getUniqueId());
 
-            if (!isBarracks) {
-                registerPieceEntity(logicCoord, entity.getUniqueId());
+            if (!isBarracks && entity instanceof LivingEntity living) {
+                registerPieceEntity(logicCoord, living);
             }
         });
+    }
+
+    public void handlePieceDeath(Entity entity) {
+        if (!spawnedEntities.contains(entity.getUniqueId())) {
+            return;
+        }
+
+        Integer x = entity.getPersistentDataContainer().get(coordXKey, PersistentDataType.INTEGER);
+        Integer y = entity.getPersistentDataContainer().get(coordYKey, PersistentDataType.INTEGER);
+
+        if (x != null && y != null) {
+            removePiece(Coordinate.of(x, y));
+        }
     }
 
     private String toPascalCase(String source) {

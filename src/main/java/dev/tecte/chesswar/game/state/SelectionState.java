@@ -1,10 +1,10 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.game.state;
 
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameManager;
+import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -17,24 +17,46 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 
 import java.util.Optional;
 
 @RequiredArgsConstructor
-public class PieceSelectionListener implements Listener {
+public class SelectionState implements GameState {
     private final ChessWar plugin;
-    private final GameManager gameManager;
+    private GameManager gameManager;
+
+    @Override
+    public void onEnter(Plugin plugin, GameManager gameManager) {
+        this.gameManager = gameManager;
+        GameState.super.onEnter(plugin, gameManager);
+        
+        // 물리적 공간 세팅 및 플레이어 텔레포트를 상태 진입 시점에 캡슐화하여 일괄 처리
+        this.plugin.boardManager().setupBarracks(this.plugin.pieceManager());
+        
+        gameManager.participants().values().forEach(p -> {
+            Player onlinePlayer = org.bukkit.Bukkit.getPlayer(p.playerId());
+            if (onlinePlayer != null) {
+                this.plugin.boardManager().teleportToBarracks(p.team(), onlinePlayer);
+            }
+        });
+    }
+
+    @Override
+    public GameState nextState() {
+        return new TurnOrderState(plugin);
+    }
+
+    @Override
+    public String displayName() {
+        return "기물 선택";
+    }
 
     @EventHandler
     public void onEntityInteract(PlayerInteractEntityEvent event) {
         Player player = event.getPlayer();
-
-        if (gameManager.phase() != GamePhase.PIECE_SELECTION) {
-            return;
-        }
 
         if (!gameManager.isParticipant(player)) {
             return;
@@ -62,7 +84,6 @@ public class PieceSelectionListener implements Listener {
         }
 
         Coordinate clickedCoordinate = Coordinate.of(coordX, coordY);
-
         PieceType pieceType = PieceType.valueOf(typeStr);
         Team pieceTeam = Team.valueOf(teamStr);
         Optional<Team> playerTeam = gameManager.findParticipant(player.getUniqueId()).map(Participant::team);

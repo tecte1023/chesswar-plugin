@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.manager;
 
 import org.bukkit.Difficulty;
 import org.bukkit.GameRule;

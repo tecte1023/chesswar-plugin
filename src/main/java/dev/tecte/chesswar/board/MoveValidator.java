@@ -1,6 +1,6 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.game.GameManager;
+import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.team.Team;

@@ -1,6 +1,8 @@
-package dev.tecte.chesswar.game;
+package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.component.Participant;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +27,6 @@ public class ScoreboardManager {
     private final Map<UUID, FastBoard> boards = new HashMap<>();
 
     private final ChessWar plugin;
-    private final GameManager gameManager;
-    private final TimerManager timerManager;
 
     private BukkitTask heartbeatTask;
 
@@ -68,7 +68,7 @@ public class ScoreboardManager {
 
     private void applyBoard(FastBoard board) {
         String turnPlayerName = "없음";
-        Optional<UUID> currentUuid = gameManager.currentTurnPlayer();
+        Optional<UUID> currentUuid = plugin.gameManager().currentTurnPlayer();
 
         if (currentUuid.isPresent()) {
             Player p = Bukkit.getPlayer(currentUuid.get());
@@ -80,7 +80,7 @@ public class ScoreboardManager {
                 Component.empty(),
                 Component.text()
                         .append(Component.text("상태: ", NamedTextColor.YELLOW))
-                        .append(Component.text(gameManager.phase().displayName(), NamedTextColor.WHITE))
+                        .append(Component.text(plugin.gameManager().phase().displayName(), NamedTextColor.WHITE))
                         .build(),
                 Component.text()
                         .append(Component.text("현재 턴: ", NamedTextColor.YELLOW))
@@ -88,7 +88,7 @@ public class ScoreboardManager {
                         .build(),
                 Component.text()
                         .append(Component.text("남은 시간: ", NamedTextColor.YELLOW))
-                        .append(Component.text(timerManager.remainingSeconds() + "초", NamedTextColor.RED))
+                        .append(Component.text(plugin.timerManager().remainingSeconds() + "초", NamedTextColor.RED))
                         .build(),
                 Component.empty(),
                 Component.text("tecte.dev", NamedTextColor.GRAY)

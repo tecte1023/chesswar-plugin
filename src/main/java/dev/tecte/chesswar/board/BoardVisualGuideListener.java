@@ -1,7 +1,7 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.game.GameResetEvent;
-import dev.tecte.chesswar.game.TurnStartedEvent;
+import dev.tecte.chesswar.game.component.GameResetEvent;
+import dev.tecte.chesswar.game.component.TurnStartedEvent;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
