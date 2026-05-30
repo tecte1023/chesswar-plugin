@@ -53,7 +53,7 @@ public class PieceInteractListener implements Listener {
 
         if (targetTeam != null) {
             gameManager.join(player, targetTeam);
-            player.sendMessage(Component.text(targetTeam.displayName() + "에 참가했습니다!", targetTeam.textColor()));
+            player.sendMessage(Component.text(targetTeam.teamName() + "에 참가했습니다!", targetTeam.color()));
         }
     }
 

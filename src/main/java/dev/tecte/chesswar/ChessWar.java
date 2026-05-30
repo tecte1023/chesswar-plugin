@@ -71,6 +71,8 @@ public class ChessWar extends JavaPlugin {
     private void registerListeners() {
         PluginManager pluginManager = getServer().getPluginManager();
 
+        pluginManager.registerEvents(boardManager, this);
+        pluginManager.registerEvents(pieceManager, this);
         pluginManager.registerEvents(new PieceEntityLifecycleListener(pieceManager), this);
         pluginManager.registerEvents(new GameEntityListener(pieceManager), this);
         pluginManager.registerEvents(new PieceSelectionListener(this, gameManager), this);
@@ -79,6 +81,7 @@ public class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new PieceInteractListener(gameManager, combatManager), this);
         pluginManager.registerEvents(new PieceDamageListener(combatManager), this);
         pluginManager.registerEvents(new BoardVisualGuideListener(boardVisualManager), this);
+        pluginManager.registerEvents(combatManager, this);
         pluginManager.registerEvents(timerManager, this);
     }
 

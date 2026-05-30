@@ -3,9 +3,9 @@ package dev.tecte.chesswar.board;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
 
-/**
- * 체스판의 기물 배치 및 초기 상태를 정의하는 유틸리티 클래스입니다.
- */
+import java.util.HashMap;
+import java.util.Map;
+
 public class ChessFormation {
     public static final int BOARD_SIZE = 8;
     public static final int KING_X = 4;
@@ -16,12 +16,13 @@ public class ChessFormation {
     public static final int BLACK_BACK_RANK = 7;
     public static final int BLACK_PAWN_RANK = 6;
 
-    /**
-     * 특정 좌표에 배치되어야 할 기본 기물 유형을 반환합니다.
-     */
-    public static PieceType getInitialPieceType(Coordinate coordinate) {
-        int x = coordinate.x();
-        int y = coordinate.y();
+    public static int getCampRankOffset(final Team team) {
+        return (team == Team.WHITE) ? -5 : 12;
+    }
+
+    public static PieceType getInitialPieceType(final Coordinate coordinate) {
+        final int x = coordinate.x();
+        final int y = coordinate.y();
 
         if (y == WHITE_PAWN_RANK || y == BLACK_PAWN_RANK) {
             return PieceType.PAWN;
@@ -37,12 +38,24 @@ public class ChessFormation {
         };
     }
 
-    /**
-     * 각 팀의 킹이 위치해야 할 초기 좌표를 반환합니다.
-     */
-    public static Coordinate getKingCoordinate(Team team) {
+    public static Coordinate getKingCoordinate(final Team team) {
         return (team == Team.WHITE) 
                 ? Coordinate.of(KING_X, WHITE_BACK_RANK) 
                 : Coordinate.of(KING_X, BLACK_BACK_RANK);
+    }
+
+    public static Team getTeamAt(final Coordinate coordinate) {
+        return (coordinate.y() < 4) ? Team.WHITE : Team.BLACK;
+    }
+
+    public static Map<Coordinate, PieceType> getFullInitialLayout() {
+        final Map<Coordinate, PieceType> layout = new HashMap<>();
+        for (final int y : new int[]{WHITE_BACK_RANK, WHITE_PAWN_RANK, BLACK_PAWN_RANK, BLACK_BACK_RANK}) {
+            for (int x = 0; x < BOARD_SIZE; x++) {
+                final Coordinate coord = Coordinate.of(x, y);
+                layout.put(coord, getInitialPieceType(coord));
+            }
+        }
+        return layout;
     }
 }

@@ -39,7 +39,7 @@ public class BoardVisualManager {
         Coordinate from = null;
         Team myTeam = null;
 
-        Optional<Coordinate> commandTarget = plugin.gameManager().commandTarget(player.getUniqueId());
+        Optional<Coordinate> commandTarget = plugin.gameManager().findCommandTarget(player.getUniqueId());
 
         if (commandTarget.isPresent()) {
             from = commandTarget.get();
@@ -136,7 +136,7 @@ public class BoardVisualManager {
             String name = (player != null) ? player.getName() : "오프라인";
 
             lines.add(net.kyori.adventure.text.Component.text()
-                    .append(net.kyori.adventure.text.Component.text(name, p.team().textColor()))
+                    .append(net.kyori.adventure.text.Component.text(name, p.team().color()))
                     .append(net.kyori.adventure.text.Component.text(" | ", net.kyori.adventure.text.format.NamedTextColor.GRAY))
                     .append(net.kyori.adventure.text.Component.text("⚔" + (int) s.getDamageDealt(), net.kyori.adventure.text.format.NamedTextColor.RED))
                     .append(net.kyori.adventure.text.Component.text(" 🛡" + (int) s.getDamageTaken(), net.kyori.adventure.text.format.NamedTextColor.BLUE))

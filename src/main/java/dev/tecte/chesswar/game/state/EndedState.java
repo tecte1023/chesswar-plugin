@@ -1,6 +1,7 @@
 package dev.tecte.chesswar.game.state;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.plugin.Plugin;
@@ -10,20 +11,25 @@ public class EndedState implements GameState {
     private final ChessWar plugin;
 
     @Override
-    public void onEnter(Plugin plugin, GameManager gameManager) {
+    public void onEnter(final ChessWar plugin, final GameManager gameManager) {
         GameState.super.onEnter(plugin, gameManager);
         
-        this.plugin.timerManager().stopTimer();
-        this.plugin.boardVisualManager().displayStatisticsHologram();
+        plugin.timerManager().stopTimer();
+        plugin.boardVisualManager().displayStatisticsHologram();
     }
 
     @Override
     public GameState nextState() {
-        return new WaitingState();
+        return new WaitingState(plugin);
+    }
+
+    @Override
+    public GamePhase phase() {
+        return GamePhase.ENDED;
     }
 
     @Override
     public String displayName() {
-        return "게임 종료";
+        return "종료";
     }
 }

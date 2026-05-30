@@ -7,6 +7,7 @@ import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.game.manager.TimerManager;
+import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

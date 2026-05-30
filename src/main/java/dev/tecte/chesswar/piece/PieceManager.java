@@ -1,6 +1,9 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.board.ChessBoard;
+import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.team.Team;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MobManager;
@@ -20,11 +23,15 @@ import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.util.Vector;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import dev.tecte.chesswar.game.component.GameResetEvent;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -35,7 +42,7 @@ import java.util.UUID;
 @Slf4j
 @Getter
 @Accessors(fluent = true)
-public class PieceManager {
+public class PieceManager implements Listener {
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final Map<Coordinate, LivingEntity> pieceEntities = new HashMap<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
@@ -52,6 +59,40 @@ public class PieceManager {
         coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
         coordYKey = new NamespacedKey(plugin, "barracks_piece_y");
         isBarracksKey = new NamespacedKey(plugin, "is_barracks_entity");
+    }
+
+    @EventHandler
+    public void onGameReset(GameResetEvent event) {
+        clearSpawnedEntities(false);
+        reset();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            resetStats(player);
+            PieceItemUtils.removePlayerPieceItems(player);
+        }
+    }
+
+    public void spawnInitialLayout(final ChessBoard mainBoard, final Collection<Participant> participants) {
+        ChessFormation.getFullInitialLayout().forEach((coord, type) -> {
+            final Team team = ChessFormation.getTeamAt(coord);
+            final Vector direction = (team == Team.WHITE) ? mainBoard.forward().getDirection() : mainBoard.forward().getDirection().multiply(-1);
+
+            final Optional<Participant> participant = participants.stream()
+                    .filter(p -> coord.equals(p.initialCoordinate()))
+                    .findFirst();
+
+            final Piece piece = participant.map(p -> Piece.of(p.playerId(), team, type))
+                    .orElseGet(() -> Piece.of(null, team, type));
+
+            placePiece(coord, piece);
+            spawnPiece(
+                    mainBoard.toCenterLocation(coord),
+                    type,
+                    team,
+                    coord,
+                    direction,
+                    false
+            );
+        });
     }
 
     public void setupMythicMobs(Plugin plugin) {

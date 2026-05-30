@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.game.state;
 
+import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.manager.GameManager;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
@@ -16,7 +17,7 @@ public interface GameState extends Listener {
      * @param plugin 플러그인 인스턴스 (리스너 등록용)
      * @param gameManager 게임 매니저 참조
      */
-    default void onEnter(Plugin plugin, GameManager gameManager) {
+    default void onEnter(dev.tecte.chesswar.ChessWar plugin, GameManager gameManager) {
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -34,7 +35,33 @@ public interface GameState extends Listener {
     GameState nextState();
 
     /**
+     * 현재 상태에 매핑되는 GamePhase를 반환함.
+     */
+    GamePhase phase();
+
+    /**
      * 현재 상태의 이름을 반환 (디버깅 및 UI용).
      */
     String displayName();
+
+    /**
+     * 플레이어의 준비 완료 요청을 처리함.
+     */
+    default void handleReadyUp(GameManager gameManager, org.bukkit.entity.Player player, org.bukkit.Location location) {
+        player.sendMessage(net.kyori.adventure.text.Component.text("지금은 준비를 완료할 수 있는 시간이 아닙니다!", net.kyori.adventure.text.format.NamedTextColor.RED));
+    }
+
+    /**
+     * 플레이어의 기물 선택 요청을 처리함.
+     */
+    default void selectPiece(GameManager gameManager, org.bukkit.entity.Player player, dev.tecte.chesswar.board.Coordinate coordinate) {
+        player.sendMessage(net.kyori.adventure.text.Component.text("지금은 기물을 선택할 수 있는 시간이 아닙니다!", net.kyori.adventure.text.format.NamedTextColor.RED));
+    }
+
+    /**
+     * 다음 턴으로 넘어가는 로직을 처리함.
+     */
+    default void nextTurn(GameManager gameManager) {
+        // 기본적으로 아무것도 하지 않음
+    }
 }

@@ -3,6 +3,7 @@ package dev.tecte.chesswar.game.state;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.piece.PieceItemUtils;
@@ -28,49 +29,49 @@ public class TurnOrderState implements GameState {
     private final ChessWar plugin;
 
     @Override
-    public void onEnter(Plugin plugin, GameManager gameManager) {
+    public void onEnter(final ChessWar plugin, final GameManager gameManager) {
         GameState.super.onEnter(plugin, gameManager);
         
         enforceMandatoryKing(gameManager);
         assignRandomRemainingPieces(gameManager);
         gameManager.spawnAllPiecesOnMainBoard();
         
-        int whiteCount = (int) gameManager.participants().values().stream().filter(p -> p.team() == Team.WHITE).count();
-        int blackCount = (int) gameManager.participants().values().stream().filter(p -> p.team() == Team.BLACK).count();
-        this.plugin.boardManager().setupTurnOrderChests(whiteCount, blackCount);
+        final int whiteCount = (int) gameManager.participants().values().stream().filter(p -> p.team() == Team.WHITE).count();
+        final int blackCount = (int) gameManager.participants().values().stream().filter(p -> p.team() == Team.BLACK).count();
+        plugin.boardManager().setupTurnOrderChests(whiteCount, blackCount);
         
-        this.plugin.timerManager().startTurnTimer(gameManager.timerSettings().turnOrderSelectionTime());
+        plugin.timerManager().startTurnTimer(gameManager.timerSettings().turnOrderSelectionTime());
     }
 
-    private void enforceMandatoryKing(GameManager gameManager) {
-        Set<Team> teamsWithKings = new HashSet<>();
+    private void enforceMandatoryKing(final GameManager gameManager) {
+        final Set<Team> teamsWithKings = new HashSet<>();
         gameManager.participants().values().forEach(p -> {
             if (p.initialCoordinate() != null && ChessFormation.getInitialPieceType(p.initialCoordinate()) == PieceType.KING) {
                 teamsWithKings.add(p.team());
             }
         });
 
-        for (Team team : Team.values()) {
+        for (final Team team : Team.values()) {
             if (teamsWithKings.contains(team)) continue;
 
-            List<Participant> teamMembers = gameManager.participants().values().stream()
+            final List<Participant> teamMembers = gameManager.participants().values().stream()
                     .filter(p -> p.team() == team)
                     .toList();
 
             if (teamMembers.isEmpty()) continue;
 
-            Participant luckyMember = teamMembers.get((int) (Math.random() * teamMembers.size()));
-            Coordinate kingCoord = ChessFormation.getKingCoordinate(team);
+            final Participant luckyMember = teamMembers.get((int) (Math.random() * teamMembers.size()));
+            final Coordinate kingCoord = ChessFormation.getKingCoordinate(team);
 
-            gameManager.participants().put(luckyMember.playerId(), Participant.of(luckyMember.playerId(), team, kingCoord));
+            luckyMember.initialCoordinate(kingCoord);
 
-            Player player = Bukkit.getPlayer(luckyMember.playerId());
+            final Player player = Bukkit.getPlayer(luckyMember.playerId());
             if (player != null) {
                 player.sendMessage(Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD));
-                this.plugin.pieceManager().applyStats(player, PieceType.KING);
+                plugin.pieceManager().applyStats(player, PieceType.KING);
 
                 for (int i = 0; i < player.getInventory().getSize(); i++) {
-                    ItemStack item = player.getInventory().getItem(i);
+                    final ItemStack item = player.getInventory().getItem(i);
                     if (PieceItemUtils.isPieceItem(item)) {
                         player.getInventory().setItem(i, null);
                     }
@@ -81,29 +82,29 @@ public class TurnOrderState implements GameState {
         }
     }
 
-    private void assignRandomRemainingPieces(GameManager gameManager) {
-        for (Team team : Team.values()) {
-            List<Participant> teamMembersWithoutPiece = gameManager.participants().values().stream()
+    private void assignRandomRemainingPieces(final GameManager gameManager) {
+        for (final Team team : Team.values()) {
+            final List<Participant> teamMembersWithoutPiece = gameManager.participants().values().stream()
                     .filter(p -> p.team() == team && p.initialCoordinate() == null)
                     .toList();
 
             if (teamMembersWithoutPiece.isEmpty()) continue;
 
-            Set<Coordinate> takenCoordinates = gameManager.participants().values().stream()
+            final Set<Coordinate> takenCoordinates = gameManager.participants().values().stream()
                     .filter(p -> p.team() == team && p.initialCoordinate() != null)
                     .map(Participant::initialCoordinate)
                     .collect(Collectors.toSet());
 
-            List<Coordinate> availableCoordinates = new ArrayList<>();
-            int backRank = (team == Team.WHITE) ? ChessFormation.WHITE_BACK_RANK : ChessFormation.BLACK_BACK_RANK;
-            int pawnRank = (team == Team.WHITE) ? ChessFormation.WHITE_PAWN_RANK : ChessFormation.BLACK_PAWN_RANK;
+            final List<Coordinate> availableCoordinates = new ArrayList<>();
+            final int backRank = (team == Team.WHITE) ? ChessFormation.WHITE_BACK_RANK : ChessFormation.BLACK_BACK_RANK;
+            final int pawnRank = (team == Team.WHITE) ? ChessFormation.WHITE_PAWN_RANK : ChessFormation.BLACK_PAWN_RANK;
 
             for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
-                Coordinate backCoord = Coordinate.of(x, backRank);
+                final Coordinate backCoord = Coordinate.of(x, backRank);
                 if (!takenCoordinates.contains(backCoord)) {
                     availableCoordinates.add(backCoord);
                 }
-                Coordinate pawnCoord = Coordinate.of(x, pawnRank);
+                final Coordinate pawnCoord = Coordinate.of(x, pawnRank);
                 if (!takenCoordinates.contains(pawnCoord)) {
                     availableCoordinates.add(pawnCoord);
                 }
@@ -112,14 +113,14 @@ public class TurnOrderState implements GameState {
             java.util.Collections.shuffle(availableCoordinates);
 
             for (int i = 0; i < teamMembersWithoutPiece.size() && i < availableCoordinates.size(); i++) {
-                Participant p = teamMembersWithoutPiece.get(i);
-                Coordinate randomCoord = availableCoordinates.get(i);
-                gameManager.participants().put(p.playerId(), Participant.of(p.playerId(), team, randomCoord));
+                final Participant p = teamMembersWithoutPiece.get(i);
+                final Coordinate randomCoord = availableCoordinates.get(i);
+                p.initialCoordinate(randomCoord);
 
-                Player player = Bukkit.getPlayer(p.playerId());
+                final Player player = Bukkit.getPlayer(p.playerId());
                 if (player != null) {
-                    PieceType type = ChessFormation.getInitialPieceType(randomCoord);
-                    this.plugin.pieceManager().applyStats(player, type);
+                    final PieceType type = ChessFormation.getInitialPieceType(randomCoord);
+                    plugin.pieceManager().applyStats(player, type);
                     PieceItemUtils.replacePlayerPieceItem(player, type);
                     player.sendMessage(Component.text("기물을 선택하지 않아 무작위 기물(" + type.displayName() + ")이 배정되었습니다.", NamedTextColor.YELLOW));
                 }
@@ -133,7 +134,59 @@ public class TurnOrderState implements GameState {
     }
 
     @Override
+    public GamePhase phase() {
+        return GamePhase.TURN_ORDER;
+    }
+
+    @Override
     public String displayName() {
-        return "순서 정하기";
+        return "순서 조율";
+    }
+
+    @Override
+    public void handleReadyUp(final GameManager gameManager, final Player player, final org.bukkit.Location location) {
+        if (gameManager.isReady(player.getUniqueId())) {
+            player.sendMessage(Component.text("이미 준비 완료 상태입니다.", NamedTextColor.YELLOW));
+            return;
+        }
+
+        if (location != null) {
+            final boolean isMyChest = gameManager.findParticipant(player.getUniqueId())
+                    .map(p -> plugin.boardManager().isTeamChest(location, p.team()))
+                    .orElse(false);
+
+            if (!isMyChest) {
+                player.sendMessage(Component.text("자신의 팀 막사에 있는 상자에서만 준비를 완료할 수 있습니다!", NamedTextColor.RED));
+                return;
+            }
+        }
+
+        gameManager.toggleReady(player.getUniqueId(), true);
+        player.sendMessage(Component.text("준비 완료! 모든 인원이 준비되면 게임이 시작됩니다.", NamedTextColor.GREEN));
+
+        final java.util.Optional<Participant> participant = gameManager.findParticipant(player.getUniqueId());
+        participant.ifPresent(p -> {
+            final Team team = p.team();
+            final Component msg = Component.text(player.getName() + "님이 준비되었습니다! ", NamedTextColor.GRAY)
+                    .append(Component.text("(" + gameManager.countReady(team) + "/" + gameManager.countTeam(team) + ")", NamedTextColor.AQUA));
+
+            for (final Participant other : gameManager.participants().values()) {
+                if (other.team() == team) {
+                    final Player online = player.getServer().getPlayer(other.playerId());
+                    if (online != null) {
+                        online.sendMessage(msg);
+                    }
+                }
+            }
+        });
+
+        if (gameManager.areAllParticipantsReady()) {
+            Bukkit.broadcast(Component.text()
+                    .append(Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text("모든 플레이어가 준비를 마쳤습니다! " + gameManager.timerSettings().readyAccelerateTime() + "초 후 전투가 시작됩니다.", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .build());
+            
+            // TODO: 타이머 가속 로직이 여기에 올 수 있음
+        }
     }
 }

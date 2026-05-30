@@ -43,7 +43,7 @@ public class StatsCommand extends BaseCommand {
             String name = (participantPlayer != null) ? participantPlayer.getName() : "오프라인";
 
             content = content.append(Component.text()
-                    .append(Component.text("-" + name + " (" + p.team().displayName() + ")\n", p.team().textColor()))
+                    .append(Component.text("-" + name + " (" + p.team().teamName() + ")\n", p.team().color()))
                     .append(Component.text("  가한 피해: " + (int) s.getDamageDealt() + "\n", NamedTextColor.DARK_GRAY))
                     .append(Component.text("  받은 피해: " + (int) s.getDamageTaken() + "\n", NamedTextColor.DARK_GRAY))
                     .append(Component.text("  킬/데스: " + s.getKills() + "/" + s.getDeaths() + "\n\n", NamedTextColor.DARK_GRAY))

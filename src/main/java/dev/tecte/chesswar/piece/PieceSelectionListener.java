@@ -86,8 +86,8 @@ public class PieceSelectionListener implements Listener {
                 .appendSpace()
                 .append(Component.text("[ " + type.symbol() + " "))
                 .append(Component.text(
-                        team.displayName() + " " + type.displayName(),
-                        team.textColor(),
+                        team.teamName() + " " + type.displayName(),
+                        team.color(),
                         TextDecoration.BOLD
                 ))
                 .append(Component.text(" ]", NamedTextColor.WHITE))

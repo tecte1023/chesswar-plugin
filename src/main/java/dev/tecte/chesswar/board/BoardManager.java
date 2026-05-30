@@ -22,6 +22,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import dev.tecte.chesswar.game.component.GameResetEvent;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -32,7 +35,7 @@ import java.util.Set;
 @Slf4j
 @Getter
 @Accessors(fluent = true)
-public class BoardManager {
+public class BoardManager implements Listener {
     public static final String TURN_ORDER_KEY = "turn_order";
     public static final String READY_BUTTON_KEY = "ready_button";
 
@@ -47,6 +50,11 @@ public class BoardManager {
     public BoardManager(Plugin plugin) {
         this.readyKey = new NamespacedKey(plugin, READY_BUTTON_KEY);
         this.orderKey = new NamespacedKey(plugin, TURN_ORDER_KEY);
+    }
+
+    @EventHandler
+    public void onGameReset(GameResetEvent event) {
+        clearBarracksChests();
     }
 
     public boolean hasBoard() {

@@ -66,7 +66,7 @@ public class AdminCommand extends BaseCommand {
     @Subcommand("join")
     public void onJoin(Player player, Team team) {
         gameManager.join(player, team);
-        player.sendMessage(Component.text("[Admin] " + team.displayName() + "에 강제 참가했습니다!", team.textColor()));
+        player.sendMessage(Component.text("[Admin] " + team.teamName() + "에 강제 참가했습니다!", team.color()));
     }
 
     private BlockFace getCardinalDirection(Player player) {
