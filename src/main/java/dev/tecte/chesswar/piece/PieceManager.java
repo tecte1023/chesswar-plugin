@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
@@ -43,6 +44,7 @@ import java.util.UUID;
 @Getter
 @Accessors(fluent = true)
 public class PieceManager implements Listener {
+    private final ChessWar plugin;
     private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
     private final Map<Coordinate, LivingEntity> pieceEntities = new HashMap<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
@@ -53,7 +55,8 @@ public class PieceManager implements Listener {
     private final NamespacedKey coordYKey;
     private final NamespacedKey isBarracksKey;
 
-    public PieceManager(Plugin plugin) {
+    public PieceManager(ChessWar plugin) {
+        this.plugin = plugin;
         typeKey = new NamespacedKey(plugin, "barracks_piece_type");
         teamKey = new NamespacedKey(plugin, "barracks_piece_team");
         coordXKey = new NamespacedKey(plugin, "barracks_piece_x");
@@ -263,5 +266,61 @@ public class PieceManager implements Listener {
         boardPieces.clear();
         pieceEntities.clear();
         spawnedEntities.clear();
+    }
+
+    public Optional<Coordinate> findCoordinateByEntity(final Entity entity) {
+        if (entity instanceof Player player) {
+            return boardPieces.entrySet().stream()
+                    .filter(entry -> player.getUniqueId().equals(entry.getValue().ownerId()))
+                    .map(Map.Entry::getKey)
+                    .findFirst();
+        }
+
+        return pieceEntities.entrySet().stream()
+                .filter(entry -> entry.getValue().equals(entity))
+                .map(Map.Entry::getKey)
+                .findFirst();
+    }
+
+    public void movePiece(final Coordinate from, final Coordinate to) {
+        final Piece piece = boardPieces.get(from);
+        if (piece == null) return;
+
+        relocateEntity(from, to);
+        boardPieces.remove(from);
+        boardPieces.put(to, piece);
+    }
+
+    public void capturePiece(final Coordinate attackerCoord, final Coordinate victimCoord) {
+        final Piece victim = boardPieces.get(victimCoord);
+        if (victim == null) return;
+
+        removePiece(victimCoord);
+        movePiece(attackerCoord, victimCoord);
+    }
+
+    private void relocateEntity(final Coordinate from, final Coordinate to) {
+        final LivingEntity entity = pieceEntities.get(from);
+        final ChessBoard board = plugin.boardManager().currentBoard();
+        if (board == null) return;
+
+        final Location targetLocation = board.toCenterLocation(to);
+
+        if (entity != null) {
+            entity.teleport(targetLocation);
+            entity.getPersistentDataContainer().set(coordXKey, PersistentDataType.INTEGER, to.x());
+            entity.getPersistentDataContainer().set(coordYKey, PersistentDataType.INTEGER, to.y());
+
+            pieceEntities.remove(from);
+            pieceEntities.put(to, entity);
+        }
+
+        final Piece piece = boardPieces.get(from);
+        if (piece != null && piece.isPlayerPiece()) {
+            final Player player = Bukkit.getPlayer(piece.ownerId());
+            if (player != null) {
+                player.teleport(targetLocation.clone().add(0, 1, 0));
+            }
+        }
     }
 }

@@ -9,14 +9,14 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 public class TimerContext {
     private int remainingSeconds;
-    private int whiteTeamTime = 600;
-    private int blackTeamTime = 600;
+    private int whiteTeamTime;
+    private int blackTeamTime;
     private boolean running = false;
 
-    public void reset() {
+    public void reset(final int defaultTeamTime) {
         remainingSeconds = 0;
-        whiteTeamTime = 600;
-        blackTeamTime = 600;
+        whiteTeamTime = defaultTeamTime;
+        blackTeamTime = defaultTeamTime;
         running = false;
     }
 }
