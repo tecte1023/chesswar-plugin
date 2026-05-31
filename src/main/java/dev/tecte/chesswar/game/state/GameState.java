@@ -61,7 +61,28 @@ public interface GameState extends Listener {
     /**
      * 다음 턴으로 넘어가는 로직을 처리함.
      */
-    default void nextTurn(GameManager gameManager) {
+    default void nextTurn(final GameManager gameManager) {
         // 기본적으로 아무것도 하지 않음
+    }
+
+    /**
+     * 플레이어의 턴이 시작되었을 때 실행되는 로직.
+     */
+    default void onTurnStart(final GameManager gameManager, final org.bukkit.entity.Player player) {
+        // 기본적으로 아무것도 하지 않음
+    }
+
+    /**
+     * 타이머가 1초마다 틱될 때 실행되는 로직.
+     */
+    default void onTimerTick(final GameManager gameManager, final dev.tecte.chesswar.game.manager.TimerManager timerManager) {
+        // 기본적으로 아무것도 하지 않음
+    }
+
+    /**
+     * 타이머가 만료되었을 때 실행되는 로직.
+     */
+    default void onTimerExpire(final GameManager gameManager) {
+        gameManager.advancePhase();
     }
 }

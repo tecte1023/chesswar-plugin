@@ -40,7 +40,7 @@ public class TurnOrderState implements GameState {
         final int blackCount = (int) gameManager.participants().values().stream().filter(p -> p.team() == Team.BLACK).count();
         plugin.boardManager().setupTurnOrderChests(whiteCount, blackCount);
         
-        plugin.timerManager().startTurnTimer(gameManager.timerSettings().turnOrderSelectionTime());
+        plugin.timerManager().startTimer(gameManager.timerSettings().turnOrderSelectionTime());
     }
 
     private void enforceMandatoryKing(final GameManager gameManager) {
@@ -136,6 +136,13 @@ public class TurnOrderState implements GameState {
     @Override
     public GamePhase phase() {
         return GamePhase.TURN_ORDER;
+    }
+
+    @Override
+    public void onTimerTick(final GameManager gameManager, final dev.tecte.chesswar.game.manager.TimerManager timerManager) {
+        if (gameManager.areAllParticipantsReady()) {
+            timerManager.accelerateTo(gameManager.timerSettings().readyAccelerateTime());
+        }
     }
 
     @Override

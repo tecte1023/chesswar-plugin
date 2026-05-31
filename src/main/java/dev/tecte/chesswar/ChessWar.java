@@ -9,6 +9,7 @@ import dev.tecte.chesswar.board.BoardVisualManager;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.admin.GameCommand;
 import dev.tecte.chesswar.game.admin.StatsCommand;
+import dev.tecte.chesswar.game.listener.CombatListener;
 import dev.tecte.chesswar.game.listener.GameEntityListener;
 import dev.tecte.chesswar.game.listener.GameReadyListener;
 import dev.tecte.chesswar.game.manager.CombatManager;
@@ -59,11 +60,11 @@ public class ChessWar extends JavaPlugin {
     private void initializeManagers() {
         boardManager = new BoardManager(this);
         pieceManager = new PieceManager(this);
-        environmentManager = new EnvironmentManager();
+        environmentManager = new EnvironmentManager(this);
         gameManager = new GameManager(this);
         moveValidator = new MoveValidator(gameManager, pieceManager);
         boardVisualManager = new BoardVisualManager(this);
-        timerManager = new TimerManager(this, gameManager);
+        timerManager = new TimerManager(this);
         combatManager = new CombatManager(this);
         scoreboardManager = new ScoreboardManager(this);
     }
@@ -81,8 +82,10 @@ public class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new PieceInteractListener(gameManager, combatManager), this);
         pluginManager.registerEvents(new PieceDamageListener(combatManager), this);
         pluginManager.registerEvents(new BoardVisualGuideListener(boardVisualManager), this);
-        pluginManager.registerEvents(combatManager, this);
+        pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(timerManager, this);
+        pluginManager.registerEvents(scoreboardManager, this);
+        pluginManager.registerEvents(environmentManager, this);
     }
 
     private void registerCommands() {

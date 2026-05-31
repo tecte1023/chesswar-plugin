@@ -52,7 +52,7 @@ public class AdminCommand extends BaseCommand {
         ChessBoard board = new ChessBoard(player.getLocation(), forward, 3);
 
         boardManager.currentBoard(board);
-        environmentManager.optimize(board.origin().getWorld());
+        environmentManager.configure(board.origin().getWorld());
 
         player.sendMessage(Component.text("체스판이 설정되었습니다! (3x3 배율)", NamedTextColor.GREEN));
         player.sendMessage(Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
