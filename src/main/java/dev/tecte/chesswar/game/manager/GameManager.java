@@ -128,6 +128,19 @@ public class GameManager {
         return count;
     }
 
+    public void eliminate(final UUID playerId) {
+        final Participant participant = participants.get(playerId);
+        if (participant == null) return;
+
+        participant.statistics().addDeath();
+
+        final Player player = Bukkit.getPlayer(playerId);
+        if (player != null) {
+            player.sendMessage(Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED));
+            player.setGameMode(GameMode.SPECTATOR);
+        }
+    }
+
     public Statistics stats(final UUID playerId) {
         final Participant participant = participants.get(playerId);
 

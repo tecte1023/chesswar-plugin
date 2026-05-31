@@ -1,53 +1,45 @@
 package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.game.component.GamePhase;
-import dev.tecte.chesswar.game.component.Participant;
-import dev.tecte.chesswar.game.component.PhaseTimerSettings;
+import dev.tecte.chesswar.game.component.GameResetEvent;
 import dev.tecte.chesswar.game.component.TimerContext;
 import dev.tecte.chesswar.game.component.TurnStartedEvent;
+import dev.tecte.chesswar.game.state.GameState;
 import dev.tecte.chesswar.team.Team;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
+import org.bukkit.Bukkit;
+import org.bukkit.Sound;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
 
-import java.util.Optional;
 import java.util.UUID;
+import java.util.logging.Level;
 
-@Getter
-@Accessors(fluent = true)
-@RequiredArgsConstructor
 public class TimerManager implements Listener {
-    private final ChessWar plugin;
-    private final GameManager gameManager;
+    private static final Component OPEN_BRACKET = Component.text("[ ", NamedTextColor.GRAY);
 
-    private BukkitTask heartbeatTask;
+    private static final Component CLOSE_BRACKET = Component.text(" ]", NamedTextColor.GRAY);
+
+    private static final int TEAM_TIME_MULTIPLIER = 10;
+
+    private static final long TICKS_PER_SECOND = 20L;
+
+    private final ChessWar plugin;
 
     private final TimerContext context = new TimerContext();
 
-    public void startCountdown(int startCount, Runnable onTick, Runnable onComplete) {
-        new BukkitRunnable() {
-            int count = startCount;
+    private BukkitTask heartbeatTask;
 
-            @Override
-            public void run() {
-                if (count > 0) {
-                    if (onTick != null) {
-                        onTick.run();
-                    }
-                    count--;
-                } else {
-                    cancel();
-                    if (onComplete != null) {
-                        onComplete.run();
-                    }
-                }
-            }
-        }.runTaskTimer(plugin, 0L, 20L);
+    public TimerManager(final ChessWar plugin) {
+        this.plugin = plugin;
+
+        reset();
+        startHeartbeat();
     }
 
     public void startHeartbeat() {
@@ -58,35 +50,35 @@ public class TimerManager implements Listener {
         heartbeatTask = new BukkitRunnable() {
             @Override
             public void run() {
-                tick();
+                try {
+                    tick();
+                } catch (final Exception e) {
+                    plugin.getLogger().severe("Timer heartbeat error: [" + e.getClass().getSimpleName() + "] " + e.getMessage());
+                }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, TICKS_PER_SECOND);
     }
 
     public void stopHeartbeat() {
         if (heartbeatTask != null) {
             heartbeatTask.cancel();
+
             heartbeatTask = null;
         }
     }
 
-    @EventHandler
-    public void onTurnStart(TurnStartedEvent event) {
-        if (gameManager.phase() != GamePhase.BATTLE) {
-            return;
-        }
+    public void startTimer(final int seconds) {
+        context.remainingSeconds(seconds);
 
-        Team team = gameManager.findParticipant(event.getPlayer().getUniqueId())
-                .map(Participant::team)
-                .orElse(Team.WHITE);
-
-        int teamTime = (team == Team.WHITE) ? context.whiteTeamTime() : context.blackTeamTime();
-        startTurnTimer(Math.max(teamTime, 30));
+        context.running(true);
     }
 
-    public void startTurnTimer(int seconds) {
-        context.remainingSeconds(seconds);
-        context.running(true);
+    public void stopTimer() {
+        context.running(false);
+    }
+
+    public void reset() {
+        context.reset(plugin.gameManager().timerSettings().battleTurnTime() * TEAM_TIME_MULTIPLIER);
     }
 
     public void tick() {
@@ -96,50 +88,38 @@ public class TimerManager implements Listener {
 
         context.remainingSeconds(context.remainingSeconds() - 1);
 
-        if (gameManager.phase() == GamePhase.TURN_ORDER) {
-            if (gameManager.areAllParticipantsReady()) {
-                accelerateTo(gameManager.timerSettings().readyAccelerateTime());
-            }
+        final int remaining = context.remainingSeconds();
+
+        sendFeedback(remaining);
+
+        final GameState currentState = plugin.gameManager().currentState();
+
+        if (currentState != null) {
+            currentState.onTimerTick(plugin.gameManager(), this);
         }
 
-        if (gameManager.phase() == GamePhase.BATTLE) {
-            updateSharedTime();
-        }
-
-        if (context.remainingSeconds() < 0) {
+        if (remaining <= 0) {
             context.running(false);
-            if (gameManager.phase() == GamePhase.BATTLE) {
-                gameManager.nextTurn();
-            } else {
-                gameManager.advancePhase();
+
+            if (currentState != null) {
+                currentState.onTimerExpire(plugin.gameManager());
             }
         }
     }
 
-    private void updateSharedTime() {
-        Optional<UUID> currentUuid = gameManager.currentTurnPlayer();
-        if (currentUuid.isEmpty()) return;
+    public int teamTime(final Team team) {
+        return (team == Team.WHITE) ? context.whiteTeamTime() : context.blackTeamTime();
+    }
 
-        Team team = gameManager.findParticipant(currentUuid.get())
-                .map(Participant::team)
-                .orElse(null);
-
+    public void teamTime(final Team team, final int seconds) {
         if (team == Team.WHITE) {
-            if (context.whiteTeamTime() > 30) context.whiteTeamTime(context.remainingSeconds());
-        } else if (team == Team.BLACK) {
-            if (context.blackTeamTime() > 30) context.blackTeamTime(context.remainingSeconds());
+            context.whiteTeamTime(seconds);
+        } else {
+            context.blackTeamTime(seconds);
         }
     }
 
-    public void stopTimer() {
-        context.running(false);
-    }
-
-    public void reset() {
-        context.reset();
-    }
-
-    public void accelerateTo(int seconds) {
+    public void accelerateTo(final int seconds) {
         if (context.remainingSeconds() > seconds) {
             context.remainingSeconds(seconds);
         }
@@ -147,5 +127,59 @@ public class TimerManager implements Listener {
 
     public int remainingSeconds() {
         return context.remainingSeconds();
+    }
+
+    public boolean running() {
+        return context.running();
+    }
+
+    @EventHandler
+    public void onGameReset(final GameResetEvent event) {
+        reset();
+    }
+
+    @EventHandler
+    public void onTurnStart(final TurnStartedEvent event) {
+        final GameState currentState = plugin.gameManager().currentState();
+
+        if (currentState == null) {
+            return;
+        }
+
+        try {
+            currentState.onTurnStart(plugin.gameManager(), event.getPlayer());
+        } catch (final Exception e) {
+            plugin.getLogger().log(Level.SEVERE, "Failed to delegate TurnStartedEvent to current state", e);
+        }
+    }
+
+    private void sendFeedback(final int seconds) {
+        if (seconds < 0) {
+            return;
+        }
+
+        final int minutes = seconds / 60;
+        final int secondsRemainder = seconds % 60;
+        final String timeString = (minutes < 10 ? "0" : "") + minutes + ":" + (secondsRemainder < 10 ? "0" : "") + secondsRemainder;
+
+        final Component feedback = Component.text()
+                .append(OPEN_BRACKET)
+                .append(Component.text(timeString, NamedTextColor.YELLOW, TextDecoration.BOLD))
+                .append(CLOSE_BRACKET)
+                .build();
+
+        for (final UUID playerId : plugin.gameManager().participants().keySet()) {
+            final Player player = Bukkit.getPlayer(playerId);
+
+            if (player == null) {
+                continue;
+            }
+
+            player.sendActionBar(feedback);
+
+            if (seconds <= 5 && seconds > 0) {
+                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
+            }
+        }
     }
 }
