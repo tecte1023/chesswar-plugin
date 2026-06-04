@@ -812,16 +812,13 @@ public class GameManager {
         }
     }
 
-    public void handlePieceDisappearance(final Entity entity) {
+    public void processPieceDeath(final Entity entity) {
         if (entity instanceof Player player) {
-
             if (isParticipant(player)) {
                 final Coordinate coord = pieceState.entityToCoordinate().get(player.getUniqueId());
-
                 if (coord != null) {
                     pieceManager.removePiece(coord);
                 }
-
                 boardVisualManager.clearGuide(player);
                 eliminate(player.getUniqueId());
             }
@@ -831,6 +828,14 @@ public class GameManager {
         if (pieceManager.handlePieceDisappearance(entity)) {
             checkVictoryConditions();
         }
+    }
+
+    public void processPieceUnload(final Entity entity) {
+        if (entity instanceof Player) {
+            return;
+        }
+
+        pieceManager.handlePieceDisappearance(entity);
     }
 
     private void ensureTeamHasKing() {
