@@ -17,9 +17,13 @@
 - [x] Feature-Based 패키지 구조 재배치 및 의존성 격리
 - [x] 입력 컨트롤러와 매니저 간 역할 경계 명문화 및 위임 패턴 정착
 - [x] 자율 관찰 기반 폴링 패턴 도입으로 매니저 간 순환 참조 해결
-- [x] NamespacedKey 캐싱 및 DI 구조 개선을 통한 엔진 부하 최소화
+- [x] `NamespacedKey` 캐싱 및 DI 구조 개선을 통한 엔진 부하 최소화
+- [x] `MoveValidator` Stateless 전환 및 파라미터 하향 제어 구조 구축
+- [x] `State-Manager Decoupling` 통한 순환 참조 차단 및 `FSM` 데이터 객체화
+- [x] `Persistent Data Container` 기반 상태 동기화 및 `PDC Mapper` 구축
+- [x] `Engine-Native` 피드백 시스템 구현을 통한 출력 오버헤드 최소화
 
-## 4. 기능 확장 (진행 중) - [5%] ⏳
+## 4. 기능 확장 (진행 중) - [10%] ⏳
 ### 경제 및 성장 시스템
 - [ ] 턴별 골드 수급 및 전리품 획득 시스템
 - [ ] 상점 시스템 및 킹 클래스 업그레이드 기획 구현

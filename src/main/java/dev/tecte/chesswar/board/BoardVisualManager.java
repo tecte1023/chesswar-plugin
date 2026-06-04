@@ -1,161 +1,163 @@
 package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.game.component.Participant;
-import dev.tecte.chesswar.game.component.Statistics;
-import dev.tecte.chesswar.game.manager.GameManager;
-import dev.tecte.chesswar.piece.Piece;
-import dev.tecte.chesswar.piece.PieceManager;
-import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.block.data.BlockData;
 import org.bukkit.entity.Player;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
 public class BoardVisualManager {
-    private final ChessWar plugin;
+    private static final BlockData GUIDE_MOVE = Material.LIME_STAINED_GLASS.createBlockData();
+    private static final BlockData GUIDE_CAPTURE = Material.RED_STAINED_GLASS.createBlockData();
+    private static final Particle.DustOptions OUTLINE_OPTIONS = new Particle.DustOptions(Color.GREEN, 1.0f);
 
     private final Map<UUID, List<Coordinate>> activeGuides = new HashMap<>();
+    private final ChessWar plugin;
+    private final BoardManager boardManager;
 
-    public void showGuide(Player player) {
-        if (!plugin.boardManager().hasBoard()) {
+    public void showGuide(final Player player, final Map<Coordinate, Boolean> moves) {
+        clearGuide(player);
+
+        if (!boardManager.hasBoard() || moves.isEmpty()) {
             return;
         }
 
-        Optional<UUID> currentTurnId = plugin.gameManager().currentTurnPlayer();
-        if (currentTurnId.isEmpty() || !currentTurnId.get().equals(player.getUniqueId())) {
-            return;
-        }
+        final ChessBoard board = boardManager.currentBoard();
+        final List<Coordinate> validMoves = new ArrayList<>(moves.size());
+        final Location reusableLoc = board.origin().clone();
 
-        Coordinate from = null;
-        Team myTeam = null;
+        for (final Map.Entry<Coordinate, Boolean> entry : moves.entrySet()) {
+            final Coordinate to = entry.getKey();
+            final boolean isCapture = entry.getValue();
 
-        Optional<Coordinate> commandTarget = plugin.gameManager().findCommandTarget(player.getUniqueId());
-
-        if (commandTarget.isPresent()) {
-            from = commandTarget.get();
-            Piece targetPiece = plugin.pieceManager().boardPieces().get(from);
-            if (targetPiece != null) {
-                myTeam = targetPiece.team();
-            }
-        } else {
-            for (var entry : plugin.pieceManager().boardPieces().entrySet()) {
-                if (player.getUniqueId().equals(entry.getValue().ownerId())) {
-                    from = entry.getKey();
-                    myTeam = entry.getValue().team();
-                    break;
-                }
-            }
-        }
-
-        if (from == null || myTeam == null) {
-            return;
-        }
-
-        List<Coordinate> validMoves = new ArrayList<>();
-        Map<Coordinate, Material> guideMaterials = new HashMap<>();
-
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
-                Coordinate to = Coordinate.of(x, y);
-
-                if (plugin.moveValidator().canMove(from, to)) {
-                    Optional<Piece> target = plugin.pieceManager().findPieceAt(to);
-
-                    if (target.isEmpty()) {
-                        validMoves.add(to);
-                        guideMaterials.put(to, Material.LIME_STAINED_GLASS);
-                    } else if (target.get().team() != myTeam) {
-                        validMoves.add(to);
-                        guideMaterials.put(to, Material.RED_STAINED_GLASS);
-                    }
-                }
-            }
-        }
-
-        for (Coordinate coordinate : validMoves) {
-            player.sendBlockChange(
-                    plugin.boardManager().currentBoard().toCenterLocation(coordinate),
-                    guideMaterials.get(coordinate).createBlockData()
-            );
+            board.updateToCenterLocation(to, reusableLoc);
+            player.sendBlockChange(reusableLoc, isCapture ? GUIDE_CAPTURE : GUIDE_MOVE);
+            validMoves.add(to);
         }
 
         activeGuides.put(player.getUniqueId(), validMoves);
     }
 
-    public void clearGuide(Player player) {
-        List<Coordinate> guides = activeGuides.remove(player.getUniqueId());
+    public void clearGuide(final Player player) {
+        final List<Coordinate> guides = activeGuides.remove(player.getUniqueId());
 
-        if (guides == null || !plugin.boardManager().hasBoard()) {
+        if (guides == null || !boardManager.hasBoard()) {
             return;
         }
 
-        for (Coordinate coordinate : guides) {
-            Location centerLocation = plugin.boardManager().currentBoard().toCenterLocation(coordinate);
+        final ChessBoard board = boardManager.currentBoard();
+        final Location reusableLoc = board.origin().clone();
 
-            player.sendBlockChange(centerLocation, centerLocation.getBlock().getBlockData());
+        for (final Coordinate coordinate : guides) {
+            board.updateToCenterLocation(coordinate, reusableLoc);
+            player.sendBlockChange(reusableLoc, reusableLoc.getBlock().getBlockData());
         }
     }
 
     public void clearAllGuides() {
-        for (UUID uuid : new ArrayList<>(activeGuides.keySet())) {
-            Player player = Bukkit.getPlayer(uuid);
-            if (player != null) {
-                clearGuide(player);
-            } else {
-                activeGuides.remove(uuid);
+        if (activeGuides.isEmpty()) {
+            return;
+        }
+
+        if (!boardManager.hasBoard()) {
+            activeGuides.clear();
+            return;
+        }
+
+        final ChessBoard board = boardManager.currentBoard();
+        final Location reusableLoc = board.origin().clone();
+
+        for (final Iterator<Map.Entry<UUID, List<Coordinate>>> iterator = activeGuides.entrySet().iterator();
+             iterator.hasNext(); ) {
+            final Map.Entry<UUID, List<Coordinate>> entry = iterator.next();
+            final Player player = Bukkit.getPlayer(entry.getKey());
+
+            iterator.remove();
+
+            if (player == null) {
+                continue;
+            }
+
+            final List<Coordinate> guides = entry.getValue();
+
+            for (final Coordinate coordinate : guides) {
+                board.updateToCenterLocation(coordinate, reusableLoc);
+                player.sendBlockChange(reusableLoc, reusableLoc.getBlock().getBlockData());
             }
         }
     }
 
-    public void displayStatisticsHologram() {
-        if (!plugin.boardManager().hasBoard()) {
-            return;
-        }
+    public void visualizeBoardOutline(final Player player, final ChessBoard board) {
+        final Location origin = board.origin();
+        final Vector forwardDir = board.forward().getDirection();
+        final Vector rightDir = board.right().getDirection();
 
-        Location center = plugin.boardManager().currentBoard().toCenterLocation(Coordinate.of(3, 3))
-                .add(plugin.boardManager().currentBoard().right().getDirection().multiply(plugin.boardManager().currentBoard().cellSize() / 2.0))
-                .add(0, 2, 0);
+        final double startX = origin.getX() + 0.5;
+        final double startY = origin.getY() + 0.1;
+        final double startZ = origin.getZ() + 0.5;
 
-        List<net.kyori.adventure.text.Component> lines = new ArrayList<>();
-        lines.add(net.kyori.adventure.text.Component.text(" [ 전투 결과 통계 ] ", net.kyori.adventure.text.format.NamedTextColor.GOLD, net.kyori.adventure.text.format.TextDecoration.BOLD));
-        lines.add(net.kyori.adventure.text.Component.empty());
+        final double dxF = forwardDir.getX();
+        final double dzF = forwardDir.getZ();
+        final double dxR = rightDir.getX();
+        final double dzR = rightDir.getZ();
 
-        plugin.gameManager().participants().values().forEach(p -> {
-            Statistics s = plugin.gameManager().stats(p.playerId());
-            Player player = Bukkit.getPlayer(p.playerId());
-            String name = (player != null) ? player.getName() : "오프라인";
+        final int physicalSize = 8 * board.cellSize();
+        final int maxOffset = physicalSize - 1;
 
-            lines.add(net.kyori.adventure.text.Component.text()
-                    .append(net.kyori.adventure.text.Component.text(name, p.team().color()))
-                    .append(net.kyori.adventure.text.Component.text(" | ", net.kyori.adventure.text.format.NamedTextColor.GRAY))
-                    .append(net.kyori.adventure.text.Component.text("⚔" + (int) s.getDamageDealt(), net.kyori.adventure.text.format.NamedTextColor.RED))
-                    .append(net.kyori.adventure.text.Component.text(" 🛡" + (int) s.getDamageTaken(), net.kyori.adventure.text.format.NamedTextColor.BLUE))
-                    .append(net.kyori.adventure.text.Component.text(" ➕" + (int) s.getHealingDone(), net.kyori.adventure.text.format.NamedTextColor.GREEN))
-                    .append(net.kyori.adventure.text.Component.text(" ☠" + s.getKills() + "/" + s.getDeaths(), net.kyori.adventure.text.format.NamedTextColor.DARK_RED))
-                    .build());
-        });
+        final double offsetFX = dxF * maxOffset;
+        final double offsetFZ = dzF * maxOffset;
+        final double offsetRX = dxR * maxOffset;
+        final double offsetRZ = dzR * maxOffset;
 
-        for (int i = 0; i < lines.size(); i++) {
-            final int index = i;
-            Location lineLoc = center.clone().subtract(0, i * 0.3, 0);
-            lineLoc.getWorld().spawn(lineLoc, org.bukkit.entity.ArmorStand.class, as -> {
-                as.setVisible(false);
-                as.setGravity(false);
-                as.setCustomNameVisible(true);
-                as.customName(lines.get(index));
-                as.setMarker(true);
-                plugin.pieceManager().addSpawnedEntity(as.getUniqueId());
-            });
-        }
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks > 100) {
+                    cancel();
+                    return;
+                }
+
+                for (int i = 0; i < physicalSize; i++) {
+                    final double stepRX = dxR * i;
+                    final double stepRZ = dzR * i;
+
+                    spawnParticle(startX + stepRX, startY, startZ + stepRZ);
+                    spawnParticle(startX + stepRX + offsetFX, startY, startZ + stepRZ + offsetFZ);
+
+                    final double stepFX = dxF * i;
+                    final double stepFZ = dzF * i;
+
+                    spawnParticle(startX + stepFX, startY, startZ + stepFZ);
+                    spawnParticle(startX + stepFX + offsetRX, startY, startZ + stepFZ + offsetRZ);
+                }
+
+                ticks += 5;
+            }
+
+            private void spawnParticle(final double x, final double y, final double z) {
+                player.spawnParticle(
+                        Particle.DUST,
+                        x, y, z,
+                        1,
+                        OUTLINE_OPTIONS
+                );
+            }
+        }.runTaskTimer(plugin, 0L, 5L);
     }
 }

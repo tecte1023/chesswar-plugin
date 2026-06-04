@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -17,25 +16,21 @@ public class BoardBlockListener implements Listener {
     private final BoardManager boardManager;
 
     @EventHandler
-    public void onBlockBreak(BlockBreakEvent event) {
+    public void onBlockBreak(final BlockBreakEvent event) {
         if (boardManager.isBarracksChest(event.getBlock().getLocation())) {
             event.setCancelled(true);
             return;
         }
 
-        Player player = event.getPlayer();
-        Material blockType = event.getBlock().getType();
+        final Player player = event.getPlayer();
+        final Material blockType = event.getBlock().getType();
 
-        if (blockType == Material.WHITE_WOOL || blockType == Material.BLACK_WOOL) {
-            if (gameManager.phase() != GamePhase.WAITING) {
-                return;
-            }
+        if (blockType != Material.WHITE_WOOL && blockType != Material.BLACK_WOOL) {
+            return;
+        }
 
-            if (gameManager.isParticipant(player)) {
-                event.setCancelled(true);
-                gameManager.leave(player);
-                player.sendMessage(Component.text("팀에서 나갔습니다.", NamedTextColor.YELLOW));
-            }
+        if (gameManager.handleWoolBreakLeave(player)) {
+            event.setCancelled(true);
         }
     }
 }

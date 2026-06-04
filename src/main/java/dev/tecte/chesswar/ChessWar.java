@@ -1,112 +1,130 @@
 package dev.tecte.chesswar;
 
-import co.aikar.commands.PaperCommandManager;
 import dev.tecte.chesswar.admin.AdminCommand;
 import dev.tecte.chesswar.board.BoardBlockListener;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.BoardVisualGuideListener;
+import dev.tecte.chesswar.board.BoardState;
 import dev.tecte.chesswar.board.BoardVisualManager;
 import dev.tecte.chesswar.board.MoveValidator;
-import dev.tecte.chesswar.game.admin.GameCommand;
-import dev.tecte.chesswar.game.admin.StatsCommand;
-import dev.tecte.chesswar.game.listener.CombatListener;
-import dev.tecte.chesswar.game.listener.GameEntityListener;
+import dev.tecte.chesswar.game.component.GameContext;
+import dev.tecte.chesswar.game.listener.EnvironmentListener;
+import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
 import dev.tecte.chesswar.game.listener.GameReadyListener;
+import dev.tecte.chesswar.game.listener.GameSelectionListener;
 import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.EnvironmentManager;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.game.manager.ScoreboardManager;
 import dev.tecte.chesswar.game.manager.TimerManager;
+import dev.tecte.chesswar.game.CombatPolicy;
+import dev.tecte.chesswar.piece.PieceBootstrap;
 import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceDamageListener;
-import dev.tecte.chesswar.piece.PieceEntityLifecycleListener;
 import dev.tecte.chesswar.piece.PieceInteractListener;
 import dev.tecte.chesswar.piece.PieceManager;
-import dev.tecte.chesswar.piece.PieceSelectionListener;
-import lombok.Getter;
-import lombok.experimental.Accessors;
+import dev.tecte.chesswar.piece.PiecePdcMapper;
+import dev.tecte.chesswar.piece.PieceState;
+import io.lumine.mythic.api.MythicProvider;
 import lombok.extern.slf4j.Slf4j;
+import org.bukkit.NamespacedKey;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-@Getter
-@Accessors(fluent = true)
 @Slf4j(topic = "ChessWar")
-public class ChessWar extends JavaPlugin {
+public final class ChessWar extends JavaPlugin {
+
     private BoardManager boardManager;
     private PieceManager pieceManager;
-    private EnvironmentManager environmentManager;
     private GameManager gameManager;
+    private TimerManager timerManager;
+    private EnvironmentManager environmentManager;
+    private ScoreboardManager scoreboardManager;
+    private CombatManager combatManager;
     private MoveValidator moveValidator;
     private BoardVisualManager boardVisualManager;
-    private TimerManager timerManager;
-    private CombatManager combatManager;
-    private ScoreboardManager scoreboardManager;
 
     @Override
     public void onEnable() {
+        initializeInfrastructure();
         initializeManagers();
-        pieceManager.setupMythicMobs(this);
         registerListeners();
         registerCommands();
+
         log.info("ChessWar has been enabled!");
+    }
+
+    private void initializeInfrastructure() {
+        new PieceBootstrap(this).setupMythicMobs();
     }
 
     @Override
     public void onDisable() {
+        if (gameManager != null) {
+            gameManager.stopHeartbeat();
+        }
+
         log.info("ChessWar has been disabled!");
     }
 
     private void initializeManagers() {
-        boardManager = new BoardManager(this);
-        pieceManager = new PieceManager(this);
-        environmentManager = new EnvironmentManager(this);
-        gameManager = new GameManager(this);
-        moveValidator = new MoveValidator(gameManager, pieceManager);
-        boardVisualManager = new BoardVisualManager(this);
-        timerManager = new TimerManager(this);
-        combatManager = new CombatManager(this);
-        scoreboardManager = new ScoreboardManager(this);
+        final GameContext context = GameContext.create();
+        final PieceState pieceState = PieceState.create();
+        final BoardState boardState = BoardState.create();
+        final PiecePdcMapper piecePdcMapper = PiecePdcMapper.create(this);
+
+        boardManager = new BoardManager(
+                new NamespacedKey(this, BoardManager.READY_BUTTON_KEY),
+                new NamespacedKey(this, BoardManager.TURN_ORDER_KEY),
+                boardState
+        );
+        pieceManager = new PieceManager(pieceState, MythicProvider.get().getMobManager(), piecePdcMapper);
+        moveValidator = new MoveValidator();
+        environmentManager = new EnvironmentManager();
+        timerManager = new TimerManager(context);
+        boardVisualManager = new BoardVisualManager(this, boardManager);
+
+        final CombatPolicy combatPolicy = new CombatPolicy();
+        scoreboardManager = new ScoreboardManager(context);
+        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy);
+
+        gameManager = new GameManager(
+                this,
+                context,
+                boardManager,
+                pieceManager,
+                pieceState,
+                timerManager,
+                environmentManager,
+                boardVisualManager,
+                moveValidator,
+                combatManager,
+                scoreboardManager
+        );
+
+        if (boardManager.hasBoard()) {
+            environmentManager.configure(boardManager.currentBoard().origin().getWorld());
+        }
+
+        gameManager.startHeartbeat();
     }
 
     private void registerListeners() {
-        PluginManager pluginManager = getServer().getPluginManager();
+        final PluginManager pluginManager = getServer().getPluginManager();
 
         pluginManager.registerEvents(boardManager, this);
-        pluginManager.registerEvents(pieceManager, this);
-        pluginManager.registerEvents(new PieceEntityLifecycleListener(pieceManager), this);
-        pluginManager.registerEvents(new GameEntityListener(pieceManager), this);
-        pluginManager.registerEvents(new PieceSelectionListener(this, gameManager), this);
+        pluginManager.registerEvents(new GamePieceLifecycleListener(gameManager), this);
+        pluginManager.registerEvents(new GameSelectionListener(gameManager), this);
         pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
-        pluginManager.registerEvents(new PieceInteractListener(gameManager, combatManager), this);
-        pluginManager.registerEvents(new PieceDamageListener(combatManager), this);
-        pluginManager.registerEvents(new BoardVisualGuideListener(boardVisualManager), this);
-        pluginManager.registerEvents(new CombatListener(this), this);
-        pluginManager.registerEvents(timerManager, this);
-        pluginManager.registerEvents(scoreboardManager, this);
-        pluginManager.registerEvents(environmentManager, this);
+        pluginManager.registerEvents(new PieceInteractListener(gameManager), this);
+        pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager), this);
+        pluginManager.registerEvents(new EnvironmentListener(gameManager), this);
     }
 
     private void registerCommands() {
-        PaperCommandManager commandManager = new PaperCommandManager(this);
+        final co.aikar.commands.PaperCommandManager commandManager = new co.aikar.commands.PaperCommandManager(this);
 
-        commandManager.registerCommand(new GameCommand(
-                this,
-                gameManager,
-                boardManager,
-                timerManager
-        ));
-        commandManager.registerCommand(new PieceCommand(gameManager, timerManager));
-        commandManager.registerCommand(new StatsCommand(gameManager));
-        commandManager.registerCommand(new AdminCommand(
-                this,
-                gameManager,
-                boardManager,
-                pieceManager,
-                moveValidator,
-                combatManager,
-                environmentManager
-        ));
+        commandManager.registerCommand(new PieceCommand(gameManager));
+        commandManager.registerCommand(new AdminCommand(gameManager));
     }
 }

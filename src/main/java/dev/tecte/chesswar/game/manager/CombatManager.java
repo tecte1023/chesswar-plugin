@@ -1,52 +1,116 @@
 package dev.tecte.chesswar.game.manager;
 
-import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.board.BoardTargetSelectedEvent;
+import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.game.CombatPolicy;
+import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
-import dev.tecte.chesswar.game.policy.CombatPolicy;
 import dev.tecte.chesswar.piece.Piece;
-import dev.tecte.chesswar.piece.PieceMoveEvent;
+import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceState;
+import dev.tecte.chesswar.piece.PieceType;
+import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class CombatManager {
-    private final ChessWar plugin;
+    private static final double DEFAULT_HEALTH = 20.0;
+    private static final double DEFAULT_ATTACK_DAMAGE = 1.0;
+
+    private static final float SOUND_VOLUME_ATTACK = 1.0f;
+    private static final float SOUND_PITCH_ATTACK = 1.0f;
+    private static final float SOUND_VOLUME_KILL = 1.0f;
+    private static final float SOUND_PITCH_KILL = 0.5f;
+    private static final float SOUND_VOLUME_COMMAND = 1.0f;
+    private static final float SOUND_PITCH_COMMAND_OFF = 0.5f;
+    private static final float SOUND_PITCH_COMMAND_ON = 1.0f;
+
+    private static final int PARTICLE_COUNT_ATTACK = 10;
+    private static final double PARTICLE_OFFSET = 0.5;
+    private static final double PARTICLE_SPEED_ATTACK = 0.1;
+
+    private static final Component ERROR_NOT_YOUR_TURN = Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED);
+    private static final Component ERROR_NO_BOARD = Component.text("체스판이 설정되지 않았습니다!", NamedTextColor.RED);
+    private static final Component ERROR_OUT_OF_BOARD = Component.text("체스판 밖에서는 이동을 확정할 수 없습니다!", NamedTextColor.RED);
+    private static final Component ERROR_NO_PIECE_ON_BOARD = Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED);
+    private static final Component ERROR_SAME_POSITION = Component.text("현재 위치와 같은 곳으로 이동할 수 없습니다!", NamedTextColor.RED);
+    private static final Component ERROR_INVALID_MOVE_RANGE = Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED);
+    private static final Component ERROR_OCCUPIED_BY_PIECE = Component.text("그곳에 다른 기물이 있어 이동할 수 없습니다. (공격은 좌클릭으로 하세요!)", NamedTextColor.YELLOW);
+    private static final Component ERROR_ATTACK_OUT_OF_RANGE = Component.text("그곳에 있는 적은 공격할 수 없는 범위에 있습니다!", NamedTextColor.RED);
+    private static final Component ERROR_FRIENDLY_FIRE_PROHIBITED = Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED);
+
+    private final GameContext context;
+    private final BoardManager boardManager;
+    private final PieceManager pieceManager;
+    private final PieceState pieceState;
+    private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
 
-    public CombatManager(final ChessWar plugin) {
-        this.plugin = plugin;
-        combatPolicy = new CombatPolicy(plugin.gameManager());
+    public void applyStats(final Player player, final PieceType type) {
+        final AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        final AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
+
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(type.baseHealth());
+            player.setHealth(type.baseHealth());
+        }
+
+        if (attackDamage != null) {
+            attackDamage.setBaseValue(type.baseDamage());
+        }
+    }
+
+    public void resetStats(final Player player) {
+        final AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        final AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
+
+        if (maxHealth != null) {
+            maxHealth.setBaseValue(DEFAULT_HEALTH);
+            player.setHealth(DEFAULT_HEALTH);
+        }
+
+        if (attackDamage != null) {
+            attackDamage.setBaseValue(DEFAULT_ATTACK_DAMAGE);
+        }
+    }
+
+    public void resetAllStats() {
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+            resetStats(player);
+        }
     }
 
     public void updateInvulnerability(final Player currentPlayer) {
-        final Participant participant = plugin.gameManager().participants().get(currentPlayer.getUniqueId());
+        final Participant participant = context.participants().get(currentPlayer.getUniqueId());
 
         if (participant == null) {
             return;
         }
 
-        final Optional<Coordinate> commandTarget = plugin.gameManager().findCommandTarget(currentPlayer.getUniqueId());
-        final Piece attackerPiece = commandTarget
-                .map(target -> plugin.pieceManager().boardPieces().get(target))
-                .orElseGet(() -> combatPolicy.getRepresentativeAttacker(participant, plugin.pieceManager()));
+        final Coordinate commandTarget = participant.commanderTarget();
+        final Piece attackerPiece = (commandTarget != null)
+                ? pieceState.boardPieces().get(commandTarget)
+                : combatPolicy.getPrimaryAttacker(participant, pieceState);
 
         if (attackerPiece == null) {
             return;
         }
 
-        for (final Map.Entry<Coordinate, LivingEntity> entry : plugin.pieceManager().pieceEntities().entrySet()) {
+        for (final Map.Entry<Coordinate, LivingEntity> entry : pieceState.pieceEntities().entrySet()) {
             final Coordinate coord = entry.getKey();
             final LivingEntity living = entry.getValue();
 
@@ -54,7 +118,7 @@ public class CombatManager {
                 continue;
             }
 
-            final Piece targetPiece = plugin.pieceManager().boardPieces().get(coord);
+            final Piece targetPiece = pieceState.boardPieces().get(coord);
 
             if (targetPiece == null) {
                 continue;
@@ -67,37 +131,38 @@ public class CombatManager {
     }
 
     public boolean canTakeDamage(final Player participant) {
-        return plugin.gameManager().isParticipant(participant) && plugin.gameManager().phase() == GamePhase.BATTLE;
+        return context.participants().containsKey(participant.getUniqueId()) && context.currentPhase() == GamePhase.BATTLE;
     }
 
-    public void handleAttack(final Player attacker, final LivingEntity victim) {
+    public boolean handleAttack(final Player attacker, final LivingEntity victim) {
         if (!isPlayerTurn(attacker)) {
-            return;
+            return false;
         }
 
-        if (!plugin.boardManager().hasBoard()) {
-            return;
+        if (!boardManager.hasBoard()) {
+            return false;
         }
 
-        final Coordinate attackingCoordinate = plugin.pieceManager().findCoordinateByEntity(attacker).orElse(null);
+        final Coordinate attackingCoordinate = pieceState.entityToCoordinate().get(attacker.getUniqueId());
 
         if (attackingCoordinate == null) {
-            return;
+            return false;
         }
 
-        final Optional<Coordinate> commandTarget = plugin.gameManager().findCommandTarget(attacker.getUniqueId());
-        final Coordinate finalAttackingCoordinate = commandTarget.orElse(attackingCoordinate);
-        final Coordinate targetCoordinate = plugin.pieceManager().findCoordinateByEntity(victim).orElse(null);
+        final Participant participant = context.participants().get(attacker.getUniqueId());
+        final Coordinate commandTarget = participant.commanderTarget();
+        final Coordinate finalAttackingCoordinate = (commandTarget != null) ? commandTarget : attackingCoordinate;
+        final Coordinate targetCoordinate = pieceState.entityToCoordinate().get(victim.getUniqueId());
 
         if (targetCoordinate == null) {
-            return;
+            return false;
         }
 
-        final Piece attackingPiece = plugin.pieceManager().boardPieces().get(finalAttackingCoordinate);
-        final Piece targetPiece = plugin.pieceManager().boardPieces().get(targetCoordinate);
+        final Piece attackingPiece = pieceState.boardPieces().get(finalAttackingCoordinate);
+        final Piece targetPiece = pieceState.boardPieces().get(targetCoordinate);
 
         if (attackingPiece == null || targetPiece == null) {
-            return;
+            return false;
         }
 
         if (targetPiece.team() == attackingPiece.team()) {
@@ -106,93 +171,82 @@ public class CombatManager {
                     attackingCoordinate,
                     targetCoordinate,
                     targetPiece,
-                    commandTarget.orElse(null)
+                    commandTarget
             );
 
-            return;
+            return false;
         }
 
-        if (!plugin.moveValidator().canMove(finalAttackingCoordinate, targetCoordinate)) {
-            attacker.sendMessage(Component.text(
-                    "그곳에 있는 적은 공격할 수 없는 범위에 있습니다!",
-                    NamedTextColor.RED
-            ));
-
-            return;
+        if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
+            attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
+            return false;
         }
 
-        performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
+        return performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
     }
 
-    public void handleMove(final Player player) {
+    public boolean handleMove(final Player player) {
         if (!isPlayerTurn(player)) {
-            return;
+            return false;
         }
 
-        if (!plugin.boardManager().hasBoard()) {
-            player.sendMessage(Component.text("체스판이 설정되지 않았습니다!", NamedTextColor.RED));
-            return;
+        if (!boardManager.hasBoard()) {
+            player.sendMessage(ERROR_NO_BOARD);
+            return false;
         }
 
-        final Coordinate to = plugin.boardManager().currentBoard().toCoordinate(player.getLocation());
+        final Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
 
         if (!to.isValid()) {
-            player.sendMessage(Component.text("체스판 밖에서는 이동을 확정할 수 없습니다!", NamedTextColor.RED));
-            return;
+            player.sendMessage(ERROR_OUT_OF_BOARD);
+            return false;
         }
 
-        final Coordinate from = plugin.pieceManager().findCoordinateByEntity(player).orElse(null);
+        final Coordinate from = pieceState.entityToCoordinate().get(player.getUniqueId());
 
         if (from == null) {
-            player.sendMessage(Component.text("보드 위에 당신의 기물이 없습니다!", NamedTextColor.RED));
-            return;
+            player.sendMessage(ERROR_NO_PIECE_ON_BOARD);
+            return false;
         }
 
-        final Optional<Coordinate> commandTarget = plugin.gameManager().findCommandTarget(player.getUniqueId());
-        final Coordinate finalFrom = commandTarget.orElse(from);
+        final Participant participant = context.participants().get(player.getUniqueId());
+        final Coordinate commandTarget = participant.commanderTarget();
+        final Coordinate finalFrom = (commandTarget != null) ? commandTarget : from;
 
         if (finalFrom.equals(to)) {
-            player.sendMessage(Component.text("현재 위치와 같은 곳으로 이동할 수 없습니다!", NamedTextColor.RED));
-            return;
+            player.sendMessage(ERROR_SAME_POSITION);
+            return false;
         }
 
-        if (!plugin.moveValidator().canMove(finalFrom, to)) {
-            player.sendMessage(Component.text("그곳으로는 이동할 수 없습니다!", NamedTextColor.RED));
-            return;
+        if (!moveValidator.canMove(pieceState, finalFrom, to)) {
+            player.sendMessage(ERROR_INVALID_MOVE_RANGE);
+            return false;
         }
 
-        final Piece movingPiece = plugin.pieceManager().boardPieces().get(finalFrom);
+        final Piece movingPiece = pieceState.boardPieces().get(finalFrom);
 
         if (movingPiece == null) {
-            return;
+            return false;
         }
 
-        if (plugin.pieceManager().findPieceAt(to).isPresent()) {
-            player.sendMessage(Component.text(
-                    "그곳에 다른 기물이 있어 이동할 수 없습니다. (공격은 좌클릭으로 하세요!)",
-                    NamedTextColor.YELLOW
-            ));
-
-            return;
+        if (pieceState.boardPieces().containsKey(to)) {
+            player.sendMessage(ERROR_OCCUPIED_BY_PIECE);
+            return false;
         }
 
-        plugin.pieceManager().movePiece(finalFrom, to);
+        pieceManager.movePiece(boardManager.currentBoard(), finalFrom, to);
 
-        if (commandTarget.isPresent()) {
-            plugin.gameManager().clearCommandTarget(player.getUniqueId());
-            player.sendMessage(Component.text(
-                    movingPiece.type().displayName() + " 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.",
-                    NamedTextColor.GREEN
-            ));
+        if (commandTarget != null) {
+            participant.commanderTarget(null);
+            player.sendMessage(Component.text()
+                    .append(Component.text(movingPiece.type().displayName(), NamedTextColor.GOLD))
+                    .append(Component.text(" 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN))
+                    .build());
         } else {
-            player.sendMessage(Component.text(
-                    to.x() + ", " + to.y() + " 좌표로 이동했습니다.",
-                    NamedTextColor.GREEN
-            ));
+            player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
         }
 
-        Bukkit.getPluginManager().callEvent(new PieceMoveEvent(player));
-        plugin.gameManager().nextTurn();
+        return true;
     }
 
     private boolean isPlayerTurn(final Player player) {
@@ -200,10 +254,10 @@ public class CombatManager {
             return false;
         }
 
-        final Optional<UUID> currentTurnPlayerId = plugin.gameManager().currentTurnPlayer();
+        final UUID currentTurnPlayerId = context.currentTurnPlayerId();
 
-        if (currentTurnPlayerId.isEmpty() || !currentTurnPlayerId.get().equals(player.getUniqueId())) {
-            player.sendMessage(Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED));
+        if (currentTurnPlayerId == null || !currentTurnPlayerId.equals(player.getUniqueId())) {
+            player.sendMessage(ERROR_NOT_YOUR_TURN);
             return false;
         }
 
@@ -217,39 +271,39 @@ public class CombatManager {
             final Piece targetPiece,
             final Coordinate currentCommandTarget
     ) {
-        final Piece myPiece = plugin.pieceManager().boardPieces().get(myCoord);
+        final Piece myPiece = pieceState.boardPieces().get(myCoord);
 
         if (myPiece == null) {
             return;
         }
 
         if (!combatPolicy.canCommand(myPiece, targetPiece)) {
-            attacker.sendMessage(Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED));
+            attacker.sendMessage(ERROR_FRIENDLY_FIRE_PROHIBITED);
             return;
         }
+
+        final Participant participant = context.participants().get(attacker.getUniqueId());
 
         if (targetCoord.equals(currentCommandTarget)) {
-            plugin.gameManager().clearCommandTarget(attacker.getUniqueId());
-            attacker.sendMessage(Component.text(
-                    "%s 지휘를 해제했습니다.".formatted(targetPiece.type().displayName()),
-                    NamedTextColor.YELLOW
-            ));
-            attacker.playSound(attacker.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
-            Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, null));
+            participant.commanderTarget(null);
+            attacker.sendMessage(Component.text()
+                    .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                    .append(Component.text(" 지휘를 해제했습니다.", NamedTextColor.YELLOW))
+                    .build());
+            attacker.playSound(attacker.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, SOUND_VOLUME_COMMAND, SOUND_PITCH_COMMAND_OFF);
 
             return;
         }
 
-        plugin.gameManager().registerCommandTarget(attacker.getUniqueId(), targetCoord);
-        attacker.sendMessage(Component.text(
-                "%s을(를) 지휘 대상으로 선택했습니다!".formatted(targetPiece.type().displayName()),
-                NamedTextColor.GOLD
-        ));
-        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-        Bukkit.getPluginManager().callEvent(new BoardTargetSelectedEvent(attacker, targetCoord));
+        participant.commanderTarget(targetCoord);
+        attacker.sendMessage(Component.text()
+                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text("을(를) 지휘 대상으로 선택했습니다!", NamedTextColor.GOLD))
+                .build());
+        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_COMMAND, SOUND_PITCH_COMMAND_ON);
     }
 
-    private void performAttack(
+    private boolean performAttack(
             final Player attacker,
             final LivingEntity victim,
             final Coordinate targetCoord,
@@ -261,26 +315,29 @@ public class CombatManager {
 
         victim.setNoDamageTicks(0);
         victim.damage(damage, attacker);
-        plugin.gameManager().stats(attacker.getUniqueId()).addDamageDealt(damage);
+        context.participants().get(attacker.getUniqueId()).statistics().addDamageDealt(damage);
 
         if (victim instanceof Player playerTarget) {
-            plugin.gameManager().stats(playerTarget.getUniqueId()).addDamageTaken(damage);
+            final Participant victimParticipant = context.participants().get(playerTarget.getUniqueId());
+            if (victimParticipant != null) {
+                victimParticipant.statistics().addDamageTaken(damage);
+            }
         }
 
         victim.getWorld().spawnParticle(
                 Particle.CRIT,
                 victim.getLocation().add(0, 1, 0),
-                10, 0.5, 0.5, 0.5, 0.1
+                PARTICLE_COUNT_ATTACK, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_SPEED_ATTACK
         );
-        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, 1.0f, 1.0f);
+        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, SOUND_VOLUME_ATTACK, SOUND_PITCH_ATTACK);
         targetPiece.currentHealth(victim.getHealth());
 
         if (victim.getHealth() <= 0) {
-            handleKill(attacker, victim, targetCoord, attackCoord, attackingPiece, targetPiece);
+            handleKill(attacker, victim, targetCoord, attackCoord, targetPiece);
         }
 
-        plugin.gameManager().clearCommandTarget(attacker.getUniqueId());
-        plugin.gameManager().nextTurn();
+        context.participants().get(attacker.getUniqueId()).commanderTarget(null);
+        return true;
     }
 
     private void handleKill(
@@ -288,33 +345,25 @@ public class CombatManager {
             final LivingEntity victim,
             final Coordinate targetCoord,
             final Coordinate attackCoord,
-            final Piece attackingPiece,
             final Piece targetPiece
     ) {
-        plugin.gameManager().stats(attacker.getUniqueId()).addKill();
+        context.participants().get(attacker.getUniqueId()).statistics().addKill();
 
-        if (victim instanceof Player playerTarget) {
-            plugin.gameManager().eliminate(playerTarget.getUniqueId());
-        }
-
-        attacker.sendMessage(Component.text(
-                "%s을(를) 처치했습니다!".formatted(targetPiece.type().displayName()),
-                NamedTextColor.AQUA
-        ));
-        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 0.5f);
+        attacker.sendMessage(Component.text()
+                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text("을(를) 처치했습니다!", NamedTextColor.AQUA))
+                .build());
+        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_KILL, SOUND_PITCH_KILL);
         victim.getWorld().spawnParticle(
                 Particle.EXPLOSION,
                 victim.getLocation().add(0, 1, 0),
                 1, 0, 0, 0, 0
         );
-        plugin.pieceManager().capturePiece(attackCoord, targetCoord);
+
+        pieceManager.capturePiece(boardManager.currentBoard(), attackCoord, targetCoord);
 
         if (!(victim instanceof Player)) {
             victim.remove();
-        }
-
-        if (combatPolicy.isWinConditionMet(targetPiece)) {
-            plugin.gameManager().win(attackingPiece.team());
         }
     }
 }

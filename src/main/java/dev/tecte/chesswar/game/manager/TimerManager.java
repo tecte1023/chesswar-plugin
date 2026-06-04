@@ -1,174 +1,104 @@
 package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.ChessWar;
-import dev.tecte.chesswar.game.component.GameResetEvent;
-import dev.tecte.chesswar.game.component.TimerContext;
-import dev.tecte.chesswar.game.component.TurnStartedEvent;
-import dev.tecte.chesswar.game.state.GameState;
+import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.team.Team;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.util.UUID;
-import java.util.logging.Level;
 
-public class TimerManager implements Listener {
+@Slf4j(topic = "ChessWar")
+@RequiredArgsConstructor
+public class TimerManager {
     private static final Component OPEN_BRACKET = Component.text("[ ", NamedTextColor.GRAY);
-
     private static final Component CLOSE_BRACKET = Component.text(" ]", NamedTextColor.GRAY);
+    private static final int MAX_CACHE_SECONDS = 3600;
+    private static final Component[] FEEDBACK_CACHE = new Component[MAX_CACHE_SECONDS + 1];
 
-    private static final int TEAM_TIME_MULTIPLIER = 10;
+    static {
+        for (int i = 0; i <= MAX_CACHE_SECONDS; i++) {
+            final int minutes = i / 60;
+            final int seconds = i % 60;
+            final String timeString = String.format("%02d:%02d", minutes, seconds);
 
-    private static final long TICKS_PER_SECOND = 20L;
-
-    private final ChessWar plugin;
-
-    private final TimerContext context = new TimerContext();
-
-    private BukkitTask heartbeatTask;
-
-    public TimerManager(final ChessWar plugin) {
-        this.plugin = plugin;
-
-        reset();
-        startHeartbeat();
-    }
-
-    public void startHeartbeat() {
-        if (heartbeatTask != null) {
-            return;
-        }
-
-        heartbeatTask = new BukkitRunnable() {
-            @Override
-            public void run() {
-                try {
-                    tick();
-                } catch (final Exception e) {
-                    plugin.getLogger().severe("Timer heartbeat error: [" + e.getClass().getSimpleName() + "] " + e.getMessage());
-                }
-            }
-        }.runTaskTimer(plugin, 0L, TICKS_PER_SECOND);
-    }
-
-    public void stopHeartbeat() {
-        if (heartbeatTask != null) {
-            heartbeatTask.cancel();
-
-            heartbeatTask = null;
+            FEEDBACK_CACHE[i] = Component.text()
+                    .append(OPEN_BRACKET)
+                    .append(Component.text(timeString, NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(CLOSE_BRACKET)
+                    .build();
         }
     }
 
-    public void startTimer(final int seconds) {
-        context.remainingSeconds(seconds);
-
-        context.running(true);
-    }
-
-    public void stopTimer() {
-        context.running(false);
-    }
-
-    public void reset() {
-        context.reset(plugin.gameManager().timerSettings().battleTurnTime() * TEAM_TIME_MULTIPLIER);
-    }
+    private final GameContext context;
 
     public void tick() {
-        if (!context.running()) {
+        if (!context.timerRunning()) {
             return;
         }
 
-        context.remainingSeconds(context.remainingSeconds() - 1);
+        context.tickTimer();
 
         final int remaining = context.remainingSeconds();
 
-        sendFeedback(remaining);
-
-        final GameState currentState = plugin.gameManager().currentState();
-
-        if (currentState != null) {
-            currentState.onTimerTick(plugin.gameManager(), this);
-        }
+        broadcastActionBar(remaining);
 
         if (remaining <= 0) {
-            context.running(false);
-
-            if (currentState != null) {
-                currentState.onTimerExpire(plugin.gameManager());
-            }
+            context.stopTimer();
         }
     }
 
-    public int teamTime(final Team team) {
-        return (team == Team.WHITE) ? context.whiteTeamTime() : context.blackTeamTime();
+    public boolean isExpired() {
+        return context.timerRunning() && context.remainingSeconds() <= 0;
     }
 
-    public void teamTime(final Team team, final int seconds) {
-        if (team == Team.WHITE) {
-            context.whiteTeamTime(seconds);
-        } else {
-            context.blackTeamTime(seconds);
-        }
+    public void startTimer(final int seconds) {
+        context.startTimer(seconds);
     }
 
-    public void accelerateTo(final int seconds) {
-        if (context.remainingSeconds() > seconds) {
-            context.remainingSeconds(seconds);
-        }
+    public void stopTimer() {
+        context.stopTimer();
     }
 
-    public int remainingSeconds() {
-        return context.remainingSeconds();
+    public void accelerateTimerTo(final int seconds) {
+        context.accelerateTimer(seconds);
     }
 
-    public boolean running() {
-        return context.running();
+    public void updateTeamTime(final Team team, final int seconds) {
+        context.updateTeamTime(team, seconds);
     }
 
-    @EventHandler
-    public void onGameReset(final GameResetEvent event) {
-        reset();
+    public void reset() {
+        context.reset();
     }
 
-    @EventHandler
-    public void onTurnStart(final TurnStartedEvent event) {
-        final GameState currentState = plugin.gameManager().currentState();
-
-        if (currentState == null) {
-            return;
-        }
-
-        try {
-            currentState.onTurnStart(plugin.gameManager(), event.getPlayer());
-        } catch (final Exception e) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to delegate TurnStartedEvent to current state", e);
-        }
-    }
-
-    private void sendFeedback(final int seconds) {
+    private void broadcastActionBar(final int seconds) {
         if (seconds < 0) {
             return;
         }
 
-        final int minutes = seconds / 60;
-        final int secondsRemainder = seconds % 60;
-        final String timeString = (minutes < 10 ? "0" : "") + minutes + ":" + (secondsRemainder < 10 ? "0" : "") + secondsRemainder;
+        final Component feedback;
 
-        final Component feedback = Component.text()
-                .append(OPEN_BRACKET)
-                .append(Component.text(timeString, NamedTextColor.YELLOW, TextDecoration.BOLD))
-                .append(CLOSE_BRACKET)
-                .build();
+        if (seconds <= MAX_CACHE_SECONDS) {
+            feedback = FEEDBACK_CACHE[seconds];
+        } else {
+            final int minutes = seconds / 60;
+            final int secondsRemainder = seconds % 60;
+            final String timeString = String.format("%02d:%02d", minutes, secondsRemainder);
 
-        for (final UUID playerId : plugin.gameManager().participants().keySet()) {
+            feedback = Component.text()
+                    .append(OPEN_BRACKET)
+                    .append(Component.text(timeString, NamedTextColor.YELLOW, TextDecoration.BOLD))
+                    .append(CLOSE_BRACKET)
+                    .build();
+        }
+
+        for (final UUID playerId : context.participants().keySet()) {
             final Player player = Bukkit.getPlayer(playerId);
 
             if (player == null) {
@@ -176,10 +106,6 @@ public class TimerManager implements Listener {
             }
 
             player.sendActionBar(feedback);
-
-            if (seconds <= 5 && seconds > 0) {
-                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
-            }
         }
     }
 }

@@ -12,44 +12,63 @@ public class ChessBoard {
     private final Location origin;
     private final BlockFace forward;
     private final BlockFace right;
+    private final Vector forwardVector;
+    private final Vector rightVector;
     private final int cellSize;
 
-    public ChessBoard(Location origin, BlockFace forward, int cellSize) {
+    public ChessBoard(final Location origin, final BlockFace forward, final int cellSize) {
         this.origin = origin.getBlock().getLocation();
         this.forward = forward;
         this.right = getRightFace(forward);
+        this.forwardVector = forward.getDirection();
+        this.rightVector = right.getDirection();
         this.cellSize = cellSize;
     }
 
-    public Location toLocation(Coordinate coordinate) {
-        Vector offset = forward.getDirection()
-                .multiply(coordinate.y() * cellSize)
-                .add(right.getDirection().multiply(coordinate.x() * cellSize));
-
-        return origin.clone().add(offset);
+    public Location toLocation(final Coordinate coordinate) {
+        return updateToLocation(coordinate, origin.clone());
     }
 
-    public Location toCenterLocation(Coordinate coordinate) {
-        double centerOffset = (cellSize - 1) / 2.0;
-
-        return toLocation(coordinate).add(
-                forward.getDirection().multiply(centerOffset)
-                        .add(right.getDirection().multiply(centerOffset))
-        ).add(0.5, 0, 0.5);
+    public Location toCenterLocation(final Coordinate coordinate) {
+        return updateToCenterLocation(coordinate, origin.clone());
     }
 
-    public Coordinate toCoordinate(Location location) {
-        int blockOffsetX = location.getBlockX() - origin.getBlockX();
-        int blockOffsetZ = location.getBlockZ() - origin.getBlockZ();
-        int forwardDot = blockOffsetX * forward.getModX() + blockOffsetZ * forward.getModZ();
-        int rightDot = blockOffsetX * right.getModX() + blockOffsetZ * right.getModZ();
-        int y = Math.floorDiv(forwardDot, cellSize);
-        int x = Math.floorDiv(rightDot, cellSize);
+    public Location updateToLocation(final Coordinate coordinate, final Location target) {
+        final double offsetX = (rightVector.getX() * (coordinate.x() * cellSize)) + (forwardVector.getX() * (coordinate.y() * cellSize));
+        final double offsetZ = (rightVector.getZ() * (coordinate.x() * cellSize)) + (forwardVector.getZ() * (coordinate.y() * cellSize));
+
+        target.setX(origin.getX() + offsetX);
+        target.setY(origin.getY());
+        target.setZ(origin.getZ() + offsetZ);
+
+        return target;
+    }
+
+    public Location updateToCenterLocation(final Coordinate coordinate, final Location target) {
+        final double halfCell = cellSize / 2.0;
+
+        final double offsetX = (rightVector.getX() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getX() * (coordinate.y() * cellSize + halfCell));
+        final double offsetZ = (rightVector.getZ() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getZ() * (coordinate.y() * cellSize + halfCell));
+
+        target.setX(origin.getX() + offsetX + 0.5);
+        target.setY(origin.getY() + 0.1); // Visual offset for guides/particles
+        target.setZ(origin.getZ() + offsetZ + 0.5);
+
+        return target;
+    }
+
+    public Coordinate toCoordinate(final Location location) {
+        final int blockOffsetX = location.getBlockX() - origin.getBlockX();
+        final int blockOffsetZ = location.getBlockZ() - origin.getBlockZ();
+        final int forwardDot = blockOffsetX * forward.getModX() + blockOffsetZ * forward.getModZ();
+        final int rightDot = blockOffsetX * right.getModX() + blockOffsetZ * right.getModZ();
+        final int y = Math.floorDiv(forwardDot, cellSize);
+        final int x = Math.floorDiv(rightDot, cellSize);
 
         return Coordinate.of(x, y);
     }
 
-    private BlockFace getRightFace(BlockFace forward) {
+    private BlockFace getRightFace(final BlockFace forward) {
         return switch (forward) {
             case NORTH -> BlockFace.EAST;
             case SOUTH -> BlockFace.WEST;

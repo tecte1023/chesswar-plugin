@@ -1,59 +1,53 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.piece.Piece;
-import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.team.Team;
-import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
 public class MoveValidator {
-    private final GameManager gameManager;
-    private final PieceManager pieceManager;
-
-    public boolean canMove(Coordinate from, Coordinate to) {
+    public boolean canMove(final PieceState state, final Coordinate from, final Coordinate to) {
         if (!from.isValid() || !to.isValid() || from.equals(to)) {
             return false;
         }
 
-        Piece piece = pieceManager.findPieceAt(from).orElse(null);
+        final Piece piece = state.boardPieces().get(from);
 
         if (piece == null) {
             return false;
         }
 
-        Piece targetPiece = pieceManager.findPieceAt(to).orElse(null);
+        final Piece targetPiece = state.boardPieces().get(to);
         if (targetPiece != null && targetPiece.team() == piece.team()) {
             return false;
         }
 
-        int dx = to.x() - from.x();
-        int dy = to.y() - from.y();
-        int absDx = Math.abs(dx);
-        int absDy = Math.abs(dy);
+        final int dx = to.x() - from.x();
+        final int dy = to.y() - from.y();
+        final int absDx = Math.abs(dx);
+        final int absDy = Math.abs(dy);
 
         return switch (piece.type()) {
             case KING -> absDx <= 1 && absDy <= 1;
-            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(from, to);
-            case ROOK -> (dx == 0 || dy == 0) && isPathClear(from, to);
-            case BISHOP -> (absDx == absDy) && isPathClear(from, to);
+            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(state, from, to);
+            case ROOK -> (dx == 0 || dy == 0) && isPathClear(state, from, to);
+            case BISHOP -> (absDx == absDy) && isPathClear(state, from, to);
             case KNIGHT -> (absDx == 1 && absDy == 2) || (absDx == 2 && absDy == 1);
             case PAWN -> {
-                int direction = (piece.team() == Team.WHITE ? 1 : -1);
-                boolean isForward = dx == 0 && dy == direction;
-                boolean isFirstMove = dx == 0 && dy == 2 * direction && from.y() == (piece.team() == Team.WHITE ? 1 : 6);
-                boolean isCapture = absDx == 1 && dy == direction;
+                final int direction = (piece.team() == Team.WHITE ? 1 : -1);
+                final boolean isForward = dx == 0 && dy == direction;
+                final boolean isFirstMove = dx == 0 && dy == 2 * direction && from.y() == (piece.team() == Team.WHITE ? 1 : 6);
+                final boolean isCapture = absDx == 1 && dy == direction;
 
                 if (isForward) {
-                    yield pieceManager.findPieceAt(to).isEmpty();
+                    yield targetPiece == null;
                 }
 
                 if (isFirstMove) {
-                    yield pieceManager.findPieceAt(to).isEmpty() && isPathClear(from, to);
+                    yield targetPiece == null && isPathClear(state, from, to);
                 }
 
                 if (isCapture) {
-                    yield pieceManager.findPieceAt(to).isPresent();
+                    yield targetPiece != null;
                 }
 
                 yield false;
@@ -61,16 +55,16 @@ public class MoveValidator {
         };
     }
 
-    private boolean isPathClear(Coordinate from, Coordinate to) {
-        int xDirection = Integer.compare(to.x(), from.x());
-        int yDirection = Integer.compare(to.y(), from.y());
-        int steps = Math.max(Math.abs(to.x() - from.x()), Math.abs(to.y() - from.y()));
+    private boolean isPathClear(final PieceState state, final Coordinate from, final Coordinate to) {
+        final int xDirection = Integer.compare(to.x(), from.x());
+        final int yDirection = Integer.compare(to.y(), from.y());
+        final int steps = Math.max(Math.abs(to.x() - from.x()), Math.abs(to.y() - from.y()));
 
         for (int i = 1; i < steps; i++) {
-            int currentX = from.x() + (xDirection * i);
-            int currentY = from.y() + (yDirection * i);
+            final int currentX = from.x() + (xDirection * i);
+            final int currentY = from.y() + (yDirection * i);
 
-            if (pieceManager.findPieceAt(Coordinate.of(currentX, currentY)).isPresent()) {
+            if (state.boardPieces().containsKey(Coordinate.of(currentX, currentY))) {
                 return false;
             }
         }

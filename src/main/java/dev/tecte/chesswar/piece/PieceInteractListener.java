@@ -1,7 +1,6 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.game.component.GamePhase;
-import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -18,16 +17,15 @@ import org.bukkit.inventory.ItemStack;
 @RequiredArgsConstructor
 public class PieceInteractListener implements Listener {
     private final GameManager gameManager;
-    private final CombatManager combatManager;
 
     @EventHandler
-    public void onInteract(PlayerInteractEvent event) {
+    public void onInteract(final PlayerInteractEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) {
             return;
         }
 
-        Player player = event.getPlayer();
-        ItemStack item = event.getItem();
+        final Player player = event.getPlayer();
+        final ItemStack item = event.getItem();
 
         if (gameManager.phase() == GamePhase.WAITING) {
             handleWaitingInteraction(player, item, event.getAction());
@@ -39,7 +37,7 @@ public class PieceInteractListener implements Listener {
         }
     }
 
-    private void handleWaitingInteraction(Player player, ItemStack item, Action action) {
+    private void handleWaitingInteraction(final Player player, final ItemStack item, final Action action) {
         if (item == null || (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK)) {
             return;
         }
@@ -57,7 +55,7 @@ public class PieceInteractListener implements Listener {
         }
     }
 
-    private void handleBattleInteraction(Player player, ItemStack item, Action action) {
+    private void handleBattleInteraction(final Player player, final ItemStack item, final Action action) {
         if (!PieceItemUtils.isPieceItem(item)) {
             return;
         }
@@ -66,6 +64,6 @@ public class PieceInteractListener implements Listener {
             return;
         }
 
-        combatManager.handleMove(player);
+        gameManager.movePiece(player);
     }
 }
