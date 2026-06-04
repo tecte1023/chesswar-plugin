@@ -107,6 +107,8 @@ public class GameManager {
     private static final float SOUND_VOLUME_DEFAULT = 1.0f;
     private static final float SOUND_PITCH_DEFAULT = 1.0f;
 
+    private static final Component MSG_LEAVE_TEAM = Component.text(" 팀에서 퇴장했습니다.", NamedTextColor.YELLOW);
+
     private final JavaPlugin plugin;
     private final GameContext context;
     private final BoardManager boardManager;
@@ -636,8 +638,19 @@ public class GameManager {
         player.playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
     }
 
-    public boolean handleWoolBreakLeave(final Player player) {
-        return context.participants().containsKey(player.getUniqueId());
+    public void processWoolBreakLeave(final Player player, final Material material) {
+        final Participant participant = context.participants().get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+
+        final boolean isCorrectWool = (participant.team() == Team.WHITE && material == Material.WHITE_WOOL)
+                || (participant.team() == Team.BLACK && material == Material.BLACK_WOOL);
+
+        if (isCorrectWool) {
+            context.participants().remove(player.getUniqueId());
+            player.sendMessage(Component.text(participant.team().teamName()).append(MSG_LEAVE_TEAM));
+        }
     }
 
     public void clearAllVisualGuides() {

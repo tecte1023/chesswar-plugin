@@ -2,8 +2,6 @@ package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,8 +27,6 @@ public class BoardBlockListener implements Listener {
             return;
         }
 
-        if (gameManager.handleWoolBreakLeave(player)) {
-            event.setCancelled(true);
-        }
+        gameManager.processWoolBreakLeave(player, blockType);
     }
 }
