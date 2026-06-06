@@ -126,7 +126,9 @@ public class CombatManager {
 
             final boolean canAttack = combatPolicy.canAttack(attackerPiece, targetPiece);
 
-            living.setInvulnerable(!canAttack);
+            if (!(living instanceof Player)) {
+                living.setInvulnerable(!canAttack);
+            }
         }
     }
 

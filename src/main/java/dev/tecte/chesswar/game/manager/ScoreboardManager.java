@@ -2,6 +2,8 @@ package dev.tecte.chesswar.game.manager;
 
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.team.Team;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,11 +11,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
+import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -64,6 +69,20 @@ public class ScoreboardManager {
     private Component turnLineCache;
 
     public void tick() {
+        if (context.currentPhase() == GamePhase.WAITING) {
+            if (!boards.isEmpty()) {
+                reset();
+            }
+            return;
+        }
+
+        if (context.currentPhase() == GamePhase.PIECE_SELECTION && !context.isSelectionStarted()) {
+            if (!boards.isEmpty()) {
+                reset();
+            }
+            return;
+        }
+
         final Map<UUID, ?> participants = context.participants();
 
         for (final UUID playerId : participants.keySet()) {
@@ -81,7 +100,7 @@ public class ScoreboardManager {
                 boards.put(playerId, board);
             }
 
-            applyBoard(board);
+            applyBoard(player, board);
         }
 
         cleanupStaleBoards(participants);
@@ -138,7 +157,12 @@ public class ScoreboardManager {
         }
     }
 
-    private void applyBoard(final FastBoard board) {
+    private void applyBoard(final Player player, final FastBoard board) {
+        if (context.currentPhase() == GamePhase.PIECE_SELECTION) {
+            applySelectionBoard(player, board);
+            return;
+        }
+
         final int remaining = context.remainingSeconds();
         final Component timeLine;
 
@@ -159,5 +183,45 @@ public class ScoreboardManager {
                 timeLine,
                 Component.empty()
         );
+    }
+
+    private void applySelectionBoard(final Player player, final FastBoard board) {
+        final Participant me = context.participants().get(player.getUniqueId());
+        if (me == null) return;
+
+        final Team myTeam = me.team();
+        final List<Component> lines = new ArrayList<>();
+        
+        lines.add(Component.empty());
+        lines.add(Component.text(" [ 내 기물 ]", myTeam.color()));
+
+        if (me.hasPiece() && me.selectedType() != null) {
+            lines.add(Component.text(" ▶ " + me.selectedType().symbol() + " " + me.selectedType().displayName(), NamedTextColor.WHITE));
+        } else {
+            lines.add(Component.text(" ▶ -", NamedTextColor.GRAY));
+        }
+
+        final List<Participant> allies = context.participants().values().stream()
+                .filter(p -> p.team() == myTeam && !p.playerId().equals(player.getUniqueId()))
+                .toList();
+
+        if (!allies.isEmpty()) {
+            lines.add(Component.empty());
+            lines.add(Component.text(" [ 아군 현황 ]", myTeam.color()));
+
+            for (final Participant p : allies) {
+                final OfflinePlayer targetPlayer = Bukkit.getOfflinePlayer(p.playerId());
+                final String name = targetPlayer.getName() != null ? targetPlayer.getName() : "Unknown";
+
+                if (p.hasPiece() && p.selectedType() != null) {
+                    lines.add(Component.text(" " + name + ": " + p.selectedType().symbol() + " " + p.selectedType().displayName(), NamedTextColor.WHITE));
+                } else {
+                    lines.add(Component.text(" " + name + ": -", NamedTextColor.DARK_GRAY));
+                }
+            }
+        }
+
+        lines.add(Component.empty());
+        board.updateLines(lines);
     }
 }

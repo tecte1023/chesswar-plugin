@@ -11,6 +11,7 @@ import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.component.PhaseTimerSettings;
 import dev.tecte.chesswar.game.component.Statistics;
+import dev.tecte.chesswar.game.component.TimerPolicy;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
@@ -37,12 +38,18 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -58,10 +65,10 @@ import java.util.stream.Collectors;
 @Accessors(fluent = true)
 @lombok.extern.slf4j.Slf4j(topic = "ChessWar")
 public class GameManager {
-    private static final String KEY_NAME_PIECE_TYPE = "barracks_piece_type";
-    private static final String KEY_NAME_PIECE_TEAM = "barracks_piece_team";
-    private static final String KEY_NAME_COORD_X = "barracks_piece_x";
-    private static final String KEY_NAME_COORD_Y = "barracks_piece_y";
+    private static final String KEY_NAME_PIECE_TYPE = "piece_type";
+    private static final String KEY_NAME_PIECE_TEAM = "piece_team";
+    private static final String KEY_NAME_COORD_X = "piece_coord_x";
+    private static final String KEY_NAME_COORD_Y = "piece_coord_y";
 
     // Static Feedback Constants
     private static final Component MSG_COUNTDOWN_SUBTITLE = Component.text("잠시 후 기물 선택이 시작됩니다.", NamedTextColor.YELLOW);
@@ -71,7 +78,7 @@ public class GameManager {
     private static final Component MSG_RESET_COMPLETE = Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN);
     private static final Component MSG_ELIMINATED = Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED);
     private static final Component MSG_PROMOTED_TO_KING = Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD);
-    private static final Component MSG_HOVER_TAKEN = Component.text("이미 팀원이 선택한 기물입니다.", NamedTextColor.RED);
+    private static final Component MSG_HOVER_TAKEN = Component.text("이미 참전 중인 기물입니다.", NamedTextColor.RED);
     private static final Component MSG_HOVER_SELECT = Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN);
 
     private static final Component ERROR_NOT_READY_PHASE = Component.text("지금은 준비를 완료할 수 있는 시간이 아닙니다!", NamedTextColor.RED);
@@ -88,19 +95,23 @@ public class GameManager {
     private static final Component MSG_WAITING_PREPARATION = Component.text(" [!] ", NamedTextColor.GOLD, TextDecoration.BOLD)
             .append(Component.text("모든 플레이어가 기물을 선택했습니다! 10초 후 준비 단계로 넘어갑니다.", NamedTextColor.AQUA, TextDecoration.BOLD));
 
+    private static final Component UI_DECORATION_LINE = Component.text("━━━━━━━━━━━━━━━", NamedTextColor.DARK_GRAY, TextDecoration.STRIKETHROUGH);
     private static final Component UI_TITLE_CONFIRMATION = Component.text(" [ 기물 확인 ] ", NamedTextColor.GOLD, TextDecoration.BOLD);
-    private static final Component UI_LABEL_TYPE = Component.text("유형: ", NamedTextColor.GRAY);
-    private static final Component UI_LABEL_HEALTH = Component.text("체력: ", NamedTextColor.GRAY);
-    private static final Component UI_LABEL_DAMAGE = Component.text("공격력: ", NamedTextColor.GRAY);
-    private static final Component UI_BTN_TAKEN = Component.text("[ 이미 선택됨 ]", NamedTextColor.RED);
-    private static final Component UI_BTN_SELECT = Component.text("[ 이 기물로 결정하기 ]", NamedTextColor.GREEN, TextDecoration.BOLD);
+    
+    private static final Component UI_BTN_BASE = Component.text("[ ⚔ ")
+            .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
+            .append(Component.text(" ]"));
+    
+    private static final Component UI_BTN_TAKEN = UI_BTN_BASE.color(NamedTextColor.GRAY);
+    private static final Component UI_BTN_SELECT = UI_BTN_BASE.color(NamedTextColor.GREEN);
+    
     private static final Component UI_STATS_TITLE = Component.text(" [ 전투 결과 통계 ] ", NamedTextColor.GOLD, TextDecoration.BOLD);
     
     private static final String RECORD_BOOK_TITLE = "전투 기록 일지";
     private static final String RECORD_BOOK_AUTHOR = "ChessWar System";
     private static final Component RECORD_BOOK_HEADER = Component.text("=== 전투 기록 리포트 ===\n\n", NamedTextColor.GOLD, TextDecoration.BOLD);
 
-    private static final int SELECTION_COUNTDOWN_START = 10;
+    private static final int SELECTION_COUNTDOWN_START = 3;
     private static final int PIECE_SELECTION_AUTO_ADVANCE_TIME = 10;
     private static final int DEFAULT_CELL_SIZE = 3;
     private static final int SELECTION_UI_COUNTDOWN_THRESHOLD = 5;
@@ -108,6 +119,13 @@ public class GameManager {
     private static final float SOUND_PITCH_DEFAULT = 1.0f;
 
     private static final Component MSG_LEAVE_TEAM = Component.text(" 팀에서 퇴장했습니다.", NamedTextColor.YELLOW);
+    private static final Component MSG_SELECTION_GUIDE = Component.text("기물을 우클릭하여 참전할 기물을 선택해주세요.", NamedTextColor.RED);
+    private static final Component MSG_SELECTION_WAITING = Component.text("기물 선택 완료! 다른 플레이어를 기다리는 중...", NamedTextColor.GREEN);
+    private static final Component MSG_SELECTION_COMPLETED = Component.text("기물 선택이 모두 완료되었습니다!", NamedTextColor.AQUA);
+    private static final Component MSG_START_BIND_PROMPT = Component.text("설정할 버튼을 좌클릭(타격) 하세요.", NamedTextColor.YELLOW);
+    private static final Component MSG_START_BIND_SUCCESS = Component.text("게임 시작 버튼이 성공적으로 등록되었습니다!", NamedTextColor.GREEN);
+    private static final Component MSG_START_REMOVE_SUCCESS = Component.text("게임 시작 버튼이 제거되었습니다.", NamedTextColor.YELLOW);
+    private static final Component MSG_START_BUTTON_HOLOGRAM = Component.text("게임 시작", NamedTextColor.GOLD, TextDecoration.BOLD);
 
     private final JavaPlugin plugin;
     private final GameContext context;
@@ -115,6 +133,7 @@ public class GameManager {
     private final PieceManager pieceManager;
     private final PieceState pieceState;
     private final TimerManager timerManager;
+    private final BossBarManager bossBarManager;
     private final EnvironmentManager environmentManager;
     private final BoardVisualManager boardVisualManager;
     private final MoveValidator moveValidator;
@@ -123,6 +142,7 @@ public class GameManager {
     private final PlayerInventoryAdapter inventoryAdapter;
 
     private org.bukkit.scheduler.BukkitTask heartbeatTask;
+    private int lastDisplayedSecond = -1;
 
     private final NamespacedKey keyPieceType;
     private final NamespacedKey keyPieceTeam;
@@ -148,6 +168,7 @@ public class GameManager {
         this.pieceManager = pieceManager;
         this.pieceState = pieceState;
         this.timerManager = timerManager;
+        this.bossBarManager = new BossBarManager(context);
         this.environmentManager = environmentManager;
         this.boardVisualManager = boardVisualManager;
         this.moveValidator = moveValidator;
@@ -177,7 +198,7 @@ public class GameManager {
                     log.error("Game heartbeat error: [{}] {}", e.getClass().getSimpleName(), e.getMessage());
                 }
             }
-        }.runTaskTimer(plugin, 0L, 20L);
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     public void stopHeartbeat() {
@@ -185,16 +206,23 @@ public class GameManager {
             heartbeatTask.cancel();
             heartbeatTask = null;
         }
+
+        if (context.startButtonHologram() != null) {
+            context.startButtonHologram().remove();
+            context.startButtonHologram(null);
+        }
     }
 
     private void gameTick() {
         final boolean wasExpired = timerManager.isExpired();
-        timerManager.tick();
 
         final int remaining = context.remainingSeconds();
         if (context.timerRunning()) {
             onTimerTick(remaining);
         }
+
+        timerManager.tick();
+        bossBarManager.tick();
 
         if (!wasExpired && timerManager.isExpired()) {
             onTimerExpire();
@@ -274,6 +302,14 @@ public class GameManager {
         if (context.participants().isEmpty()) {
             player.sendMessage(ERROR_NO_PARTICIPANTS);
             return;
+        }
+
+        // 게임 시작 시점의 플레이어 게임 모드를 저장
+        for (final Participant participant : context.participants().values()) {
+            final Player p = Bukkit.getPlayer(participant.playerId());
+            if (p != null) {
+                participant.originalGameMode(p.getGameMode());
+            }
         }
 
         advancePhase();
@@ -365,7 +401,12 @@ public class GameManager {
         switch (nextPhase) {
             case PIECE_SELECTION -> {
                 broadcast(MSG_COUNTDOWN_SUBTITLE);
-                timerManager.startTimer(SELECTION_COUNTDOWN_START);
+                pieceManager.clearSpawnedEntities(false);
+                boardManager.setupBarracks(pieceManager);
+
+                lastDisplayedSecond = SELECTION_COUNTDOWN_START;
+                broadcastSelectionCountdown(SELECTION_COUNTDOWN_START);
+                timerManager.startTimer(SELECTION_COUNTDOWN_START, TimerPolicy.IMMEDIATE);
             }
             case TURN_ORDER -> {
                 timerManager.startTimer(context.timerSettings().turnOrderSelectionTime());
@@ -392,12 +433,17 @@ public class GameManager {
     public void reset() {
         context.reset();
         context.currentPhase(GamePhase.WAITING);
+        lastDisplayedSecond = -1;
 
         for (final Participant participant : context.participants().values()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
 
             if (player != null) {
-                player.setGameMode(GameMode.SURVIVAL);
+                if (participant.originalGameMode() != null) {
+                    player.setGameMode(participant.originalGameMode());
+                } else {
+                    player.setGameMode(GameMode.SURVIVAL);
+                }
                 player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getValue());
                 player.setFoodLevel(20);
                 player.setSaturation(5.0f);
@@ -439,7 +485,7 @@ public class GameManager {
     }
 
     public void join(final Player player, final Team team) {
-        context.participants().put(player.getUniqueId(), Participant.of(player.getUniqueId(), team));
+        context.participants().put(player.getUniqueId(), Participant.of(player.getUniqueId(), team, null));
         player.sendMessage(Component.text("[Admin] " + team.teamName() + "에 강제 참가했습니다!", team.color()));
     }
 
@@ -507,9 +553,15 @@ public class GameManager {
         processPieceSelection(player, coordinate);
 
         if (areAllPiecesSelected()) {
-            timerManager.accelerateTimerTo(PIECE_SELECTION_AUTO_ADVANCE_TIME);
-            Bukkit.broadcast(MSG_WAITING_PREPARATION);
+            if (context.remainingSeconds() > PIECE_SELECTION_AUTO_ADVANCE_TIME) {
+                timerManager.startTimer(PIECE_SELECTION_AUTO_ADVANCE_TIME, TimerPolicy.IMMEDIATE);
+                Bukkit.broadcast(MSG_WAITING_PREPARATION);
+            } else {
+                Bukkit.broadcast(Component.text("모든 플레이어가 기물을 선택했습니다!", NamedTextColor.AQUA, TextDecoration.BOLD));
+            }
         }
+
+        sendSelectionActionBarGuidance();
     }
 
     public void processPieceSelection(final Player player, final Coordinate coordinate) {
@@ -557,38 +609,64 @@ public class GameManager {
     }
 
     public void onTimerTick(final int remaining) {
-        if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
-            for (final UUID playerId : context.participants().keySet()) {
-                final Player player = Bukkit.getPlayer(playerId);
-
-                if (player != null) {
-                    player.playSound(player, Sound.BLOCK_NOTE_BLOCK_HAT, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
-                }
-            }
-        }
-
         switch (context.currentPhase()) {
             case PIECE_SELECTION -> {
                 if (!context.isSelectionStarted()) {
-                    broadcastSelectionCountdown(remaining + 1);
+                    if (remaining > 0 && remaining != lastDisplayedSecond) {
+                        broadcastSelectionCountdown(remaining);
+                        lastDisplayedSecond = remaining;
+                    }
+                } else if (remaining != lastDisplayedSecond) {
+                    sendSelectionActionBarGuidance();
+                    
+                    if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
+                        playCountdownTickSound();
+                    }
+                    
+                    lastDisplayedSecond = remaining;
                 }
             }
             case TURN_ORDER -> {
+                if (remaining != lastDisplayedSecond) {
+                    if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
+                        playCountdownTickSound();
+                    }
+                    lastDisplayedSecond = remaining;
+                }
+                
                 if (areAllParticipantsReady()) {
                     timerManager.accelerateTimerTo(context.timerSettings().readyAccelerateTime());
                 }
             }
-            case BATTLE -> currentTurnPlayer()
-                    .flatMap(this::findParticipant)
-                    .ifPresent(participant -> {
-                        final Team team = participant.team();
-                        final int threshold = context.timerSettings().battleTurnTime();
+            case BATTLE -> {
+                if (remaining != lastDisplayedSecond) {
+                    if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
+                        playCountdownTickSound();
+                    }
+                    lastDisplayedSecond = remaining;
+                }
+                
+                currentTurnPlayer()
+                        .flatMap(this::findParticipant)
+                        .ifPresent(participant -> {
+                            final Team team = participant.team();
+                            final int threshold = context.timerSettings().battleTurnTime();
 
-                        if (context.getTeamTime(team) > threshold) {
-                            timerManager.updateTeamTime(team, remaining);
-                        }
-                    });
+                            if (context.getTeamTime(team) > threshold) {
+                                timerManager.updateTeamTime(team, remaining);
+                            }
+                        });
+            }
             default -> {
+            }
+        }
+    }
+
+    private void playCountdownTickSound() {
+        for (final UUID playerId : context.participants().keySet()) {
+            final Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                player.playSound(player, Sound.BLOCK_NOTE_BLOCK_HAT, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
             }
         }
     }
@@ -600,6 +678,7 @@ public class GameManager {
                     context.isSelectionStarted(true);
                     prepareSelectionContext();
                 } else {
+                    finalizePieceSelection();
                     advancePhase();
                 }
             }
@@ -639,6 +718,10 @@ public class GameManager {
     }
 
     public void processWoolBreakLeave(final Player player, final Material material) {
+        if (context.currentPhase() != GamePhase.WAITING) {
+            return;
+        }
+
         final Participant participant = context.participants().get(player.getUniqueId());
         if (participant == null) {
             return;
@@ -699,6 +782,88 @@ public class GameManager {
         }
     }
 
+    public void setStartButtonBindingMode(final Player admin) {
+        context.bindingAdmin(admin.getUniqueId());
+        admin.sendMessage(MSG_START_BIND_PROMPT);
+    }
+
+    public boolean isBindingAdmin(final UUID uuid) {
+        return context.bindingAdmin() != null && context.bindingAdmin().equals(uuid);
+    }
+
+    public void loadConfig() {
+        final File file = new File(plugin.getDataFolder(), "data.yml");
+        if (!file.exists()) {
+            return;
+        }
+
+        final FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        final Location loc = config.getLocation("start_button_location");
+        if (loc != null) {
+            context.startButtonLocation(loc);
+            updateStartButtonHologram();
+        }
+    }
+
+    public void saveConfig() {
+        final File file = new File(plugin.getDataFolder(), "data.yml");
+        final FileConfiguration config = new YamlConfiguration();
+
+        if (context.startButtonLocation() != null) {
+            config.set("start_button_location", context.startButtonLocation());
+        }
+
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            log.error("Failed to save data.yml", e);
+        }
+    }
+
+    public void bindStartButton(final Player admin, final Location location) {
+        context.startButtonLocation(location);
+        context.bindingAdmin(null);
+        updateStartButtonHologram();
+        saveConfig();
+        admin.sendMessage(MSG_START_BIND_SUCCESS);
+    }
+
+    public void removeStartButton(final Player admin) {
+        context.startButtonLocation(null);
+        updateStartButtonHologram();
+        saveConfig();
+        admin.sendMessage(MSG_START_REMOVE_SUCCESS);
+    }
+
+    public void updateStartButtonHologram() {
+        if (context.startButtonHologram() != null) {
+            context.startButtonHologram().remove();
+            context.startButtonHologram(null);
+        }
+
+        final Location loc = context.startButtonLocation();
+        if (loc == null || loc.getWorld() == null) {
+            return;
+        }
+
+        final Location hologramLoc = loc.clone().add(0.5, 1.2, 0.5);
+        final TextDisplay textDisplay = loc.getWorld().spawn(hologramLoc, TextDisplay.class, display -> {
+            display.text(MSG_START_BUTTON_HOLOGRAM);
+            display.setBillboard(org.bukkit.entity.Display.Billboard.CENTER);
+            display.setShadowed(true);
+        });
+
+        context.startButtonHologram(textDisplay);
+    }
+
+    public boolean isStartButton(final Location location) {
+        if (context.startButtonLocation() == null || location == null) {
+            return false;
+        }
+
+        return context.startButtonLocation().getBlock().getLocation().equals(location.getBlock().getLocation());
+    }
+
     public void nextTurn() {
         if (context.currentPhase() != GamePhase.BATTLE) {
             return;
@@ -715,12 +880,57 @@ public class GameManager {
         });
     }
 
-    private void prepareSelectionContext() {
-        pieceManager.clearSpawnedEntities(false);
+    private void finalizePieceSelection() {
+        for (final Team team : Team.values()) {
+            final List<Participant> teamMembers = context.participants().values().stream()
+                    .filter(p -> p.team() == team)
+                    .toList();
 
+            if (teamMembers.isEmpty()) continue;
+
+            final boolean hasKing = teamMembers.stream()
+                    .anyMatch(p -> p.selectedType() == PieceType.KING);
+
+            if (!hasKing) {
+                final List<Participant> unselected = teamMembers.stream()
+                        .filter(p -> p.selectedType() == null)
+                        .toList();
+
+                final Participant target = unselected.isEmpty()
+                        ? teamMembers.get((int) (Math.random() * teamMembers.size()))
+                        : unselected.get((int) (Math.random() * unselected.size()));
+
+                forceAssignPiece(target, PieceType.KING);
+            }
+        }
+
+        // 남은 미선택자들 랜덤 배정
+        for (final Participant p : context.participants().values()) {
+            if (p.selectedType() == null) {
+                final PieceType randomType = PieceType.values()[(int) (Math.random() * (PieceType.values().length - 1)) + 1]; // KING 제외 랜덤
+                forceAssignPiece(p, randomType);
+            }
+        }
+    }
+
+    private void forceAssignPiece(final Participant participant, final PieceType type) {
+        final Player player = Bukkit.getPlayer(participant.playerId());
+        if (player == null) return;
+
+        // 해당 팀의 막사 기물 중 빈 좌표 하나를 임의로 찾음 (또는 첫 번째 좌표)
+        final Coordinate fallbackCoord = Coordinate.of(3, teamPieceRow(participant.team())); 
+        applyPieceAssignment(participant, player, fallbackCoord, type);
+    }
+
+    private int teamPieceRow(final Team team) {
+        return team == Team.WHITE ? 0 : 7;
+    }
+
+    private void prepareSelectionContext() {
         for (final Participant participant : context.participants().values()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player != null) {
+                player.clearTitle();
                 boardManager.teleportToBarracks(participant.team(), player);
             }
         }
@@ -898,36 +1108,55 @@ public class GameManager {
 
     private void applyPieceAssignment(final Participant participant, final Player player, final Coordinate coord, final PieceType type) {
         participant.initialCoordinate(coord);
+        participant.selectedType(type);
         combatManager.applyStats(player, type);
+        PieceItemUtils.replacePlayerPieceItem(player, type);
     }
 
     private void sendSelectionConfirmation(final Player player, final PieceType type, final Coordinate coord) {
         final boolean isTaken = context.participants().values().stream()
-                .anyMatch(p -> {
-                    return coord.equals(p.initialCoordinate());
-                });
+                .anyMatch(p -> coord.equals(p.initialCoordinate()));
 
-        final Component message = Component.text()
-                .append(UI_TITLE_CONFIRMATION)
-                .append(Component.newline())
-                .append(UI_LABEL_TYPE)
-                .append(Component.text(type.displayName(), NamedTextColor.WHITE))
-                .append(Component.newline())
-                .append(UI_LABEL_HEALTH)
-                .append(Component.text(type.baseHealth() + " HP", NamedTextColor.RED))
-                .append(Component.newline())
-                .append(UI_LABEL_DAMAGE)
-                .append(Component.text(type.baseDamage() + " ATK", NamedTextColor.YELLOW))
-                .append(Component.newline())
-                .append(Component.newline())
-                .append(isTaken ?
-                        UI_BTN_TAKEN
-                                .hoverEvent(HoverEvent.showText(MSG_HOVER_TAKEN)) :
-                        UI_BTN_SELECT
-                                .clickEvent(ClickEvent.runCommand("/cw selection " + coord.x() + " " + coord.y()))
-                                .hoverEvent(HoverEvent.showText(MSG_HOVER_SELECT))
-                )
+        final Component titlePanel = Component.text()
+                .append(UI_DECORATION_LINE)
+                .appendSpace()
+                .append(Component.text("[ " + type.symbol() + " " + type.displayName() + " ]", NamedTextColor.GOLD, TextDecoration.BOLD))
+                .appendSpace()
+                .append(UI_DECORATION_LINE)
                 .build();
+
+        final Component statPanel = Component.text()
+                .append(Component.text("체력: ", NamedTextColor.GRAY))
+                .append(Component.text("♥ " + (int) type.baseHealth(), NamedTextColor.DARK_GREEN))
+                .append(Component.text("  |  ", NamedTextColor.DARK_GRAY))
+                .append(Component.text("공격력: ", NamedTextColor.GRAY))
+                .append(Component.text("⚔ " + (int) type.baseDamage(), NamedTextColor.RED))
+                .build();
+
+        final Component rangePanel = Component.text()
+                .append(Component.text("이동 및 공격 범위: ", NamedTextColor.GRAY))
+                .append(Component.text(type.rangeDescription(), NamedTextColor.AQUA))
+                .build();
+
+        final Component buttonPanel = isTaken ?
+                UI_BTN_TAKEN.hoverEvent(HoverEvent.showText(MSG_HOVER_TAKEN)) :
+                UI_BTN_SELECT
+                        .clickEvent(ClickEvent.runCommand("/cw select " + coord.x() + " " + coord.y()))
+                        .hoverEvent(HoverEvent.showText(MSG_HOVER_SELECT));
+
+        final Component message = Component.join(
+                net.kyori.adventure.text.JoinConfiguration.newlines(),
+                Component.empty(),
+                titlePanel,
+                Component.empty(),
+                Component.text(type.description(), NamedTextColor.WHITE),
+                Component.empty(),
+                statPanel,
+                rangePanel,
+                Component.empty(),
+                Component.text().append(Component.text("               ")).append(buttonPanel).build(),
+                Component.empty()
+        );
 
         player.sendMessage(message);
         player.playSound(player, Sound.BLOCK_CHEST_OPEN, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
@@ -936,7 +1165,8 @@ public class GameManager {
     private void broadcastSelectionCountdown(final int seconds) {
         final Title title = Title.title(
                 Component.text(seconds, NamedTextColor.RED, TextDecoration.BOLD),
-                MSG_COUNTDOWN_SUBTITLE
+                MSG_COUNTDOWN_SUBTITLE,
+                Title.Times.times(java.time.Duration.ZERO, java.time.Duration.ofSeconds(1), java.time.Duration.ofMillis(250))
         );
 
         for (final UUID playerId : context.participants().keySet()) {
@@ -945,6 +1175,19 @@ public class GameManager {
             if (player != null) {
                 player.showTitle(title);
                 player.playSound(player, Sound.BLOCK_NOTE_BLOCK_PLING, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
+            }
+        }
+    }
+
+    private void sendSelectionActionBarGuidance() {
+        final boolean allSelected = areAllPiecesSelected();
+
+        for (final Participant participant : context.participants().values()) {
+            final Player player = Bukkit.getPlayer(participant.playerId());
+            if (player != null) {
+                final Component guide = allSelected ? MSG_SELECTION_COMPLETED :
+                        (participant.hasPiece() ? MSG_SELECTION_WAITING : MSG_SELECTION_GUIDE);
+                player.sendActionBar(guide);
             }
         }
     }

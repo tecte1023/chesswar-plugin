@@ -11,6 +11,7 @@ import dev.tecte.chesswar.game.listener.EnvironmentListener;
 import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
 import dev.tecte.chesswar.game.listener.GameReadyListener;
 import dev.tecte.chesswar.game.listener.GameSelectionListener;
+import dev.tecte.chesswar.game.listener.GameStartListener;
 import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.EnvironmentManager;
 import dev.tecte.chesswar.game.manager.GameManager;
@@ -105,6 +106,7 @@ public final class ChessWar extends JavaPlugin {
             environmentManager.configure(boardManager.currentBoard().origin().getWorld());
         }
 
+        gameManager.loadConfig();
         gameManager.startHeartbeat();
     }
 
@@ -115,6 +117,7 @@ public final class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new GamePieceLifecycleListener(gameManager), this);
         pluginManager.registerEvents(new GameSelectionListener(gameManager), this);
         pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager), this);
+        pluginManager.registerEvents(new GameStartListener(gameManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
         pluginManager.registerEvents(new PieceInteractListener(gameManager), this);
         pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager), this);

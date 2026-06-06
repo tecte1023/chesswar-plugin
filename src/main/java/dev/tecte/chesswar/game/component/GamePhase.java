@@ -9,7 +9,7 @@ import lombok.experimental.Accessors;
 @RequiredArgsConstructor
 public enum GamePhase {
     WAITING("대기"),
-    PIECE_SELECTION("기물 선택"),
+    PIECE_SELECTION("병력 편성"),
     TURN_ORDER("순서 조율"),
     BATTLE("전투"),
     ENDED("종료");

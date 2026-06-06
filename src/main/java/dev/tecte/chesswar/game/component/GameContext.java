@@ -3,13 +3,17 @@ package dev.tecte.chesswar.game.component;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.bukkit.Location;
+import org.bukkit.entity.Entity;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 @Getter
+@Setter
 @Accessors(fluent = true)
 @NoArgsConstructor(staticName = "create")
 public class GameContext {
@@ -21,10 +25,16 @@ public class GameContext {
     private int currentTurnIndex = -1;
 
     private int remainingSeconds = 0;
+    private int initialSeconds = 0;
     private int whiteTeamTime = 0;
     private int blackTeamTime = 0;
     private boolean timerRunning = false;
     private boolean isSelectionStarted = false;
+    private TimerPolicy currentTimerPolicy = TimerPolicy.GRACEFUL;
+
+    private Location startButtonLocation;
+    private UUID bindingAdmin;
+    private Entity startButtonHologram;
 
     public void currentPhase(final GamePhase currentPhase) {
         this.currentPhase = currentPhase;
@@ -32,6 +42,10 @@ public class GameContext {
 
     public void isSelectionStarted(final boolean isSelectionStarted) {
         this.isSelectionStarted = isSelectionStarted;
+    }
+
+    public void currentTimerPolicy(final TimerPolicy currentTimerPolicy) {
+        this.currentTimerPolicy = currentTimerPolicy;
     }
 
     public void turnOrder(final Participant[] turnOrder) {
@@ -114,6 +128,7 @@ public class GameContext {
 
     public void startTimer(final int seconds) {
         remainingSeconds = seconds;
+        initialSeconds = seconds;
         timerRunning = true;
     }
 
@@ -122,7 +137,7 @@ public class GameContext {
     }
 
     public void tickTimer() {
-        if (remainingSeconds <= 0) {
+        if (remainingSeconds < 0) {
             return;
         }
 
@@ -163,6 +178,8 @@ public class GameContext {
         currentTurnIndex = -1;
         remainingSeconds = 0;
         timerRunning = false;
+        isSelectionStarted = false;
+        currentTimerPolicy = TimerPolicy.GRACEFUL;
         whiteTeamTime = blackTeamTime = timerSettings.teamTotalTime();
 
         for (final Participant participant : participants.values()) {
@@ -173,3 +190,4 @@ public class GameContext {
         }
     }
 }
+

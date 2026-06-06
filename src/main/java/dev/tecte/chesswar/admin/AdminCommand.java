@@ -40,6 +40,16 @@ public class AdminCommand extends BaseCommand {
         gameManager.setupBoard(player);
     }
 
+    @Subcommand("setstart")
+    public void setStartButton(final Player player) {
+        gameManager.setStartButtonBindingMode(player);
+    }
+
+    @Subcommand("removestart")
+    public void removeStartButton(final Player player) {
+        gameManager.removeStartButton(player);
+    }
+
     @Subcommand("join")
     public void joinGame(final Player player, final Team team) {
         gameManager.join(player, team);
