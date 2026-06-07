@@ -104,9 +104,16 @@ public class BoardManager implements Listener {
         final Chest data2 = (Chest) state2.getBlockData();
 
         data1.setFacing(barracks.chestFacing());
-        data1.setType(Chest.Type.RIGHT);
         data2.setFacing(barracks.chestFacing());
-        data2.setType(Chest.Type.LEFT);
+
+        // 팀 방향에 따라 좌/우 설정 (흑팀은 방향이 반대이므로 반전 필요)
+        if (barracks.team() == Team.WHITE) {
+            data1.setType(Chest.Type.RIGHT);
+            data2.setType(Chest.Type.LEFT);
+        } else {
+            data1.setType(Chest.Type.LEFT);
+            data2.setType(Chest.Type.RIGHT);
+        }
 
         state1.setBlockData(data1);
         state2.setBlockData(data2);
@@ -143,6 +150,32 @@ public class BoardManager implements Listener {
 
         final int readySlot = (chestInv.getSize() == 54) ? READY_BTN_SLOT_54 : READY_BTN_SLOT_27;
         chestInv.setItem(readySlot, readyBtn);
+    }
+
+    public void disableReadyButton(final Team team) {
+        final Barracks barracks = boardState.barracksMap().get(team);
+        if (barracks == null) return;
+
+        final Location b1 = barracks.chestLocation1();
+        final Location b2 = barracks.chestLocation2();
+
+        final boolean b1IsTop = b1.getBlockX() < b2.getBlockX() || (b1.getBlockX() == b2.getBlockX() && b1.getBlockZ() < b2.getBlockZ());
+        final org.bukkit.block.Block chestBlock = (b1IsTop ? b1 : b2).getBlock();
+
+        if (!(chestBlock.getState() instanceof InventoryHolder holder)) return;
+
+        final Inventory chestInv = holder.getInventory();
+        final int readySlot = (chestInv.getSize() == 54) ? READY_BTN_SLOT_54 : READY_BTN_SLOT_27;
+
+        final ItemStack disabledBtn = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        final ItemMeta meta = disabledBtn.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("[ 준비 완료 ]", NamedTextColor.GRAY, TextDecoration.BOLD));
+            meta.getPersistentDataContainer().set(readyKey, PersistentDataType.BYTE, (byte) 1);
+            disabledBtn.setItemMeta(meta);
+        }
+
+        chestInv.setItem(readySlot, disabledBtn);
     }
 
     public boolean isReadyButton(final ItemStack item) {

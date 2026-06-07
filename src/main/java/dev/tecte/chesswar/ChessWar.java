@@ -12,12 +12,16 @@ import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
 import dev.tecte.chesswar.game.listener.GameReadyListener;
 import dev.tecte.chesswar.game.listener.GameSelectionListener;
 import dev.tecte.chesswar.game.listener.GameStartListener;
+import dev.tecte.chesswar.game.listener.PlayerJoinListener;
+import dev.tecte.chesswar.game.listener.ScoreboardUpdateListener;
 import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.EnvironmentManager;
 import dev.tecte.chesswar.game.manager.GameManager;
+import dev.tecte.chesswar.game.manager.PlayerInventoryAdapter;
 import dev.tecte.chesswar.game.manager.ScoreboardManager;
 import dev.tecte.chesswar.game.manager.TimerManager;
 import dev.tecte.chesswar.game.CombatPolicy;
+import dev.tecte.chesswar.piece.MythicPieceListener;
 import dev.tecte.chesswar.piece.PieceBootstrap;
 import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceDamageListener;
@@ -83,9 +87,10 @@ public final class ChessWar extends JavaPlugin {
         environmentManager = new EnvironmentManager();
         timerManager = new TimerManager(context);
         boardVisualManager = new BoardVisualManager(this, boardManager);
+        final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         final CombatPolicy combatPolicy = new CombatPolicy();
-        scoreboardManager = new ScoreboardManager(context);
+        scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
         combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy);
 
         gameManager = new GameManager(
@@ -99,7 +104,8 @@ public final class ChessWar extends JavaPlugin {
                 boardVisualManager,
                 moveValidator,
                 combatManager,
-                scoreboardManager
+                scoreboardManager,
+                inventoryAdapter
         );
 
         if (boardManager.hasBoard()) {
@@ -108,6 +114,10 @@ public final class ChessWar extends JavaPlugin {
 
         gameManager.loadConfig();
         gameManager.startHeartbeat();
+
+        if (!getServer().getWorlds().isEmpty()) {
+            pieceManager.warmup(getServer().getWorlds().get(0));
+        }
     }
 
     private void registerListeners() {
@@ -117,7 +127,10 @@ public final class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new GamePieceLifecycleListener(gameManager), this);
         pluginManager.registerEvents(new GameSelectionListener(gameManager), this);
         pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager), this);
+        pluginManager.registerEvents(new ScoreboardUpdateListener(scoreboardManager), this);
+        pluginManager.registerEvents(new PlayerJoinListener(gameManager), this);
         pluginManager.registerEvents(new GameStartListener(gameManager), this);
+        pluginManager.registerEvents(new MythicPieceListener(pieceManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
         pluginManager.registerEvents(new PieceInteractListener(gameManager), this);
         pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager), this);

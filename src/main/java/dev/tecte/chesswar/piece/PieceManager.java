@@ -59,6 +59,29 @@ public class PieceManager {
         }
     }
 
+    public void warmup(final org.bukkit.World world) {
+        if (world == null) {
+            return;
+        }
+
+        final Location safeLocation = new Location(world, 0, -1024, 0);
+        final Vector dummyDirection = new Vector(0, 0, 1);
+
+        for (final Team team : Team.values()) {
+            for (final PieceType type : PieceType.values()) {
+                final String mobId = convertToPascalCase(team.name()) + convertToPascalCase(type.name());
+                final Optional<MythicMob> mythicMob = mobManager.getMythicMob(mobId);
+
+                if (mythicMob.isPresent()) {
+                    final ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(safeLocation), INITIAL_MOB_LEVEL);
+                    if (activeMob != null) {
+                        activeMob.getEntity().remove();
+                    }
+                }
+            }
+        }
+    }
+
     public void spawnPiece(
             final PieceType type,
             final Team team,

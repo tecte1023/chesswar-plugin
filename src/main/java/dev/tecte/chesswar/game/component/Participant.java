@@ -17,6 +17,7 @@ import java.util.UUID;
 @AllArgsConstructor(staticName = "of")
 public class Participant {
     private final UUID playerId;
+    private final String playerName;
     private final Team team;
     private final Statistics statistics;
     private Coordinate initialCoordinate;
@@ -24,14 +25,16 @@ public class Participant {
     private boolean ready;
     private int turnOrder;
     private Coordinate commanderTarget;
-    private GameMode originalGameMode;
+    private org.bukkit.GameMode originalGameMode;
+    private Double originalHealth;
+    private Double originalAttackDamage;
 
-    public static Participant of(UUID playerId, Team team, GameMode originalGameMode) {
-        return new Participant(playerId, team, new Statistics(), null, null, false, -1, null, originalGameMode);
+    public static Participant of(UUID playerId, String playerName, Team team, org.bukkit.GameMode originalGameMode) {
+        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null);
     }
 
-    public static Participant of(UUID playerId, Team team, Coordinate coordinate, GameMode originalGameMode) {
-        return new Participant(playerId, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode);
+    public static Participant of(UUID playerId, String playerName, Team team, Coordinate coordinate, org.bukkit.GameMode originalGameMode) {
+        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null);
     }
 
     public boolean hasPiece() {

@@ -15,6 +15,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -23,7 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 
 @Slf4j(topic = "ChessWar")
-@RequiredArgsConstructor
 public class ScoreboardManager {
     private static final Component TITLE = Component.text(
             "ChessWar",
@@ -64,46 +64,59 @@ public class ScoreboardManager {
     }
 
     private final GameContext context;
+    private final PlayerInventoryAdapter inventoryAdapter;
     private final Map<UUID, FastBoard> boards = new HashMap<>();
 
     private Component turnLineCache;
 
+    public ScoreboardManager(final GameContext context, final PlayerInventoryAdapter inventoryAdapter) {
+        this.context = context;
+        this.inventoryAdapter = inventoryAdapter;
+    }
+
+    public void updateAll() {
+        for (final Player player : Bukkit.getOnlinePlayers()) {
+            updatePlayer(player);
+        }
+        cleanupStaleBoards();
+    }
+
+    public void updatePlayer(final Player player) {
+        final UUID playerId = player.getUniqueId();
+        FastBoard board = boards.get(playerId);
+
+        if (board == null) {
+            board = new FastBoard(player);
+            board.updateTitle(TITLE);
+            boards.put(playerId, board);
+        }
+
+        applyBoard(player, board);
+    }
+
+    public void updateTimer(final int seconds) {
+        if (context.currentPhase() != GamePhase.BATTLE) {
+            return;
+        }
+
+        final Component timeLine;
+        if (seconds >= 0 && seconds <= MAX_CACHE_SECONDS) {
+            timeLine = TIME_LINE_CACHE[seconds];
+        } else {
+            timeLine = Component.text()
+                    .append(PREFIX_TIME)
+                    .append(Component.text(seconds))
+                    .append(SUFFIX_SECONDS)
+                    .build();
+        }
+
+        for (final FastBoard board : boards.values()) {
+            board.updateLine(3, timeLine); // 타이머 라인 위치(3번 인덱스) 고정 업데이트
+        }
+    }
+
     public void tick() {
-        if (context.currentPhase() == GamePhase.WAITING) {
-            if (!boards.isEmpty()) {
-                reset();
-            }
-            return;
-        }
-
-        if (context.currentPhase() == GamePhase.PIECE_SELECTION && !context.isSelectionStarted()) {
-            if (!boards.isEmpty()) {
-                reset();
-            }
-            return;
-        }
-
-        final Map<UUID, ?> participants = context.participants();
-
-        for (final UUID playerId : participants.keySet()) {
-            final Player player = Bukkit.getPlayer(playerId);
-
-            if (player == null) {
-                continue;
-            }
-
-            FastBoard board = boards.get(playerId);
-
-            if (board == null) {
-                board = new FastBoard(player);
-                board.updateTitle(TITLE);
-                boards.put(playerId, board);
-            }
-
-            applyBoard(player, board);
-        }
-
-        cleanupStaleBoards(participants);
+        // 기존 tick 로직 제거 (외부에서 필요 시에만 호출하도록 변경)
     }
 
     public void remove(final Player player) {
@@ -144,11 +157,12 @@ public class ScoreboardManager {
         turnLineCache = null;
     }
 
-    private void cleanupStaleBoards(final Map<UUID, ?> activeParticipants) {
+    private void cleanupStaleBoards() {
         for (final Iterator<Map.Entry<UUID, FastBoard>> iterator = boards.entrySet().iterator(); iterator.hasNext(); ) {
             final Map.Entry<UUID, FastBoard> entry = iterator.next();
+            final Player player = Bukkit.getPlayer(entry.getKey());
 
-            if (activeParticipants.containsKey(entry.getKey())) {
+            if (player != null && player.isOnline()) {
                 continue;
             }
 
@@ -158,8 +172,27 @@ public class ScoreboardManager {
     }
 
     private void applyBoard(final Player player, final FastBoard board) {
+        final Participant me = context.participants().get(player.getUniqueId());
+
+        // 팀에 참가하지 않은 플레이어는 스코어보드를 표시하지 않음
+        if (me == null) {
+            boards.remove(player.getUniqueId());
+            board.delete();
+            return;
+        }
+
+        if (context.currentPhase() == GamePhase.WAITING || (context.currentPhase() == GamePhase.PIECE_SELECTION && !context.isSelectionStarted())) {
+            applyWaitingBoard(player, board);
+            return;
+        }
+
         if (context.currentPhase() == GamePhase.PIECE_SELECTION) {
             applySelectionBoard(player, board);
+            return;
+        }
+
+        if (context.currentPhase() == GamePhase.TURN_ORDER) {
+            applyTurnOrderBoard(player, board);
             return;
         }
 
@@ -185,39 +218,120 @@ public class ScoreboardManager {
         );
     }
 
+    private void applyWaitingBoard(final Player player, final FastBoard board) {
+        final List<Component> lines = new ArrayList<>();
+        final Participant me = context.participants().get(player.getUniqueId());
+
+        lines.add(Component.empty());
+        lines.add(Component.text(" 소속 팀: ").append(Component.text(me.team().teamName(), me.team().color())));
+        lines.add(Component.empty());
+
+        for (final Team team : Team.values()) {
+            final List<Participant> teamMembers = context.participants().values().stream()
+                    .filter(p -> p.team() == team)
+                    .sorted(Comparator.comparing(Participant::playerName))
+                    .toList();
+
+            lines.add(Component.text(" [ " + team.teamName() + " : " + teamMembers.size() + "명 ]", team.color()));
+            
+            if (teamMembers.isEmpty()) {
+                lines.add(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
+            } else {
+                for (final Participant p : teamMembers) {
+                    final boolean isMe = p.playerId().equals(player.getUniqueId());
+                    lines.add(Component.text(" ▶ " + p.playerName(), isMe ? NamedTextColor.GOLD : NamedTextColor.WHITE));
+                }
+            }
+            lines.add(Component.empty());
+        }
+
+        board.updateLines(lines);
+    }
+
+    private void applyTurnOrderBoard(final Player player, final FastBoard board) {
+        final Participant me = context.participants().get(player.getUniqueId());
+        if (me == null) return;
+
+        final Team myTeam = me.team();
+        final List<Component> lines = new ArrayList<>();
+
+        lines.add(Component.empty());
+        lines.add(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())));
+        lines.add(Component.empty());
+
+        lines.add(Component.text(" [ 턴 순서 ]", myTeam.color()));
+
+        final List<TeamStatus> teamStatusList = new ArrayList<>();
+        for (final Participant p : context.participants().values()) {
+            if (p.team() != myTeam) continue;
+
+            final Player pObj = Bukkit.getPlayer(p.playerId());
+            final Integer currentOrder = pObj != null ? inventoryAdapter.extractTurnOrder(pObj).orElse(null) : null;
+            teamStatusList.add(new TeamStatus(p, pObj, currentOrder));
+        }
+
+        // 정렬: 순서 번호 오름차순, 미정(null)은 맨 아래
+        teamStatusList.sort((a, b) -> {
+            if (a.order == null && b.order == null) return 0;
+            if (a.order == null) return 1;
+            if (b.order == null) return -1;
+            return Integer.compare(a.order, b.order);
+        });
+
+        for (final TeamStatus status : teamStatusList) {
+            final boolean isMe = status.participant.playerId().equals(player.getUniqueId());
+            final boolean hasOrder = status.order != null;
+            final String orderText = hasOrder ? status.order + "번" : "-";
+            final String pieceText = status.participant.selectedType() != null 
+                    ? status.participant.selectedType().symbol() + " " + status.participant.selectedType().displayName() 
+                    : "?";
+
+            final NamedTextColor color = isMe ? NamedTextColor.GOLD : (hasOrder ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY);
+            
+            lines.add(Component.text(" [" + orderText + "] " + status.participant.playerName() + ": " + pieceText, color));
+        }
+
+        lines.add(Component.empty());
+        board.updateLines(lines);
+    }
+
+    private record TeamStatus(Participant participant, Player player, Integer order) {}
+
     private void applySelectionBoard(final Player player, final FastBoard board) {
         final Participant me = context.participants().get(player.getUniqueId());
         if (me == null) return;
 
         final Team myTeam = me.team();
         final List<Component> lines = new ArrayList<>();
-        
-        lines.add(Component.empty());
-        lines.add(Component.text(" [ 내 기물 ]", myTeam.color()));
 
-        if (me.hasPiece() && me.selectedType() != null) {
-            lines.add(Component.text(" ▶ " + me.selectedType().symbol() + " " + me.selectedType().displayName(), NamedTextColor.WHITE));
-        } else {
-            lines.add(Component.text(" ▶ -", NamedTextColor.GRAY));
-        }
+        lines.add(Component.empty());
+        lines.add(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())));
+        lines.add(Component.empty());
+        
+        lines.add(Component.text(" [ 내 기물 ]", myTeam.color()));
+        final String myPieceText = me.hasPiece() && me.selectedType() != null 
+                ? me.selectedType().symbol() + " " + me.selectedType().displayName() 
+                : "-";
+        lines.add(Component.text(" ▶ " + myPieceText, NamedTextColor.GOLD));
+        lines.add(Component.empty());
+
+        lines.add(Component.text(" [ 아군 현황 ]", myTeam.color()));
 
         final List<Participant> allies = context.participants().values().stream()
                 .filter(p -> p.team() == myTeam && !p.playerId().equals(player.getUniqueId()))
+                .sorted(Comparator.comparing(Participant::playerName))
                 .toList();
 
-        if (!allies.isEmpty()) {
-            lines.add(Component.empty());
-            lines.add(Component.text(" [ 아군 현황 ]", myTeam.color()));
-
+        if (allies.isEmpty()) {
+            lines.add(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
+        } else {
             for (final Participant p : allies) {
-                final OfflinePlayer targetPlayer = Bukkit.getOfflinePlayer(p.playerId());
-                final String name = targetPlayer.getName() != null ? targetPlayer.getName() : "Unknown";
+                final boolean hasPiece = p.hasPiece() && p.selectedType() != null;
+                final String pieceText = hasPiece 
+                        ? p.selectedType().symbol() + " " + p.selectedType().displayName() 
+                        : "-";
 
-                if (p.hasPiece() && p.selectedType() != null) {
-                    lines.add(Component.text(" " + name + ": " + p.selectedType().symbol() + " " + p.selectedType().displayName(), NamedTextColor.WHITE));
-                } else {
-                    lines.add(Component.text(" " + name + ": -", NamedTextColor.DARK_GRAY));
-                }
+                lines.add(Component.text(" ▶ " + p.playerName() + ": " + pieceText, hasPiece ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
             }
         }
 

@@ -126,6 +126,9 @@ public class GameManager {
     private static final Component MSG_START_BIND_SUCCESS = Component.text("게임 시작 버튼이 성공적으로 등록되었습니다!", NamedTextColor.GREEN);
     private static final Component MSG_START_REMOVE_SUCCESS = Component.text("게임 시작 버튼이 제거되었습니다.", NamedTextColor.YELLOW);
     private static final Component MSG_START_BUTTON_HOLOGRAM = Component.text("게임 시작", NamedTextColor.GOLD, TextDecoration.BOLD);
+    
+    private static final Component MSG_TURN_ORDER_GUIDE = Component.text("상자에서 순서 아이템을 가져가 턴 순서를 정하세요!", NamedTextColor.YELLOW);
+    private static final Component MSG_TURN_ORDER_APPLIED = Component.text("순서 확정: ", NamedTextColor.GREEN);
 
     private final JavaPlugin plugin;
     private final GameContext context;
@@ -143,6 +146,7 @@ public class GameManager {
 
     private org.bukkit.scheduler.BukkitTask heartbeatTask;
     private int lastDisplayedSecond = -1;
+    private long tickCount = 0;
 
     private final NamespacedKey keyPieceType;
     private final NamespacedKey keyPieceTeam;
@@ -160,7 +164,8 @@ public class GameManager {
             final BoardVisualManager boardVisualManager,
             final MoveValidator moveValidator,
             final CombatManager combatManager,
-            final ScoreboardManager scoreboardManager
+            final ScoreboardManager scoreboardManager,
+            final PlayerInventoryAdapter inventoryAdapter
     ) {
         this.plugin = plugin;
         this.context = context;
@@ -174,7 +179,7 @@ public class GameManager {
         this.moveValidator = moveValidator;
         this.combatManager = combatManager;
         this.scoreboardManager = scoreboardManager;
-        this.inventoryAdapter = new PlayerInventoryAdapter(plugin, BoardManager.TURN_ORDER_KEY);
+        this.inventoryAdapter = inventoryAdapter;
 
         context.currentPhase(GamePhase.WAITING);
 
@@ -214,11 +219,18 @@ public class GameManager {
     }
 
     private void gameTick() {
+        tickCount++;
         final boolean wasExpired = timerManager.isExpired();
 
         final int remaining = context.remainingSeconds();
         if (context.timerRunning()) {
             onTimerTick(remaining);
+        }
+
+        // TURN_ORDER 단계인 경우 2틱마다 인벤토리 상태를 스캔하여 UI(스코어보드, 액션바) 갱신
+        if (context.currentPhase() == GamePhase.TURN_ORDER && tickCount % 2 == 0) {
+            scoreboardManager.updateAll();
+            sendTurnOrderActionBarGuidance();
         }
 
         timerManager.tick();
@@ -227,8 +239,6 @@ public class GameManager {
         if (!wasExpired && timerManager.isExpired()) {
             onTimerExpire();
         }
-
-        scoreboardManager.tick();
     }
 
     public GamePhase phase() {
@@ -304,11 +314,21 @@ public class GameManager {
             return;
         }
 
-        // 게임 시작 시점의 플레이어 게임 모드를 저장
+        // 게임 시작 시점의 플레이어 상태(모드, 체력, 공격력)를 저장
         for (final Participant participant : context.participants().values()) {
             final Player p = Bukkit.getPlayer(participant.playerId());
             if (p != null) {
                 participant.originalGameMode(p.getGameMode());
+                
+                final org.bukkit.attribute.AttributeInstance maxHealth = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+                if (maxHealth != null) {
+                    participant.originalHealth(maxHealth.getBaseValue());
+                }
+                
+                final org.bukkit.attribute.AttributeInstance attackDamage = p.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+                if (attackDamage != null) {
+                    participant.originalAttackDamage(attackDamage.getBaseValue());
+                }
             }
         }
 
@@ -397,6 +417,7 @@ public class GameManager {
 
         context.currentPhase(nextPhase);
         scoreboardManager.handlePhaseChange(nextPhase);
+        scoreboardManager.updateAll();
 
         switch (nextPhase) {
             case PIECE_SELECTION -> {
@@ -412,6 +433,7 @@ public class GameManager {
                 timerManager.startTimer(context.timerSettings().turnOrderSelectionTime());
                 boardManager.setupTurnOrderChests(countTeam(Team.WHITE), countTeam(Team.BLACK));
                 broadcast(MSG_TURN_ORDER_DECISION);
+                sendTurnOrderActionBarGuidance();
             }
             case BATTLE -> prepareBattleContext();
             case ENDED -> prepareEndContext();
@@ -439,11 +461,19 @@ public class GameManager {
             final Player player = Bukkit.getPlayer(participant.playerId());
 
             if (player != null) {
+                inventoryAdapter.clearOrderItems(player);
                 if (participant.originalGameMode() != null) {
                     player.setGameMode(participant.originalGameMode());
                 } else {
                     player.setGameMode(GameMode.SURVIVAL);
                 }
+
+                if (participant.originalHealth() != null && participant.originalAttackDamage() != null) {
+                    combatManager.restoreStats(player, participant.originalHealth(), participant.originalAttackDamage());
+                } else {
+                    combatManager.resetStats(player);
+                }
+                
                 player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getValue());
                 player.setFoodLevel(20);
                 player.setSaturation(5.0f);
@@ -462,6 +492,10 @@ public class GameManager {
         scoreboardManager.reset();
 
         Bukkit.broadcast(MSG_RESET_COMPLETE);
+    }
+
+    public void clearOrderItems(final Player player) {
+        inventoryAdapter.clearOrderItems(player);
     }
 
     public void eliminate(final UUID playerId) {
@@ -485,7 +519,8 @@ public class GameManager {
     }
 
     public void join(final Player player, final Team team) {
-        context.participants().put(player.getUniqueId(), Participant.of(player.getUniqueId(), team, null));
+        context.participants().put(player.getUniqueId(), Participant.of(player.getUniqueId(), player.getName(), team, null));
+        scoreboardManager.updateAll();
         player.sendMessage(Component.text("[Admin] " + team.teamName() + "에 강제 참가했습니다!", team.color()));
     }
 
@@ -627,6 +662,8 @@ public class GameManager {
                 }
             }
             case TURN_ORDER -> {
+                sendTurnOrderActionBarGuidance();
+
                 if (remaining != lastDisplayedSecond) {
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
                         playCountdownTickSound();
@@ -640,6 +677,7 @@ public class GameManager {
             }
             case BATTLE -> {
                 if (remaining != lastDisplayedSecond) {
+                    scoreboardManager.updateTimer(remaining);
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
                         playCountdownTickSound();
                     }
@@ -682,16 +720,15 @@ public class GameManager {
                     advancePhase();
                 }
             }
+            case TURN_ORDER -> {
+                advancePhase();
+            }
             case BATTLE -> nextTurn();
             default -> advancePhase();
         }
     }
 
     public void handleReadyUp(final Player player, final Location location) {
-        registerReady(player);
-    }
-
-    public void registerReady(final Player player) {
         if (context.currentPhase() != GamePhase.TURN_ORDER) {
             player.sendMessage(ERROR_NOT_READY_PHASE);
             return;
@@ -702,19 +739,35 @@ public class GameManager {
             return;
         }
 
-        if (participant.ready()) {
-            player.sendMessage(ERROR_ALREADY_READY);
+        // 자신이 속한 팀의 상자인지 검증
+        if (!boardManager.isTeamChest(location, participant.team())) {
+            player.sendMessage(Component.text("자신의 팀 상자에서만 준비를 완료할 수 있습니다.", NamedTextColor.RED));
             return;
         }
 
-        if (!boardManager.isTeamChest(player.getLocation(), participant.team())) {
-            player.sendMessage(ERROR_NOT_TEAM_CHEST);
+        registerReady(participant.team());
+    }
+
+    public void registerReady(final Team team) {
+        final List<Participant> teamMembers = context.participants().values().stream()
+                .filter(p -> p.team() == team)
+                .toList();
+
+        final boolean isAnyReady = teamMembers.stream().anyMatch(Participant::ready);
+        if (isAnyReady) {
             return;
         }
 
-        participant.ready(true);
-        player.sendMessage(MSG_READY_COMPLETE);
-        player.playSound(player, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
+        boardManager.disableReadyButton(team);
+
+        for (final Participant p : teamMembers) {
+            p.ready(true);
+            final Player pObj = Bukkit.getPlayer(p.playerId());
+            if (pObj != null) {
+                pObj.sendMessage(MSG_READY_COMPLETE);
+                pObj.playSound(pObj, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
+            }
+        }
     }
 
     public void processWoolBreakLeave(final Player player, final Material material) {
@@ -732,6 +785,8 @@ public class GameManager {
 
         if (isCorrectWool) {
             context.participants().remove(player.getUniqueId());
+            scoreboardManager.remove(player);
+            scoreboardManager.updateAll();
             player.sendMessage(Component.text(participant.team().teamName()).append(MSG_LEAVE_TEAM));
         }
     }
@@ -878,6 +933,8 @@ public class GameManager {
                 onTurnStart(player);
             }
         });
+
+        scoreboardManager.updateAll();
     }
 
     private void finalizePieceSelection() {
@@ -1111,6 +1168,7 @@ public class GameManager {
         participant.selectedType(type);
         combatManager.applyStats(player, type);
         PieceItemUtils.replacePlayerPieceItem(player, type);
+        scoreboardManager.updateAll();
     }
 
     private void sendSelectionConfirmation(final Player player, final PieceType type, final Coordinate coord) {
@@ -1188,6 +1246,20 @@ public class GameManager {
                 final Component guide = allSelected ? MSG_SELECTION_COMPLETED :
                         (participant.hasPiece() ? MSG_SELECTION_WAITING : MSG_SELECTION_GUIDE);
                 player.sendActionBar(guide);
+            }
+        }
+    }
+
+    private void sendTurnOrderActionBarGuidance() {
+        for (final Participant participant : context.participants().values()) {
+            final Player player = Bukkit.getPlayer(participant.playerId());
+            if (player == null) continue;
+
+            final Optional<Integer> order = inventoryAdapter.extractTurnOrder(player);
+            if (order.isPresent()) {
+                player.sendActionBar(MSG_TURN_ORDER_APPLIED.append(Component.text(order.get() + "번", NamedTextColor.WHITE, TextDecoration.BOLD)));
+            } else {
+                player.sendActionBar(MSG_TURN_ORDER_GUIDE);
             }
         }
     }

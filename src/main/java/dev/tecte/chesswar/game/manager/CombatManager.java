@@ -88,6 +88,20 @@ public class CombatManager {
         }
     }
 
+    public void restoreStats(final Player player, final Double health, final Double damage) {
+        final AttributeInstance maxHealth = player.getAttribute(Attribute.MAX_HEALTH);
+        final AttributeInstance attackDamage = player.getAttribute(Attribute.ATTACK_DAMAGE);
+
+        if (maxHealth != null && health != null) {
+            maxHealth.setBaseValue(health);
+            player.setHealth(Math.min(player.getHealth(), health));
+        }
+
+        if (attackDamage != null && damage != null) {
+            attackDamage.setBaseValue(damage);
+        }
+    }
+
     public void resetAllStats() {
         for (final Player player : Bukkit.getOnlinePlayers()) {
             resetStats(player);

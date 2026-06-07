@@ -21,9 +21,7 @@ public class PlayerInventoryAdapter {
             return Optional.empty();
         }
 
-        int bestOrder = Integer.MAX_VALUE;
-        boolean found = false;
-
+        // 인벤토리 슬롯 순서대로 탐색 (0번 슬롯부터)
         for (final ItemStack item : player.getInventory().getContents()) {
             if (item == null || !item.hasItemMeta()) {
                 continue;
@@ -35,14 +33,12 @@ public class PlayerInventoryAdapter {
             }
 
             final Integer order = meta.getPersistentDataContainer().get(orderKey, PersistentDataType.INTEGER);
-
-            if (order != null && order < bestOrder) {
-                bestOrder = order;
-                found = true;
+            if (order != null) {
+                return Optional.of(order);
             }
         }
 
-        return found ? Optional.of(bestOrder) : Optional.empty();
+        return Optional.empty();
     }
 
     public void clearOrderItems(final Player player) {
