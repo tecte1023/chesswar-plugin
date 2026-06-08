@@ -8,9 +8,13 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.entity.BlockDisplay;
+import org.bukkit.entity.Display;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,7 +29,7 @@ public class BoardVisualManager {
     private static final BlockData GUIDE_CAPTURE = Material.RED_STAINED_GLASS.createBlockData();
     private static final Particle.DustOptions OUTLINE_OPTIONS = new Particle.DustOptions(Color.GREEN, 1.0f);
 
-    private final Map<UUID, List<Coordinate>> activeGuides = new HashMap<>();
+    private final Map<UUID, List<BlockDisplay>> activeGuideEntities = new HashMap<>();
     private final ChessWar plugin;
     private final BoardManager boardManager;
 
@@ -37,66 +41,59 @@ public class BoardVisualManager {
         }
 
         final ChessBoard board = boardManager.currentBoard();
-        final List<Coordinate> validMoves = new ArrayList<>(moves.size());
-        final Location reusableLoc = board.origin().clone();
+        final List<BlockDisplay> entities = new ArrayList<>(moves.size());
+        final Location centerLoc = board.origin().clone();
+        final float size = (float) board.cellSize();
 
         for (final Map.Entry<Coordinate, Boolean> entry : moves.entrySet()) {
             final Coordinate to = entry.getKey();
             final boolean isCapture = entry.getValue();
 
-            board.updateToCenterLocation(to, reusableLoc);
-            player.sendBlockChange(reusableLoc, isCapture ? GUIDE_CAPTURE : GUIDE_MOVE);
-            validMoves.add(to);
+            board.updateToCenterLocation(to, centerLoc);
+            
+            // BlockDisplay 스폰 (정확한 3x3 범위를 위해 중심에서 절반만큼 차감하여 코너에서 시작)
+            final Location spawnLoc = centerLoc.clone().subtract(size / 2.0, 0, size / 2.0);
+            
+            final BlockDisplay display = spawnLoc.getWorld().spawn(spawnLoc, BlockDisplay.class, entity -> {
+                entity.setBlock(isCapture ? GUIDE_CAPTURE : GUIDE_MOVE);
+                
+                // 크기 조절 (3x3x0.01), 그림자 제거 및 밝기 최적화
+                final Transformation transformation = entity.getTransformation();
+                transformation.getScale().set(size, 0.01f, size);
+                entity.setTransformation(transformation);
+                
+                entity.setShadowRadius(0f);
+                entity.setShadowStrength(0f);
+                entity.setBrightness(new Display.Brightness(15, 15));
+                entity.setVisibleByDefault(false);
+            });
+
+            player.showEntity(plugin, display);
+            entities.add(display);
         }
 
-        activeGuides.put(player.getUniqueId(), validMoves);
+        activeGuideEntities.put(player.getUniqueId(), entities);
     }
 
     public void clearGuide(final Player player) {
-        final List<Coordinate> guides = activeGuides.remove(player.getUniqueId());
+        final List<BlockDisplay> entities = activeGuideEntities.remove(player.getUniqueId());
 
-        if (guides == null || !boardManager.hasBoard()) {
-            return;
-        }
-
-        final ChessBoard board = boardManager.currentBoard();
-        final Location reusableLoc = board.origin().clone();
-
-        for (final Coordinate coordinate : guides) {
-            board.updateToCenterLocation(coordinate, reusableLoc);
-            player.sendBlockChange(reusableLoc, reusableLoc.getBlock().getBlockData());
+        if (entities != null) {
+            for (final BlockDisplay entity : entities) {
+                entity.remove();
+            }
         }
     }
 
     public void clearAllGuides() {
-        if (activeGuides.isEmpty()) {
-            return;
-        }
-
-        if (!boardManager.hasBoard()) {
-            activeGuides.clear();
-            return;
-        }
-
-        final ChessBoard board = boardManager.currentBoard();
-        final Location reusableLoc = board.origin().clone();
-
-        for (final Iterator<Map.Entry<UUID, List<Coordinate>>> iterator = activeGuides.entrySet().iterator();
+        for (final Iterator<Map.Entry<UUID, List<BlockDisplay>>> iterator = activeGuideEntities.entrySet().iterator();
              iterator.hasNext(); ) {
-            final Map.Entry<UUID, List<Coordinate>> entry = iterator.next();
-            final Player player = Bukkit.getPlayer(entry.getKey());
-
+            final Map.Entry<UUID, List<BlockDisplay>> entry = iterator.next();
             iterator.remove();
 
-            if (player == null) {
-                continue;
-            }
-
-            final List<Coordinate> guides = entry.getValue();
-
-            for (final Coordinate coordinate : guides) {
-                board.updateToCenterLocation(coordinate, reusableLoc);
-                player.sendBlockChange(reusableLoc, reusableLoc.getBlock().getBlockData());
+            final List<BlockDisplay> entities = entry.getValue();
+            for (final BlockDisplay entity : entities) {
+                entity.remove();
             }
         }
     }

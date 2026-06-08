@@ -1,9 +1,11 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.game.event.PieceSpawnEvent;
 import dev.tecte.chesswar.team.Team;
 import io.lumine.mythic.api.mobs.MobManager;
 import io.lumine.mythic.api.mobs.MythicMob;
@@ -30,9 +32,135 @@ public class PieceManager {
     private static final double PLAYER_TELEPORT_OFFSET_Y = 1.0;
     private static final int INITIAL_MOB_LEVEL = 1;
 
+    private static final double BUNKER_Y = -1024.0;
+    private static final double BUNKER_GRID_SIZE = 2.0;
+
+    private final org.bukkit.plugin.Plugin plugin;
     private final PieceState pieceState;
     private final MobManager mobManager;
     private final PiecePdcMapper pdcMapper;
+    private final BoardManager boardManager;
+    private final Map<Coordinate, LivingEntity> bunkerEntities = new HashMap<>();
+
+    public void spawnBunker(final ChessBoard board) {
+        clearBunker();
+        final Location bunkerLoc = board.origin().clone();
+        bunkerLoc.setY(BUNKER_Y);
+
+        final Vector forward = board.forwardVector();
+        final Vector backward = new Vector(-forward.getX(), -forward.getY(), -forward.getZ());
+
+        for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
+            final Coordinate coord = entry.getKey();
+            final PieceType type = entry.getValue();
+            final Team team = ChessFormation.getTeamAt(coord);
+            final Vector direction = (team == Team.WHITE) ? forward : backward;
+
+            final Location loc = bunkerLoc.clone().add(coord.x() * BUNKER_GRID_SIZE, 0, coord.y() * BUNKER_GRID_SIZE);
+            loc.setDirection(direction);
+
+            final LivingEntity entity = spawnBunkerPiece(type, team, coord, loc);
+            if (entity != null) {
+                bunkerEntities.put(coord, entity);
+            }
+        }
+    }
+
+    private LivingEntity spawnBunkerPiece(
+            final PieceType type,
+            final Team team,
+            final Coordinate coordinate,
+            final Location location
+    ) {
+        final String mobId = convertToPascalCase(team.name()) + convertToPascalCase(type.name());
+        final Optional<MythicMob> mythicMob = mobManager.getMythicMob(mobId);
+
+        if (mythicMob.isEmpty()) {
+            return null;
+        }
+
+        final ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
+        if (activeMob == null) {
+            return null;
+        }
+
+        final Entity entity = activeMob.getEntity().getBukkitEntity();
+        pdcMapper.writeData(entity, type, team, coordinate, false);
+        addSpawnedEntity(entity);
+
+        if (!(entity instanceof LivingEntity living)) {
+            return null;
+        }
+
+        living.setAI(false);
+        living.setGravity(false);
+        living.setInvulnerable(true);
+        // 바닐라 투명화는 모델링에 영향을 줄 수 있으므로 일단 보류 (MythicMobs 옵션에서 처리 권장)
+
+        Bukkit.getPluginManager().callEvent(new PieceSpawnEvent(living, type, team));
+        return living;
+    }
+
+    public void deployBunkerToBarracks() {
+        for (final Map.Entry<Coordinate, LivingEntity> entry : bunkerEntities.entrySet()) {
+            final Coordinate coord = entry.getKey();
+            final LivingEntity entity = entry.getValue();
+            final Team team = ChessFormation.getTeamAt(coord);
+
+            final ChessBoard barracksBoard = boardManager.getBarracksBoard(team);
+            if (barracksBoard == null) continue;
+
+            final Location targetLoc = barracksBoard.toCenterLocation(coord);
+            final Vector direction = (team == Team.WHITE) ? barracksBoard.forwardVector() : new Vector(-barracksBoard.forwardVector().getX(), -barracksBoard.forwardVector().getY(), -barracksBoard.forwardVector().getZ());
+            targetLoc.setDirection(direction);
+
+            entity.teleport(targetLoc);
+        }
+    }
+
+    public void deployBunkerToBattlefield(
+            final ChessBoard board,
+            final Collection<Participant> participants
+    ) {
+        final Map<Coordinate, Participant> participantMap = indexParticipants(participants);
+        final Location reusableLoc = board.origin().clone();
+
+        for (final Map.Entry<Coordinate, LivingEntity> entry : bunkerEntities.entrySet()) {
+            final Coordinate coordinate = entry.getKey();
+            final LivingEntity entity = entry.getValue();
+            final Team team = ChessFormation.getTeamAt(coordinate);
+            final Participant participant = participantMap.get(coordinate);
+
+            final PieceType type = pdcMapper.readType(entity).orElse(PieceType.PAWN);
+            final Piece piece = (participant != null)
+                    ? Piece.of(participant.playerId(), team, type)
+                    : Piece.of(null, team, type);
+
+            placePiece(coordinate, piece);
+
+            if (participant == null) {
+                board.updateToCenterLocation(coordinate, reusableLoc);
+                final Vector direction = (team == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
+                reusableLoc.setDirection(direction);
+
+                entity.teleport(reusableLoc);
+                registerPieceEntity(coordinate, entity);
+            } else {
+                // 플레이어가 차지할 자리는 벙커 기물을 숨기거나 제거
+                entity.remove();
+            }
+        }
+        bunkerEntities.clear();
+    }
+
+    private void clearBunker() {
+        for (final LivingEntity entity : bunkerEntities.values()) {
+            if (entity != null && entity.isValid()) {
+                entity.remove();
+            }
+        }
+        bunkerEntities.clear();
+    }
 
     public void spawnInitialLayout(
             final ChessBoard board,
@@ -54,30 +182,11 @@ public class PieceManager {
                     : Piece.of(null, team, type);
 
             placePiece(coordinate, piece);
-            board.updateToCenterLocation(coordinate, reusableLoc);
-            spawnPiece(type, team, coordinate, reusableLoc, direction, false);
-        }
-    }
 
-    public void warmup(final org.bukkit.World world) {
-        if (world == null) {
-            return;
-        }
-
-        final Location safeLocation = new Location(world, 0, -1024, 0);
-        final Vector dummyDirection = new Vector(0, 0, 1);
-
-        for (final Team team : Team.values()) {
-            for (final PieceType type : PieceType.values()) {
-                final String mobId = convertToPascalCase(team.name()) + convertToPascalCase(type.name());
-                final Optional<MythicMob> mythicMob = mobManager.getMythicMob(mobId);
-
-                if (mythicMob.isPresent()) {
-                    final ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(safeLocation), INITIAL_MOB_LEVEL);
-                    if (activeMob != null) {
-                        activeMob.getEntity().remove();
-                    }
-                }
+            // 플레이어가 없는 칸만 NPC를 스폰
+            if (participant == null) {
+                board.updateToCenterLocation(coordinate, reusableLoc);
+                spawnPiece(type, team, coordinate, reusableLoc, direction, false);
             }
         }
     }
@@ -118,6 +227,8 @@ public class PieceManager {
             return;
         }
 
+        Bukkit.getPluginManager().callEvent(new PieceSpawnEvent(living, type, team));
+
         registerPieceEntity(coordinate, living);
     }
 
@@ -142,11 +253,16 @@ public class PieceManager {
         final Map<Coordinate, Piece> boardPieces = pieceState.boardPieces();
         final Piece victimPiece = boardPieces.get(victim);
 
-        if (victimPiece == null) {
-            return;
+        if (victimPiece != null) {
+            // 피해자 엔티티 추적 명시적 해제 (이후 movePiece가 해당 좌표를 차지함)
+            final LivingEntity victimEntity = pieceState.pieceEntities().get(victim);
+            if (victimEntity != null) {
+                purgeEntity(victimEntity);
+            }
+
+            removePiece(victim);
         }
 
-        removePiece(victim);
         movePiece(board, attacker, victim);
     }
 
@@ -168,10 +284,25 @@ public class PieceManager {
             return false;
         }
 
-        final Optional<Coordinate> coordinate = pdcMapper.readCoordinate(entity);
+        // 데스 이벤트가 아닌 단순 언로드/순간이동일 경우 보드에서 기물을 제거하지 않음
+        if (!entity.isDead()) {
+            return false;
+        }
 
-        if (coordinate.isPresent()) {
-            removePiece(coordinate.get());
+        final Optional<Coordinate> coordinateOpt = pdcMapper.readCoordinate(entity);
+
+        if (coordinateOpt.isPresent()) {
+            final Coordinate coordinate = coordinateOpt.get();
+            final LivingEntity registeredEntity = pieceState.pieceEntities().get(coordinate);
+
+            // 현재 사라진 엔티티가 실제로 보드에 등록된 해당 좌표의 엔티티가 맞는지 검증
+            // (벙커 기물을 지울 때 플레이어 기물까지 지워지는 현상 방지)
+            if (registeredEntity != null && registeredEntity.getUniqueId().equals(entity.getUniqueId())) {
+                removePiece(coordinate);
+            } else if (registeredEntity == null && pieceState.boardPieces().containsKey(coordinate) && !pieceState.boardPieces().get(coordinate).isPlayerPiece()) {
+                // 플레이어 기물이 아닌데 등록된 엔티티가 없다면 벙커 초기화 등으로 인한 예외 케이스이므로 삭제
+                removePiece(coordinate);
+            }
         }
 
         purgeEntity(entity);
@@ -279,51 +410,82 @@ public class PieceManager {
             return;
         }
 
-        final Location targetLocation = board.updateToCenterLocation(to, board.origin().clone());
-
-        relocateMobEntity(from, to, targetLocation);
-        targetLocation.add(0, PLAYER_TELEPORT_OFFSET_Y, 0);
-        relocatePlayerEntity(from, to, targetLocation);
-    }
-
-    private void relocateMobEntity(
-            final Coordinate from,
-            final Coordinate to,
-            final Location targetLocation
-    ) {
-        final Map<Coordinate, LivingEntity> pieceEntities = pieceState.pieceEntities();
-        final LivingEntity entity = pieceEntities.get(from);
-
-        if (entity == null) {
+        final Piece piece = pieceState.boardPieces().get(from);
+        if (piece == null) {
             return;
         }
 
-        entity.teleport(targetLocation);
+        // 1. 목적지 위치 계산
+        final Location mobTarget = board.updateToCenterLocation(to, board.origin().clone());
+        final Vector direction = (piece.team() == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
+        mobTarget.setDirection(direction);
+
+        final Location playerTarget = mobTarget.clone().add(0, PLAYER_TELEPORT_OFFSET_Y, 0);
+
+        // 2. 몹 순간이동 및 렌더링 글리치 방어
+        final LivingEntity mobEntity = pieceState.pieceEntities().get(from);
+        if (mobEntity != null) {
+            toggleForceRender(mobEntity, true);
+            mobEntity.teleport(mobTarget);
+            
+            // 순간이동 후 클라이언트 동기화를 위해 약간의 딜레이 후 렌더링 옵션 해제 권장 (스케줄러 필요)
+            Bukkit.getScheduler().runTaskLater(plugin, () -> toggleForceRender(mobEntity, false), 2L);
+            
+            updateMobMapping(mobEntity, from, to);
+        }
+
+        // 3. 플레이어 순간이동
+        if (piece.isPlayerPiece()) {
+            final Player player = Bukkit.getPlayer(piece.ownerId());
+            if (player != null) {
+                player.teleport(playerTarget);
+                updatePlayerMapping(player, to);
+            }
+        }
+
+        // 4. 보드 데이터 상태 갱신
+        pieceState.boardPieces().remove(from);
+        pieceState.boardPieces().put(to, piece);
+    }
+
+    private void toggleForceRender(final LivingEntity entity, final boolean enabled) {
+        // TODO: BetterModel API 연동 (v1.6.1+ smooth 옵션 및 tracker.forceUpdate 활용 권장)
+        // 현재 클래스패스에 BetterModel API가 감지되지 않아 플레이스홀더로 유지함.
+        // 예: BetterModelAPI.getTracker(entity).ifPresent(t -> t.setForceRender(enabled));
+    }
+
+    private void updateMobMapping(final LivingEntity entity, final Coordinate from, final Coordinate to) {
         pdcMapper.updateCoordinate(entity, to);
-        pieceEntities.remove(from);
-        pieceEntities.put(to, entity);
+        pieceState.pieceEntities().remove(from);
+        pieceState.pieceEntities().put(to, entity);
         pieceState.entityToCoordinate().put(entity.getUniqueId(), to);
     }
 
-    private void relocatePlayerEntity(
-            final Coordinate from,
-            final Coordinate to,
-            final Location targetLocation
-    ) {
-        final Piece piece = pieceState.boardPieces().get(from);
-
-        if (piece == null || !piece.isPlayerPiece()) {
-            return;
-        }
-
-        final Player player = Bukkit.getPlayer(piece.ownerId());
-
-        if (player == null) {
-            return;
-        }
-
-        player.teleport(targetLocation);
+    private void updatePlayerMapping(final Player player, final Coordinate to) {
         pieceState.entityToCoordinate().put(player.getUniqueId(), to);
+    }
+
+    public Optional<Coordinate> findCoordinate(final org.bukkit.entity.Entity entity) {
+        if (entity == null) {
+            return Optional.empty();
+        }
+
+        // 1. 메모리 매핑 우선 확인
+        final Coordinate memoryCoord = pieceState.entityToCoordinate().get(entity.getUniqueId());
+        if (memoryCoord != null) {
+            return Optional.of(memoryCoord);
+        }
+
+        // 2. 메모리에 없을 경우(청크 언로드 후 재로드 등) PDC에서 확인 및 메모리 갱신
+        final Optional<Coordinate> pdcCoord = pdcMapper.readCoordinate(entity);
+        pdcCoord.ifPresent(coordinate -> {
+            pieceState.entityToCoordinate().put(entity.getUniqueId(), coordinate);
+            if (entity instanceof LivingEntity living) {
+                pieceState.pieceEntities().put(coordinate, living);
+            }
+        });
+
+        return pdcCoord;
     }
 
     private Map<Coordinate, Participant> indexParticipants(

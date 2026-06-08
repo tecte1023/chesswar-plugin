@@ -58,6 +58,11 @@ public class BoardManager implements Listener {
         boardState.barracksMap().put(Team.BLACK, new Barracks(Team.BLACK, board));
     }
 
+    public ChessBoard getBarracksBoard(final Team team) {
+        final Barracks barracks = boardState.barracksMap().get(team);
+        return (barracks != null) ? barracks.board() : null;
+    }
+
     public void setupBarracks(final PieceManager pieceManager) {
         if (!hasBoard()) return;
 

@@ -28,6 +28,8 @@ public class GameContext {
     private int initialSeconds = 0;
     private int whiteTeamTime = 0;
     private int blackTeamTime = 0;
+    private boolean whiteOvertime = false;
+    private boolean blackOvertime = false;
     private boolean timerRunning = false;
     private boolean isSelectionStarted = false;
     private TimerPolicy currentTimerPolicy = TimerPolicy.GRACEFUL;
@@ -58,6 +60,18 @@ public class GameContext {
 
     public int getTeamTime(final Team team) {
         return team == Team.WHITE ? whiteTeamTime : blackTeamTime;
+    }
+
+    public boolean isTeamOvertime(final Team team) {
+        return team == Team.WHITE ? whiteOvertime : blackOvertime;
+    }
+
+    public void setTeamOvertime(final Team team, final boolean overtime) {
+        if (team == Team.WHITE) {
+            whiteOvertime = overtime;
+        } else {
+            blackOvertime = overtime;
+        }
     }
 
     public UUID currentTurnPlayerId() {
@@ -142,6 +156,29 @@ public class GameContext {
         }
 
         remainingSeconds--;
+
+        // 전투 단계에서 공유 시간을 사용 중인 경우 팀 시간도 동기화하여 차감
+        if (currentPhase == GamePhase.BATTLE) {
+            final UUID currentId = currentTurnPlayerId();
+            if (currentId == null) {
+                return;
+            }
+
+            final Participant p = participants.get(currentId);
+            if (p == null) {
+                return;
+            }
+
+            final Team team = p.team();
+            if (!isTeamOvertime(team)) {
+                final int currentTime = getTeamTime(team);
+                if (currentTime > 0) {
+                    updateTeamTime(team, currentTime - 1);
+                } else {
+                    setTeamOvertime(team, true);
+                }
+            }
+        }
     }
 
     public void accelerateTimer(final int seconds) {
@@ -181,12 +218,15 @@ public class GameContext {
         isSelectionStarted = false;
         currentTimerPolicy = TimerPolicy.GRACEFUL;
         whiteTeamTime = blackTeamTime = timerSettings.teamTotalTime();
+        whiteOvertime = blackOvertime = false;
 
         for (final Participant participant : participants.values()) {
             participant.initialCoordinate(null);
             participant.ready(false);
             participant.turnOrder(-1);
             participant.commanderTarget(null);
+            participant.gold(0);
+            participant.statusEffects().clear();
         }
     }
 }

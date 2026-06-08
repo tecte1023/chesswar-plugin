@@ -68,6 +68,30 @@ public class PiecePdcMapper {
         return Optional.of(Coordinate.of(x, y));
     }
 
+    public Optional<PieceType> readType(final Entity entity) {
+        final String typeStr = entity.getPersistentDataContainer().get(pieceTypeKey, PersistentDataType.STRING);
+        if (typeStr == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(PieceType.valueOf(typeStr));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Team> readTeam(final Entity entity) {
+        final String teamStr = entity.getPersistentDataContainer().get(pieceTeamKey, PersistentDataType.STRING);
+        if (teamStr == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(Team.valueOf(teamStr));
+        } catch (IllegalArgumentException e) {
+            return Optional.empty();
+        }
+    }
+
     public boolean isDisplay(final Entity entity) {
         final Byte isDisplay = entity.getPersistentDataContainer().get(isDisplayKey, PersistentDataType.BYTE);
         return isDisplay != null && isDisplay == 1;

@@ -18,12 +18,6 @@ public class MythicPieceListener implements Listener {
 
     @EventHandler
     public void onMythicReload(final MythicReloadedEvent event) {
-        final List<World> worlds = Bukkit.getWorlds();
-        if (worlds.isEmpty()) {
-            return;
-        }
-
-        // 리로드 시점에 캐시가 초기화되므로 즉시 자가 치유(Warm-up) 실행
-        pieceManager.warmup(worlds.get(0));
+        // 벙커 시스템 도입으로 사전 warmup 캐싱이 불필요해짐 (게임 시작 시 자동 처리)
     }
 }

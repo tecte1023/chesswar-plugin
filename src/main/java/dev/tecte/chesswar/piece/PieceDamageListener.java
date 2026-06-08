@@ -28,11 +28,19 @@ public class PieceDamageListener implements Listener {
 
     @EventHandler
     public void onAttack(final EntityDamageByEntityEvent event) {
+        if (combatManager.isProcessingAttack()) {
+            return;
+        }
+
         if (!(event.getDamager() instanceof final Player attacker)) {
             return;
         }
 
         if (!(event.getEntity() instanceof final LivingEntity victim)) {
+            return;
+        }
+
+        if (!PieceItemUtils.isPieceItem(attacker.getInventory().getItemInMainHand())) {
             return;
         }
 

@@ -6,17 +6,35 @@ import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 @RequiredArgsConstructor
 public class PieceInteractListener implements Listener {
     private final GameManager gameManager;
+
+    @EventHandler
+    public void onItemHeld(final PlayerItemHeldEvent event) {
+        if (gameManager.phase() != GamePhase.BATTLE) {
+            return;
+        }
+
+        final Player player = event.getPlayer();
+        final ItemStack newItem = player.getInventory().getItem(event.getNewSlot());
+
+        if (PieceItemUtils.isPieceItem(newItem)) {
+            gameManager.updateVisualGuide(player);
+        } else {
+            gameManager.clearVisualGuide(player);
+        }
+    }
 
     @EventHandler
     public void onInteract(final PlayerInteractEvent event) {
@@ -60,10 +78,22 @@ public class PieceInteractListener implements Listener {
             return;
         }
 
-        if (action != Action.RIGHT_CLICK_AIR && action != Action.RIGHT_CLICK_BLOCK) {
+        if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
+            gameManager.movePiece(player);
             return;
         }
 
-        gameManager.movePiece(player);
+        if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
+            final org.bukkit.util.RayTraceResult result = player.getWorld().rayTraceEntities(
+                    player.getEyeLocation(),
+                    player.getLocation().getDirection(),
+                    50.0,
+                    entity -> entity instanceof LivingEntity && !entity.equals(player)
+            );
+
+            if (result != null && result.getHitEntity() instanceof LivingEntity victim) {
+                gameManager.attackPiece(player, victim);
+            }
+        }
     }
 }

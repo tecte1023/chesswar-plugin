@@ -82,7 +82,7 @@ public final class ChessWar extends JavaPlugin {
                 new NamespacedKey(this, BoardManager.TURN_ORDER_KEY),
                 boardState
         );
-        pieceManager = new PieceManager(pieceState, MythicProvider.get().getMobManager(), piecePdcMapper);
+        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager);
         moveValidator = new MoveValidator();
         environmentManager = new EnvironmentManager();
         timerManager = new TimerManager(context);
@@ -99,6 +99,7 @@ public final class ChessWar extends JavaPlugin {
                 boardManager,
                 pieceManager,
                 pieceState,
+                piecePdcMapper,
                 timerManager,
                 environmentManager,
                 boardVisualManager,
@@ -114,15 +115,13 @@ public final class ChessWar extends JavaPlugin {
 
         gameManager.loadConfig();
         gameManager.startHeartbeat();
-
-        if (!getServer().getWorlds().isEmpty()) {
-            pieceManager.warmup(getServer().getWorlds().get(0));
-        }
     }
 
     private void registerListeners() {
         final PluginManager pluginManager = getServer().getPluginManager();
 
+        pluginManager.registerEvents(gameManager, this);
+        pluginManager.registerEvents(combatManager, this);
         pluginManager.registerEvents(boardManager, this);
         pluginManager.registerEvents(new GamePieceLifecycleListener(gameManager), this);
         pluginManager.registerEvents(new GameSelectionListener(gameManager), this);

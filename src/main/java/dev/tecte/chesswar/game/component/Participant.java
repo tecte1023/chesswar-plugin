@@ -9,6 +9,8 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.bukkit.GameMode;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -28,13 +30,15 @@ public class Participant {
     private org.bukkit.GameMode originalGameMode;
     private Double originalHealth;
     private Double originalAttackDamage;
+    private int gold;
+    private final List<String> statusEffects;
 
     public static Participant of(UUID playerId, String playerName, Team team, org.bukkit.GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null);
+        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>());
     }
 
     public static Participant of(UUID playerId, String playerName, Team team, Coordinate coordinate, org.bukkit.GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null);
+        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>());
     }
 
     public boolean hasPiece() {

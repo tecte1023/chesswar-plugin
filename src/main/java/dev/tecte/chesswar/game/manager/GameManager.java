@@ -15,6 +15,7 @@ import dev.tecte.chesswar.game.component.TimerPolicy;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PiecePdcMapper;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.Team;
@@ -44,6 +45,9 @@ import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.event.Listener;
+import org.bukkit.event.EventHandler;
+import dev.tecte.chesswar.game.event.KingDeathEvent;
 
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -64,12 +68,7 @@ import java.util.stream.Collectors;
 @Getter
 @Accessors(fluent = true)
 @lombok.extern.slf4j.Slf4j(topic = "ChessWar")
-public class GameManager {
-    private static final String KEY_NAME_PIECE_TYPE = "piece_type";
-    private static final String KEY_NAME_PIECE_TEAM = "piece_team";
-    private static final String KEY_NAME_COORD_X = "piece_coord_x";
-    private static final String KEY_NAME_COORD_Y = "piece_coord_y";
-
+public class GameManager implements Listener {
     // Static Feedback Constants
     private static final Component MSG_COUNTDOWN_SUBTITLE = Component.text("잠시 후 기물 선택이 시작됩니다.", NamedTextColor.YELLOW);
     private static final Component ERROR_INSPECT_OWN_TEAM_ONLY = Component.text("자신의 진영 기물만 살펴볼 수 있습니다!", NamedTextColor.RED);
@@ -77,7 +76,6 @@ public class GameManager {
     private static final Component MSG_READY_COMPLETE = Component.text("준비 완료! 모든 인원이 준비되면 게임이 시작됩니다.", NamedTextColor.GREEN);
     private static final Component MSG_RESET_COMPLETE = Component.text("게임이 초기화되었습니다.", NamedTextColor.GREEN);
     private static final Component MSG_ELIMINATED = Component.text("처치당했습니다! 관전자로 전환됩니다.", NamedTextColor.DARK_RED);
-    private static final Component MSG_PROMOTED_TO_KING = Component.text("팀에 킹이 없어 당신이 국왕으로 추대되었습니다!", NamedTextColor.GOLD, TextDecoration.BOLD);
     private static final Component MSG_HOVER_TAKEN = Component.text("이미 참전 중인 기물입니다.", NamedTextColor.RED);
     private static final Component MSG_HOVER_SELECT = Component.text("클릭하여 해당 기물로 참전합니다.", NamedTextColor.GREEN);
 
@@ -135,6 +133,7 @@ public class GameManager {
     private final BoardManager boardManager;
     private final PieceManager pieceManager;
     private final PieceState pieceState;
+    private final PiecePdcMapper pdcMapper;
     private final TimerManager timerManager;
     private final BossBarManager bossBarManager;
     private final EnvironmentManager environmentManager;
@@ -147,11 +146,7 @@ public class GameManager {
     private org.bukkit.scheduler.BukkitTask heartbeatTask;
     private int lastDisplayedSecond = -1;
     private long tickCount = 0;
-
-    private final NamespacedKey keyPieceType;
-    private final NamespacedKey keyPieceTeam;
-    private final NamespacedKey keyCoordX;
-    private final NamespacedKey keyCoordY;
+    private boolean lastWeaponHeldState = false;
 
     public GameManager(
             final JavaPlugin plugin,
@@ -159,6 +154,7 @@ public class GameManager {
             final BoardManager boardManager,
             final PieceManager pieceManager,
             final PieceState pieceState,
+            final PiecePdcMapper pdcMapper,
             final TimerManager timerManager,
             final EnvironmentManager environmentManager,
             final BoardVisualManager boardVisualManager,
@@ -172,6 +168,7 @@ public class GameManager {
         this.boardManager = boardManager;
         this.pieceManager = pieceManager;
         this.pieceState = pieceState;
+        this.pdcMapper = pdcMapper;
         this.timerManager = timerManager;
         this.bossBarManager = new BossBarManager(context);
         this.environmentManager = environmentManager;
@@ -182,11 +179,6 @@ public class GameManager {
         this.inventoryAdapter = inventoryAdapter;
 
         context.currentPhase(GamePhase.WAITING);
-
-        keyPieceType = new NamespacedKey(plugin, KEY_NAME_PIECE_TYPE);
-        keyPieceTeam = new NamespacedKey(plugin, KEY_NAME_PIECE_TEAM);
-        keyCoordX = new NamespacedKey(plugin, KEY_NAME_COORD_X);
-        keyCoordY = new NamespacedKey(plugin, KEY_NAME_COORD_Y);
     }
 
     public void startHeartbeat() {
@@ -231,6 +223,24 @@ public class GameManager {
         if (context.currentPhase() == GamePhase.TURN_ORDER && tickCount % 2 == 0) {
             scoreboardManager.updateAll();
             sendTurnOrderActionBarGuidance();
+        }
+
+        // BATTLE 단계인 경우 현재 턴 플레이어의 무기 소지 상태를 1틱마다 폴링 (상태 캐싱 적용)
+        if (context.currentPhase() == GamePhase.BATTLE) {
+            currentTurnPlayer().ifPresent(playerId -> {
+                final Player player = Bukkit.getPlayer(playerId);
+                if (player != null) {
+                    final boolean isHolding = PieceItemUtils.isPieceItem(player.getInventory().getItemInMainHand());
+                    if (isHolding != lastWeaponHeldState) {
+                        if (isHolding) {
+                            updateVisualGuide(player);
+                        } else {
+                            clearVisualGuide(player);
+                        }
+                        lastWeaponHeldState = isHolding;
+                    }
+                }
+            });
         }
 
         timerManager.tick();
@@ -423,7 +433,7 @@ public class GameManager {
             case PIECE_SELECTION -> {
                 broadcast(MSG_COUNTDOWN_SUBTITLE);
                 pieceManager.clearSpawnedEntities(false);
-                boardManager.setupBarracks(pieceManager);
+                pieceManager.spawnBunker(boardManager.currentBoard());
 
                 lastDisplayedSecond = SELECTION_COUNTDOWN_START;
                 broadcastSelectionCountdown(SELECTION_COUNTDOWN_START);
@@ -439,6 +449,11 @@ public class GameManager {
             case ENDED -> prepareEndContext();
             case WAITING -> reset();
         }
+    }
+
+    @EventHandler
+    public void onKingDeath(final KingDeathEvent event) {
+        win(event.getWinnerTeam());
     }
 
     public void win(final Team winner) {
@@ -535,6 +550,9 @@ public class GameManager {
         if (combatManager.handleAttack(attacker, victim)) {
             updateVisualGuide(attacker);
             nextTurn();
+        } else {
+            // 킹의 지휘 대상 변경 등 턴이 넘어가지 않는 상호작용 후에도 가이드 즉각 갱신
+            updateVisualGuide(attacker);
         }
     }
 
@@ -547,27 +565,17 @@ public class GameManager {
             return false;
         }
 
-        if (entity.getPersistentDataContainer().isEmpty()) {
+        final Optional<PieceType> typeOpt = pdcMapper.readType(entity);
+        final Optional<Team> teamOpt = pdcMapper.readTeam(entity);
+        final Optional<Coordinate> coordOpt = pdcMapper.readCoordinate(entity);
+
+        if (typeOpt.isEmpty() || teamOpt.isEmpty() || coordOpt.isEmpty()) {
             return false;
         }
 
-        final PersistentDataContainer pdc = entity.getPersistentDataContainer();
-        if (!pdc.has(keyPieceType, PersistentDataType.STRING)) {
-            return false;
-        }
-
-        final String typeStr = pdc.get(keyPieceType, PersistentDataType.STRING);
-        final String teamStr = pdc.get(keyPieceTeam, PersistentDataType.STRING);
-        final int x = pdc.getOrDefault(keyCoordX, PersistentDataType.INTEGER, -1);
-        final int y = pdc.getOrDefault(keyCoordY, PersistentDataType.INTEGER, -1);
-
-        if (typeStr == null || teamStr == null || x == -1 || y == -1) {
-            return false;
-        }
-
-        final PieceType type = PieceType.valueOf(typeStr);
-        final Team team = Team.valueOf(teamStr);
-        final Coordinate coord = Coordinate.of(x, y);
+        final PieceType type = typeOpt.get();
+        final Team team = teamOpt.get();
+        final Coordinate coord = coordOpt.get();
 
         final Participant participant = context.participants().get(player.getUniqueId());
         if (participant == null || participant.team() != team) {
@@ -589,7 +597,7 @@ public class GameManager {
 
         if (areAllPiecesSelected()) {
             if (context.remainingSeconds() > PIECE_SELECTION_AUTO_ADVANCE_TIME) {
-                timerManager.startTimer(PIECE_SELECTION_AUTO_ADVANCE_TIME, TimerPolicy.IMMEDIATE);
+                timerManager.accelerateTimerTo(PIECE_SELECTION_AUTO_ADVANCE_TIME);
                 Bukkit.broadcast(MSG_WAITING_PREPARATION);
             } else {
                 Bukkit.broadcast(Component.text("모든 플레이어가 기물을 선택했습니다!", NamedTextColor.AQUA, TextDecoration.BOLD));
@@ -624,19 +632,33 @@ public class GameManager {
             return;
         }
 
-        final Optional<Participant> participant = findParticipant(player.getUniqueId());
-
-        if (participant.isEmpty()) {
+        final Optional<Participant> participantOpt = findParticipant(player.getUniqueId());
+        if (participantOpt.isEmpty()) {
             return;
         }
 
-        final Team team = participant.get().team();
-        final int teamTime = context.getTeamTime(team);
-        final int minTime = context.timerSettings().battleTurnTime();
+        final Participant participant = participantOpt.get();
+        final Team team = participant.team();
 
-        timerManager.startTimer(Math.max(teamTime, minTime));
+        // 턴 시작 시 월급 지급 (100G)
+        participant.gold(participant.gold() + 100);
+        player.sendMessage(Component.text(" [!] ", NamedTextColor.GOLD)
+                .append(Component.text("턴 시작 월급 100G를 지급받았습니다.", NamedTextColor.YELLOW)));
+
+        final int teamTime = context.getTeamTime(team);
+        final int overtimeTime = context.timerSettings().battleTurnTime();
+
+        // 공유 시간이 남아있으면 공유 시간 사용, 아니면 초읽기(30초) 사용
+        if (teamTime > 0) {
+            timerManager.startTimer(teamTime);
+            context.setTeamOvertime(team, false);
+        } else {
+            timerManager.startTimer(overtimeTime);
+            context.setTeamOvertime(team, true);
+        }
 
         scoreboardManager.updateTurnLine(player);
+        scoreboardManager.updateAll();
         combatManager.updateInvulnerability(player);
 
         clearVisualGuide(player);
@@ -683,17 +705,6 @@ public class GameManager {
                     }
                     lastDisplayedSecond = remaining;
                 }
-                
-                currentTurnPlayer()
-                        .flatMap(this::findParticipant)
-                        .ifPresent(participant -> {
-                            final Team team = participant.team();
-                            final int threshold = context.timerSettings().battleTurnTime();
-
-                            if (context.getTeamTime(team) > threshold) {
-                                timerManager.updateTeamTime(team, remaining);
-                            }
-                        });
             }
             default -> {
             }
@@ -800,7 +811,18 @@ public class GameManager {
     }
 
     public void updateVisualGuide(final Player player) {
-        final Coordinate from = pieceState.entityToCoordinate().get(player.getUniqueId());
+        // 자신의 턴이 아니거나 전용 무기를 들고 있지 않으면 가이드를 표시하지 않음
+        final UUID turnPlayerId = context.currentTurnPlayerId();
+        if (turnPlayerId == null || !turnPlayerId.equals(player.getUniqueId())) {
+            return;
+        }
+
+        if (!PieceItemUtils.isPieceItem(player.getInventory().getItemInMainHand())) {
+            boardVisualManager.clearGuide(player);
+            return;
+        }
+
+        final Coordinate from = pieceManager.findCoordinate(player).orElse(null);
         final Optional<Coordinate> commandTarget = findCommandTarget(player.getUniqueId());
         final Coordinate finalFrom = commandTarget.orElse(from);
 
@@ -924,6 +946,13 @@ public class GameManager {
             return;
         }
 
+        currentTurnPlayer().ifPresent(playerId -> {
+            final Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                combatManager.clearCommanderVisuals(player);
+            }
+        });
+
         context.advanceTurnIndex();
 
         currentTurnPlayer().ifPresent(playerId -> {
@@ -974,9 +1003,14 @@ public class GameManager {
         final Player player = Bukkit.getPlayer(participant.playerId());
         if (player == null) return;
 
-        // 해당 팀의 막사 기물 중 빈 좌표 하나를 임의로 찾음 (또는 첫 번째 좌표)
-        final Coordinate fallbackCoord = Coordinate.of(3, teamPieceRow(participant.team())); 
-        applyPieceAssignment(participant, player, fallbackCoord, type);
+        // 해당 팀의 기물 타입에 맞는 초기 레이아웃 좌표를 검색하여 할당
+        final Coordinate targetCoord = ChessFormation.getFullInitialLayout().entrySet().stream()
+                .filter(entry -> entry.getValue() == type && ChessFormation.getTeamAt(entry.getKey()) == participant.team())
+                .map(Map.Entry::getKey)
+                .findFirst()
+                .orElse(Coordinate.of(3, teamPieceRow(participant.team())));
+
+        applyPieceAssignment(participant, player, targetCoord, type);
     }
 
     private int teamPieceRow(final Team team) {
@@ -984,6 +1018,9 @@ public class GameManager {
     }
 
     private void prepareSelectionContext() {
+        // 막사 이동 시점에 벙커 기물을 막사로 배치
+        pieceManager.deployBunkerToBarracks();
+
         for (final Participant participant : context.participants().values()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player != null) {
@@ -1001,6 +1038,9 @@ public class GameManager {
     }
 
     private void prepareBattleContext() {
+        // 전투 단계 진입 시 벙커 기물을 전장으로 배치
+        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard(), context.participants().values());
+
         final Map<UUID, Integer> playerOrders = new HashMap<>();
 
         for (final Participant participant : context.participants().values()) {
@@ -1015,6 +1055,9 @@ public class GameManager {
 
         calculateTurnOrder(playerOrders);
 
+        // 전투 단계 진입 전 막사 상자 정리
+        boardManager.clearBarracksChests();
+
         for (final Participant participant : context.participants().values()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
 
@@ -1028,9 +1071,6 @@ public class GameManager {
                 boardManager.deployToBattlefield(participant.team(), participant.initialCoordinate(), player);
             }
         }
-
-        pieceManager.spawnInitialLayout(boardManager.currentBoard(), context.participants().values());
-        boardManager.setupBarracks(pieceManager);
 
         currentTurnPlayer().ifPresent(playerId -> {
             final Player firstPlayer = Bukkit.getPlayer(playerId);
@@ -1062,27 +1102,21 @@ public class GameManager {
             return;
         }
 
-        final Set<Team> aliveTeams = context.participants().values().stream()
-                .filter(p -> {
-                    final Player player = Bukkit.getPlayer(p.playerId());
-                    return player != null && player.getGameMode() != GameMode.SPECTATOR;
-                })
-                .map(Participant::team)
+        final Set<Team> aliveTeams = java.util.Arrays.stream(Team.values())
+                .filter(this::hasKing)
                 .collect(Collectors.toSet());
 
         if (aliveTeams.size() == 1) {
             win(aliveTeams.iterator().next());
         } else if (aliveTeams.isEmpty()) {
             advancePhase();
-        } else {
-            ensureTeamHasKing();
         }
     }
 
     public void processPieceDeath(final Entity entity) {
         if (entity instanceof Player player) {
             if (isParticipant(player)) {
-                final Coordinate coord = pieceState.entityToCoordinate().get(player.getUniqueId());
+                final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
                 if (coord != null) {
                     pieceManager.removePiece(coord);
                 }
@@ -1105,52 +1139,11 @@ public class GameManager {
         pieceManager.handlePieceDisappearance(entity);
     }
 
-    private void ensureTeamHasKing() {
-        for (final Team team : Team.values()) {
-            if (hasKing(team)) {
-                continue;
-            }
-
-            final List<Participant> teamMembers = context.participants().values().stream()
-                    .filter(p -> {
-                        return p.team() == team;
-                    })
-                    .filter(p -> {
-                        final Player player = Bukkit.getPlayer(p.playerId());
-                        return player != null && player.getGameMode() != GameMode.SPECTATOR;
-                    })
-                    .toList();
-
-            if (teamMembers.isEmpty()) {
-                continue;
-            }
-
-            final Participant newKing = teamMembers.get(0);
-            promoteToKing(newKing);
-        }
-    }
-
     private boolean hasKing(final Team team) {
         return pieceState.boardPieces().values().stream()
                 .anyMatch(p -> {
                     return p.team() == team && p.type() == PieceType.KING;
                 });
-    }
-
-    private void promoteToKing(final Participant participant) {
-        final Coordinate coord = participant.initialCoordinate();
-        if (coord == null) {
-            return;
-        }
-
-        final Piece newKingPiece = Piece.of(participant.playerId(), participant.team(), PieceType.KING);
-        pieceManager.placePiece(coord, newKingPiece);
-
-        final Player player = Bukkit.getPlayer(participant.playerId());
-        if (player != null) {
-            player.sendMessage(MSG_PROMOTED_TO_KING);
-            combatManager.applyStats(player, PieceType.KING);
-        }
     }
 
     private boolean isCoordinateOccupiedByTeammate(final UUID playerId, final Team team, final Coordinate coord) {

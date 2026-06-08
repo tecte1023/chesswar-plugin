@@ -50,9 +50,13 @@ public class ChessBoard {
         final double offsetX = (rightVector.getX() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getX() * (coordinate.y() * cellSize + halfCell));
         final double offsetZ = (rightVector.getZ() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getZ() * (coordinate.y() * cellSize + halfCell));
 
-        target.setX(origin.getX() + offsetX + 0.5);
+        // 마인크래프트 좌표계 특성상 음수 방향 벡터 사용 시 1블록 오차 보정 (+1.0)
+        final double correctionX = (rightVector.getX() < 0 || forwardVector.getX() < 0) ? 1.0 : 0.0;
+        final double correctionZ = (rightVector.getZ() < 0 || forwardVector.getZ() < 0) ? 1.0 : 0.0;
+
+        target.setX(origin.getX() + offsetX + correctionX);
         target.setY(origin.getY() + 0.1); // Visual offset for guides/particles
-        target.setZ(origin.getZ() + offsetZ + 0.5);
+        target.setZ(origin.getZ() + offsetZ + correctionZ);
 
         return target;
     }

@@ -33,8 +33,18 @@ public class ScoreboardManager {
 
     private static final Component PREFIX_PHASE = Component.text("상태: ", NamedTextColor.YELLOW);
     private static final Component PREFIX_TURN = Component.text("현재 턴: ", NamedTextColor.YELLOW);
-    private static final Component PREFIX_TIME = Component.text("남은 시간: ", NamedTextColor.YELLOW);
+    private static final Component PREFIX_TIME = Component.text("제한 시간: ", NamedTextColor.YELLOW);
+    private static final Component PREFIX_GOLD = Component.text("보유 골드: ", NamedTextColor.YELLOW);
+    private static final Component PREFIX_STATUS = Component.text("상태: ", NamedTextColor.YELLOW);
     private static final Component SUFFIX_SECONDS = Component.text("초", NamedTextColor.RED);
+    private static final Component SUFFIX_GOLD = Component.text(" G", NamedTextColor.GOLD);
+
+    private static final Component PREFIX_TIME_WHITE = Component.text("백팀 시간: ", Team.WHITE.color());
+    private static final Component PREFIX_TIME_BLACK = Component.text("흑팀 시간: ", Team.BLACK.color());
+    private static final Component PREFIX_STATUS_WHITE = Component.text("백팀 생존: ", Team.WHITE.color());
+    private static final Component PREFIX_STATUS_BLACK = Component.text("흑팀 생존: ", Team.BLACK.color());
+    private static final Component MARKER_ACTIVE = Component.text("▶ ", NamedTextColor.GREEN, TextDecoration.BOLD);
+    private static final Component MARKER_INACTIVE = Component.text("  ", NamedTextColor.DARK_GRAY);
 
     private static final String NAME_NONE = "없음";
     private static final int MAX_CACHE_SECONDS = 3600;
@@ -99,20 +109,39 @@ public class ScoreboardManager {
             return;
         }
 
-        final Component timeLine;
-        if (seconds >= 0 && seconds <= MAX_CACHE_SECONDS) {
-            timeLine = TIME_LINE_CACHE[seconds];
-        } else {
-            timeLine = Component.text()
-                    .append(PREFIX_TIME)
-                    .append(Component.text(seconds))
-                    .append(SUFFIX_SECONDS)
-                    .build();
+        final UUID currentTurnId = context.currentTurnPlayerId();
+        if (currentTurnId == null) {
+            return;
         }
 
-        for (final FastBoard board : boards.values()) {
-            board.updateLine(3, timeLine); // 타이머 라인 위치(3번 인덱스) 고정 업데이트
+        final Participant p = context.participants().get(currentTurnId);
+        if (p == null) {
+            return;
         }
+
+        final Team turnTeam = p.team();
+
+        for (final FastBoard board : boards.values()) {
+            board.updateLine(5, getTeamTimeLine(Team.WHITE, turnTeam == Team.WHITE));
+            board.updateLine(6, getTeamTimeLine(Team.BLACK, turnTeam == Team.BLACK));
+        }
+    }
+
+    private Component getTeamTimeLine(final Team team, final boolean isActive) {
+        // 현재 턴인 팀은 context.remainingSeconds()를, 아니면 팀 공유 시간을 표시
+        final int displayTime = isActive ? context.remainingSeconds() : context.getTeamTime(team);
+
+        return Component.text()
+                .append(isActive ? MARKER_ACTIVE : MARKER_INACTIVE)
+                .append(team == Team.WHITE ? PREFIX_TIME_WHITE : PREFIX_TIME_BLACK)
+                .append(Component.text(formatTime(displayTime), NamedTextColor.WHITE))
+                .build();
+    }
+
+    private String formatTime(final int seconds) {
+        final int m = Math.max(0, seconds / 60);
+        final int s = Math.max(0, seconds % 60);
+        return String.format("%02d:%02d", m, s);
     }
 
     public void tick() {
@@ -193,6 +222,11 @@ public class ScoreboardManager {
 
         if (context.currentPhase() == GamePhase.TURN_ORDER) {
             applyTurnOrderBoard(player, board);
+            return;
+        }
+
+        if (context.currentPhase() == GamePhase.BATTLE) {
+            applyBattleBoard(player, board);
             return;
         }
 
@@ -336,6 +370,52 @@ public class ScoreboardManager {
         }
 
         lines.add(Component.empty());
+        board.updateLines(lines);
+    }
+
+    private void applyBattleBoard(final Player player, final FastBoard board) {
+        final Participant me = context.participants().get(player.getUniqueId());
+        if (me == null) return;
+
+        final List<Component> lines = new ArrayList<>();
+
+        lines.add(Component.empty());
+        lines.add(turnLineCache == null ? TURN_NONE_LINE : turnLineCache);
+        lines.add(Component.empty());
+
+        // 내 상태 정보 (골드 및 상태이상)
+        final String statusStr = me.statusEffects().isEmpty() ? "정상" : String.join(", ", me.statusEffects());
+        lines.add(Component.text()
+                .append(PREFIX_GOLD).append(Component.text(me.gold() + "G", NamedTextColor.WHITE))
+                .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
+                .append(PREFIX_STATUS).append(Component.text(statusStr, me.statusEffects().isEmpty() ? NamedTextColor.WHITE : NamedTextColor.RED))
+                .build());
+
+        lines.add(Component.empty());
+
+        // 팀별 제한 시간 표시
+        final UUID currentTurnId = context.currentTurnPlayerId();
+        final Team turnTeam = currentTurnId != null && context.participants().containsKey(currentTurnId)
+                ? context.participants().get(currentTurnId).team()
+                : null;
+
+        lines.add(getTeamTimeLine(Team.WHITE, turnTeam == Team.WHITE));
+        lines.add(getTeamTimeLine(Team.BLACK, turnTeam == Team.BLACK));
+
+        lines.add(Component.empty());
+
+        // 팀별 생존 현황
+        lines.add(Component.text()
+                .append(PREFIX_STATUS_WHITE)
+                .append(Component.text(context.countTeam(Team.WHITE), NamedTextColor.WHITE))
+                .build());
+        lines.add(Component.text()
+                .append(PREFIX_STATUS_BLACK)
+                .append(Component.text(context.countTeam(Team.BLACK), NamedTextColor.WHITE))
+                .build());
+
+        lines.add(Component.empty());
+
         board.updateLines(lines);
     }
 }

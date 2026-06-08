@@ -17,7 +17,7 @@ public class BossBarManager {
     private BossBar bossBar;
 
     public void tick() {
-        if (!context.timerRunning()) {
+        if (!context.timerRunning() || context.currentPhase() == GamePhase.BATTLE) {
             hide();
             return;
         }
