@@ -90,6 +90,11 @@ public class CombatManager implements Listener {
         if (attackDamage != null) {
             attackDamage.setBaseValue(type.baseDamage() + buff.damage());
         }
+
+        // Rook 황금 체력(Absorption) 부여
+        if (type == PieceType.ROOK) {
+            entity.setAbsorptionAmount(40.0);
+        }
     }
 
     public void upgradePieceClass(final dev.tecte.chesswar.team.Team team, final PieceType type, final double healthInc, final double damageInc) {
@@ -104,6 +109,19 @@ public class CombatManager implements Listener {
                 LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
                 if (entity != null && entity.isValid()) {
                     applyStats(entity, type, team);
+                }
+            }
+        }
+    }
+
+    public void repairRooks(final dev.tecte.chesswar.team.Team team) {
+        for (Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
+            Piece piece = entry.getValue();
+            if (piece.team() == team && piece.type() == PieceType.ROOK) {
+                LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
+                if (entity != null && entity.isValid()) {
+                    entity.setAbsorptionAmount(40.0);
+                    entity.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, entity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
                 }
             }
         }
@@ -221,15 +239,22 @@ public class CombatManager implements Listener {
         }
 
         if (targetPiece.team() == attackingPiece.team()) {
-            handleCommanderOrFriendlyFire(
-                    attacker,
-                    attackingCoordinate,
-                    targetCoordinate,
-                    targetPiece,
-                    commandTarget
-            );
-
-            return false;
+            if (attackingPiece.type() == PieceType.BISHOP) {
+                if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
+                    attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
+                    return false;
+                }
+                return performHeal(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
+            } else {
+                handleCommanderOrFriendlyFire(
+                        attacker,
+                        attackingCoordinate,
+                        targetCoordinate,
+                        targetPiece,
+                        commandTarget
+                );
+                return false;
+            }
         }
 
         if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
@@ -403,7 +428,15 @@ public class CombatManager implements Listener {
 
             final double baseDamage = attackingPiece.type().baseDamage();
             final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
-            final double damage = baseDamage + buff.damage();
+            double damage = baseDamage + buff.damage();
+
+            // Knight's special ability
+            if (attackingPiece.type() == PieceType.KNIGHT) {
+                if (!moveValidator.canMove(pieceState, targetCoord, attackCoord)) {
+                    damage += 15.0; // 추가 피해
+                    attacker.sendMessage(Component.text("비선제 공격! 추가 피해를 입혔습니다.", NamedTextColor.LIGHT_PURPLE));
+                }
+            }
 
             victim.setNoDamageTicks(0);
             victim.damage(damage, attacker);
@@ -427,6 +460,55 @@ public class CombatManager implements Listener {
             if (victim.getHealth() <= 0) {
                 handleKill(attacker, victim, targetCoord, attackCoord, targetPiece);
             }
+
+            return true;
+        } finally {
+            processingAttack = false;
+        }
+    }
+
+    private boolean performHeal(
+            final Player healer,
+            final LivingEntity victim,
+            final Coordinate targetCoord,
+            final Coordinate healCoord,
+            final Piece healingPiece,
+            final Piece targetPiece
+    ) {
+        processingAttack = true;
+        try {
+            final Participant participant = context.participants().get(healer.getUniqueId());
+            if (participant.commanderTarget() != null) {
+                applyGlowing(participant.commanderTarget(), false);
+                participant.commanderTarget(null);
+            }
+
+            final double baseHeal = healingPiece.type().baseDamage();
+            final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(healingPiece.team(), healingPiece.type());
+            final double healAmount = baseHeal + buff.damage();
+
+            final AttributeInstance maxHealth = victim.getAttribute(Attribute.MAX_HEALTH);
+            final double currentHealth = victim.getHealth();
+            final double maxHp = maxHealth != null ? maxHealth.getValue() : 20.0;
+
+            final double newHealth = Math.min(maxHp, currentHealth + healAmount);
+            final double actualHeal = newHealth - currentHealth;
+
+            victim.setHealth(newHealth);
+            context.participants().get(healer.getUniqueId()).statistics().addHealingDone(actualHeal);
+
+            victim.getWorld().spawnParticle(
+                    Particle.HEART,
+                    victim.getLocation().add(0, 1, 0),
+                    PARTICLE_COUNT_ATTACK, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_SPEED_ATTACK
+            );
+            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_ATTACK, SOUND_PITCH_ATTACK);
+            targetPiece.currentHealth(newHealth);
+
+            healer.sendMessage(Component.text()
+                    .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                    .append(Component.text("의 체력을 회복시켰습니다!", NamedTextColor.GREEN))
+                    .build());
 
             return true;
         } finally {

@@ -56,7 +56,26 @@ public class ShopController {
                     .asGuiItem());
         }
 
-        // 2. 소모성 아이템 구매 (준비 중)
+        // 2. 룩 수리 (누구나 이용 가능)
+        gui.setItem(13, ItemBuilder.from(Material.GOLD_INGOT)
+                .name(miniMessage.deserialize("<gold><bold>[ 룩 장갑 수리 ]</bold></gold>"))
+                .lore(
+                        miniMessage.deserialize("<gray>아군 룩(Rook) 기물의 황금 체력을 100% 리필합니다.</gray>"),
+                        Component.empty(),
+                        miniMessage.deserialize("<white>비용: </white><gold>150G</gold>"),
+                        Component.empty(),
+                        miniMessage.deserialize("<yellow>클릭하여 수리</yellow>")
+                )
+                .asGuiItem(event -> {
+                    if (economyManager.spendGold(player.getUniqueId(), 150)) {
+                        combatManager.repairRooks(participant.team());
+                        player.sendMessage(miniMessage.deserialize("<green>아군 룩의 황금 체력이 리필되었습니다!</green>"));
+                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.0f);
+                        player.closeInventory();
+                    }
+                }));
+
+        // 3. 소모성 아이템 구매 (준비 중)
         gui.setItem(15, ItemBuilder.from(Material.POTION)
                 .name(miniMessage.deserialize("<green><bold>[ 아이템 구매 ]</bold></green>"))
                 .lore(

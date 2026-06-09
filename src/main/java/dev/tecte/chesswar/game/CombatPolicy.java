@@ -12,6 +12,10 @@ public class CombatPolicy {
             return true;
         }
 
+        if (attacker.type() == PieceType.BISHOP) {
+            return true;
+        }
+
         return canCommand(attacker, target);
     }
 
