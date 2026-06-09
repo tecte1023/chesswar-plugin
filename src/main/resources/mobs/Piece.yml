@@ -10,7 +10,6 @@ Piece:
     KnockbackResistance: 1            # 넉백 저항
     PreventOtherDrops: true           # 바닐라 드롭 방지
     Despawn: false                    # 서버/청크 이동 시 자동 despawn 방지
-    Invincible: true                  # 무적 상태
     PreventRenaming: true             # 이름표로 이름 변경 불가
   Skills:
     - setrotation{pitch=0} @self ~onSpawn
