@@ -8,6 +8,7 @@ import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
 import dev.tecte.chesswar.economy.GoldSource;
+import dev.tecte.chesswar.economy.ShopController;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
@@ -144,6 +145,7 @@ public class GameManager implements Listener {
     private final CombatManager combatManager;
     private final ScoreboardManager scoreboardManager;
     private final EconomyManager economyManager;
+    private final ShopController shopController;
     private final PlayerInventoryAdapter inventoryAdapter;
 
     private org.bukkit.scheduler.BukkitTask heartbeatTask;
@@ -165,6 +167,7 @@ public class GameManager implements Listener {
             final CombatManager combatManager,
             final ScoreboardManager scoreboardManager,
             final EconomyManager economyManager,
+            final ShopController shopController,
             final PlayerInventoryAdapter inventoryAdapter
     ) {
         this.plugin = plugin;
@@ -181,6 +184,7 @@ public class GameManager implements Listener {
         this.combatManager = combatManager;
         this.scoreboardManager = scoreboardManager;
         this.economyManager = economyManager;
+        this.shopController = shopController;
         this.inventoryAdapter = inventoryAdapter;
 
         context.currentPhase(GamePhase.WAITING);
@@ -537,6 +541,15 @@ public class GameManager implements Listener {
         }
 
         checkVictoryConditions();
+    }
+
+    public void openShop(final Player player) {
+        if (phase() != GamePhase.BATTLE) {
+            player.sendMessage(Component.text("전투 단계에서만 상점을 이용할 수 있습니다!", NamedTextColor.RED));
+            return;
+        }
+        
+        shopController.openMainShop(player);
     }
 
     public void join(final Player player, final Team team) {

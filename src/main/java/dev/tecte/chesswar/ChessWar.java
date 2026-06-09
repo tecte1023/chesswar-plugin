@@ -8,6 +8,7 @@ import dev.tecte.chesswar.board.BoardVisualManager;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
 import dev.tecte.chesswar.economy.EconomyState;
+import dev.tecte.chesswar.economy.ShopController;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.listener.EnvironmentListener;
 import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
@@ -48,6 +49,7 @@ public final class ChessWar extends JavaPlugin {
     private ScoreboardManager scoreboardManager;
     private CombatManager combatManager;
     private EconomyManager economyManager;
+    private ShopController shopController;
     private MoveValidator moveValidator;
     private BoardVisualManager boardVisualManager;
 
@@ -92,6 +94,7 @@ public final class ChessWar extends JavaPlugin {
         timerManager = new TimerManager(context);
         boardVisualManager = new BoardVisualManager(this, boardManager);
         economyManager = new EconomyManager(context, economyState);
+        shopController = new ShopController(context, economyManager, combatManager);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         final CombatPolicy combatPolicy = new CombatPolicy();
@@ -112,6 +115,7 @@ public final class ChessWar extends JavaPlugin {
                 combatManager,
                 scoreboardManager,
                 economyManager,
+                shopController,
                 inventoryAdapter
         );
 

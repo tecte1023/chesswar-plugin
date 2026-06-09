@@ -27,7 +27,7 @@ dependencies {
     compileOnly 'io.lumine:Mythic-Dist:5.11.0'
     implementation 'co.aikar:acf-paper:0.5.1-SNAPSHOT'
     implementation 'fr.mrmicky:fastboard:2.1.5'
-    implementation 'dev.triumphteam:triumph-gui:3.1.10'
+    implementation 'dev.triumphteam:triumph-gui:3.1.13'
     implementation 'net.kyori:adventure-text-minimessage:4.17.0'
 }
 

@@ -56,6 +56,11 @@ public class AdminCommand extends BaseCommand {
         gameManager.join(player, team);
     }
 
+    @Subcommand("shop")
+    public void openShop(final Player player) {
+        gameManager.openShop(player);
+    }
+
     @Subcommand("addgold")
     public void addGold(final Player player, final int amount) {
         gameManager.economyManager().addGold(player.getUniqueId(), amount, GoldSource.STEAL);
