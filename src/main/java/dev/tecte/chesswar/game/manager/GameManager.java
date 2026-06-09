@@ -1176,7 +1176,7 @@ public class GameManager implements Listener {
     private void applyPieceAssignment(final Participant participant, final Player player, final Coordinate coord, final PieceType type) {
         participant.initialCoordinate(coord);
         participant.selectedType(type);
-        combatManager.applyStats(player, type);
+        combatManager.applyStats(player, type, participant.team());
         PieceItemUtils.replacePlayerPieceItem(player, type);
         scoreboardManager.updateAll();
     }

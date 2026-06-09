@@ -110,9 +110,13 @@ public class ShopController {
                         miniMessage.deserialize("<yellow>클릭하여 구매</yellow>")
                 )
                 .asGuiItem(event -> {
+                    Participant participant = gameContext.participants().get(player.getUniqueId());
+                    if (participant == null) return;
+                    
                     if (economyManager.spendGold(player.getUniqueId(), cost)) {
                         // Logic Delegation: 관리자에게 실제 강화 로직 위임
-                        // TODO: 실제 기물군 전체 스탯 강화 로직 (StatManager 구현 필요)
+                        combatManager.upgradePieceClass(participant.team(), type, 20.0, 5.0);
+                        
                         player.sendMessage(miniMessage.deserialize("<green>" + type.displayName() + " 클래스가 강화되었습니다!</green>"));
                         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                         player.closeInventory();

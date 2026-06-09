@@ -1,11 +1,13 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bukkit.entity.LivingEntity;
 
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -20,11 +22,18 @@ public class PieceState {
     private final Map<Coordinate, LivingEntity> pieceEntities = new HashMap<>();
     private final Map<UUID, Coordinate> entityToCoordinate = new HashMap<>();
     private final Set<UUID> spawnedEntities = new HashSet<>();
+    private final Map<Team, Map<PieceType, StatBuff>> teamBuffs = new EnumMap<>(Team.class);
+
+    public StatBuff getBuff(Team team, PieceType type) {
+        return teamBuffs.computeIfAbsent(team, k -> new EnumMap<>(PieceType.class))
+                .computeIfAbsent(type, k -> StatBuff.create());
+    }
 
     public void reset() {
         boardPieces.clear();
         pieceEntities.clear();
         entityToCoordinate.clear();
         spawnedEntities.clear();
+        teamBuffs.clear();
     }
 }

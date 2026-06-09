@@ -73,20 +73,39 @@ public class CombatManager implements Listener {
 
     @EventHandler
     public void onPieceSpawn(final PieceSpawnEvent event) {
-        applyStats(event.getEntity(), event.getType());
+        applyStats(event.getEntity(), event.getType(), event.getTeam());
     }
 
-    public void applyStats(final LivingEntity entity, final PieceType type) {
+    public void applyStats(final LivingEntity entity, final PieceType type, final dev.tecte.chesswar.team.Team team) {
         final AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
         final AttributeInstance attackDamage = entity.getAttribute(Attribute.ATTACK_DAMAGE);
+        final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(team, type);
 
         if (maxHealth != null) {
-            maxHealth.setBaseValue(type.baseHealth());
-            entity.setHealth(type.baseHealth());
+            double finalHealth = type.baseHealth() + buff.health();
+            maxHealth.setBaseValue(finalHealth);
+            entity.setHealth(finalHealth);
         }
 
         if (attackDamage != null) {
-            attackDamage.setBaseValue(type.baseDamage());
+            attackDamage.setBaseValue(type.baseDamage() + buff.damage());
+        }
+    }
+
+    public void upgradePieceClass(final dev.tecte.chesswar.team.Team team, final PieceType type, final double healthInc, final double damageInc) {
+        dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(team, type);
+        buff.addHealth(healthInc);
+        buff.addDamage(damageInc);
+
+        // 이미 소환되어 있는 해당 기물들의 스탯도 즉시 업데이트합니다.
+        for (Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
+            Piece piece = entry.getValue();
+            if (piece.team() == team && piece.type() == type) {
+                LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
+                if (entity != null && entity.isValid()) {
+                    applyStats(entity, type, team);
+                }
+            }
         }
     }
 
@@ -382,7 +401,9 @@ public class CombatManager implements Listener {
                 participant.commanderTarget(null);
             }
 
-            final double damage = attackingPiece.type().baseDamage();
+            final double baseDamage = attackingPiece.type().baseDamage();
+            final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
+            final double damage = baseDamage + buff.damage();
 
             victim.setNoDamageTicks(0);
             victim.damage(damage, attacker);
