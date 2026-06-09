@@ -3,6 +3,8 @@ package dev.tecte.chesswar.game.manager;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.economy.EconomyManager;
+import dev.tecte.chesswar.economy.GoldSource;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
@@ -64,6 +66,7 @@ public class CombatManager implements Listener {
     private final PieceState pieceState;
     private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
+    private final EconomyManager economyManager;
 
     @Getter
     private boolean processingAttack = false;
@@ -421,13 +424,8 @@ public class CombatManager implements Listener {
         participant.statistics().addKill();
 
         // 처치 보상 지급 (200G)
-        participant.gold(participant.gold() + 200);
+        economyManager.addGold(attacker.getUniqueId(), 200, GoldSource.KILL);
 
-        attacker.sendMessage(Component.text()
-                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text("을(를) 처치했습니다! (보상: 200G)", NamedTextColor.AQUA))
-                .build());
-        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_KILL, SOUND_PITCH_KILL);
         victim.getWorld().spawnParticle(
                 Particle.EXPLOSION,
                 victim.getLocation().add(0, 1, 0),

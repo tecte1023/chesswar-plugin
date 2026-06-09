@@ -4,6 +4,7 @@ import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.CommandPermission;
 import co.aikar.commands.annotation.Subcommand;
+import dev.tecte.chesswar.economy.GoldSource;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -53,5 +54,18 @@ public class AdminCommand extends BaseCommand {
     @Subcommand("join")
     public void joinGame(final Player player, final Team team) {
         gameManager.join(player, team);
+    }
+
+    @Subcommand("addgold")
+    public void addGold(final Player player, final int amount) {
+        gameManager.economyManager().addGold(player.getUniqueId(), amount, GoldSource.STEAL);
+        player.sendMessage("§6[Admin] §f" + amount + " 골드를 지급했습니다.");
+    }
+
+    @Subcommand("spendgold")
+    public void spendGold(final Player player, final int amount) {
+        if (gameManager.economyManager().spendGold(player.getUniqueId(), amount)) {
+            player.sendMessage("§6[Admin] §f" + amount + " 골드를 소비했습니다.");
+        }
     }
 }

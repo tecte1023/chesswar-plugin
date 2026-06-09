@@ -6,6 +6,8 @@ import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.economy.EconomyManager;
+import dev.tecte.chesswar.economy.GoldSource;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
@@ -141,6 +143,7 @@ public class GameManager implements Listener {
     private final MoveValidator moveValidator;
     private final CombatManager combatManager;
     private final ScoreboardManager scoreboardManager;
+    private final EconomyManager economyManager;
     private final PlayerInventoryAdapter inventoryAdapter;
 
     private org.bukkit.scheduler.BukkitTask heartbeatTask;
@@ -161,6 +164,7 @@ public class GameManager implements Listener {
             final MoveValidator moveValidator,
             final CombatManager combatManager,
             final ScoreboardManager scoreboardManager,
+            final EconomyManager economyManager,
             final PlayerInventoryAdapter inventoryAdapter
     ) {
         this.plugin = plugin;
@@ -176,6 +180,7 @@ public class GameManager implements Listener {
         this.moveValidator = moveValidator;
         this.combatManager = combatManager;
         this.scoreboardManager = scoreboardManager;
+        this.economyManager = economyManager;
         this.inventoryAdapter = inventoryAdapter;
 
         context.currentPhase(GamePhase.WAITING);
@@ -504,6 +509,7 @@ public class GameManager implements Listener {
         }
 
         combatManager.resetAllStats();
+        economyManager.reset();
         scoreboardManager.reset();
 
         Bukkit.broadcast(MSG_RESET_COMPLETE);
@@ -640,10 +646,8 @@ public class GameManager implements Listener {
         final Participant participant = participantOpt.get();
         final Team team = participant.team();
 
-        // 턴 시작 시 월급 지급 (100G)
-        participant.gold(participant.gold() + 100);
-        player.sendMessage(Component.text(" [!] ", NamedTextColor.GOLD)
-                .append(Component.text("턴 시작 월급 100G를 지급받았습니다.", NamedTextColor.YELLOW)));
+        // 턴 시작 시 월급 지급 (팀 전원)
+        economyManager.distributeSalary(team);
 
         final int teamTime = context.getTeamTime(team);
         final int overtimeTime = context.timerSettings().battleTurnTime();

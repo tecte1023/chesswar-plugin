@@ -6,6 +6,8 @@ import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.BoardState;
 import dev.tecte.chesswar.board.BoardVisualManager;
 import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.economy.EconomyManager;
+import dev.tecte.chesswar.economy.EconomyState;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.listener.EnvironmentListener;
 import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
@@ -45,6 +47,7 @@ public final class ChessWar extends JavaPlugin {
     private EnvironmentManager environmentManager;
     private ScoreboardManager scoreboardManager;
     private CombatManager combatManager;
+    private EconomyManager economyManager;
     private MoveValidator moveValidator;
     private BoardVisualManager boardVisualManager;
 
@@ -75,6 +78,7 @@ public final class ChessWar extends JavaPlugin {
         final GameContext context = GameContext.create();
         final PieceState pieceState = PieceState.create();
         final BoardState boardState = BoardState.create();
+        final EconomyState economyState = EconomyState.create();
         final PiecePdcMapper piecePdcMapper = PiecePdcMapper.create(this);
 
         boardManager = new BoardManager(
@@ -87,11 +91,12 @@ public final class ChessWar extends JavaPlugin {
         environmentManager = new EnvironmentManager();
         timerManager = new TimerManager(context);
         boardVisualManager = new BoardVisualManager(this, boardManager);
+        economyManager = new EconomyManager(context, economyState);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         final CombatPolicy combatPolicy = new CombatPolicy();
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
-        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy);
+        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager);
 
         gameManager = new GameManager(
                 this,
@@ -106,6 +111,7 @@ public final class ChessWar extends JavaPlugin {
                 moveValidator,
                 combatManager,
                 scoreboardManager,
+                economyManager,
                 inventoryAdapter
         );
 
