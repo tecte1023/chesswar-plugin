@@ -9,6 +9,7 @@ import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
 import dev.tecte.chesswar.economy.EconomyState;
 import dev.tecte.chesswar.economy.ShopController;
+import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.listener.EnvironmentListener;
 import dev.tecte.chesswar.game.listener.GamePieceLifecycleListener;
@@ -19,11 +20,11 @@ import dev.tecte.chesswar.game.listener.PlayerJoinListener;
 import dev.tecte.chesswar.game.listener.ScoreboardUpdateListener;
 import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.EnvironmentManager;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.game.manager.PlayerInventoryAdapter;
 import dev.tecte.chesswar.game.manager.ScoreboardManager;
 import dev.tecte.chesswar.game.manager.TimerManager;
-import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.piece.MythicPieceListener;
 import dev.tecte.chesswar.piece.PieceBootstrap;
 import dev.tecte.chesswar.piece.PieceCommand;
@@ -98,8 +99,8 @@ public final class ChessWar extends JavaPlugin {
         economyManager = new EconomyManager(context, economyState);
         shopController = new ShopController(context, economyManager, combatManager);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
+        final GameAnnouncer gameAnnouncer = new GameAnnouncer(context);
 
-        final CombatPolicy combatPolicy = new CombatPolicy();
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
         combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager);
 
@@ -118,7 +119,8 @@ public final class ChessWar extends JavaPlugin {
                 scoreboardManager,
                 economyManager,
                 shopController,
-                inventoryAdapter
+                inventoryAdapter,
+                gameAnnouncer
         );
 
         if (boardManager.hasBoard()) {
