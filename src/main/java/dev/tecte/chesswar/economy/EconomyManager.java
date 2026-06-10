@@ -23,21 +23,21 @@ public class EconomyManager {
     /**
      * 특정 플레이어에게 골드를 지급합니다.
      */
-    public void addGold(UUID playerId, int amount, GoldSource source) {
-        GoldComponent gold = economyState.getPlayerGold(playerId);
+    public void addGold(final UUID playerId, final int amount, final GoldSource source) {
+        final GoldComponent gold = economyState.getPlayerGold(playerId);
         gold.add(amount);
 
         // 기존 Participant 객체와 동기화 (레거시 호환성 및 스코어보드 출력용)
-        Participant participant = gameContext.participants().get(playerId);
+        final Participant participant = gameContext.participants().get(playerId);
         if (participant != null) {
             participant.gold(gold.currentGold());
             participant.statistics().addGoldEarned(amount);
         }
 
-        Player player = Bukkit.getPlayer(playerId);
+        final Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             // Engine-Native Feedback
-            String message = String.format("<gold>+ %d Gold</gold> <gray>(%s)</gray>", amount, source.description());
+            final String message = String.format("<gold>+ %d Gold</gold> <gray>(%s)</gray>", amount, source.description());
             player.sendActionBar(miniMessage.deserialize(message));
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
         }
@@ -46,10 +46,10 @@ public class EconomyManager {
     /**
      * 골드를 차감합니다. 잔액이 부족하면 false를 반환합니다.
      */
-    public boolean spendGold(UUID playerId, int amount) {
-        GoldComponent gold = economyState.getPlayerGold(playerId);
+    public boolean spendGold(final UUID playerId, final int amount) {
+        final GoldComponent gold = economyState.getPlayerGold(playerId);
         if (!gold.subtract(amount)) {
-            Player player = Bukkit.getPlayer(playerId);
+            final Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 player.sendMessage(miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
                 player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
@@ -58,13 +58,13 @@ public class EconomyManager {
         }
 
         // 기존 Participant 객체와 동기화
-        Participant participant = gameContext.participants().get(playerId);
+        final Participant participant = gameContext.participants().get(playerId);
         if (participant != null) {
             participant.gold(gold.currentGold());
             participant.statistics().addGoldSpent(amount);
         }
 
-        Player player = Bukkit.getPlayer(playerId);
+        final Player player = Bukkit.getPlayer(playerId);
         if (player != null) {
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_IRON_XYLOPHONE, 1.0f, 1.2f);
         }
@@ -74,10 +74,10 @@ public class EconomyManager {
     /**
      * 해당 팀원 전원에게 월급을 지급합니다.
      */
-    public void distributeSalary(Team team) {
-        for (Participant p : gameContext.participants().values()) {
+    public void distributeSalary(final Team team) {
+        for (final Participant p : gameContext.participants().values()) {
             if (p.team() == team) {
-                int amount = economyState.getPlayerGold(p.playerId()).baseIncome();
+                final int amount = economyState.getPlayerGold(p.playerId()).baseIncome();
                 addGold(p.playerId(), amount, GoldSource.SALARY);
             }
         }

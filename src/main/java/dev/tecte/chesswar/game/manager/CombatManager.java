@@ -15,7 +15,9 @@ import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.PieceType;
+import dev.tecte.chesswar.piece.StatBuff;
 import dev.tecte.chesswar.piece.ability.PieceAbility;
+import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -72,13 +74,13 @@ public class CombatManager implements Listener {
         applyStats(event.getEntity(), event.getType(), event.getTeam());
     }
 
-    public void applyStats(final LivingEntity entity, final PieceType type, final dev.tecte.chesswar.team.Team team) {
+    public void applyStats(final LivingEntity entity, final PieceType type, final Team team) {
         final AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
         final AttributeInstance attackDamage = entity.getAttribute(Attribute.ATTACK_DAMAGE);
-        final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(team, type);
+        final StatBuff buff = pieceState.getBuff(team, type);
 
         if (maxHealth != null) {
-            double finalHealth = type.baseHealth() + buff.health();
+            final double finalHealth = type.baseHealth() + buff.health();
             maxHealth.setBaseValue(finalHealth);
             entity.setHealth(finalHealth);
         }
@@ -86,15 +88,10 @@ public class CombatManager implements Listener {
         if (attackDamage != null) {
             attackDamage.setBaseValue(type.baseDamage() + buff.damage());
         }
-
-        // Rook 황금 체력(Absorption) 부여
-        if (type == PieceType.ROOK) {
-            entity.setAbsorptionAmount(40.0);
-        }
     }
 
-    public void upgradePieceClass(final dev.tecte.chesswar.team.Team team, final PieceType type, final double healthInc, final double damageInc) {
-        dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(team, type);
+    public void upgradePieceClass(final Team team, final PieceType type, final double healthInc, final double damageInc) {
+        final StatBuff buff = pieceState.getBuff(team, type);
         buff.addHealth(healthInc);
         buff.addDamage(damageInc);
 
@@ -110,7 +107,7 @@ public class CombatManager implements Listener {
         }
     }
 
-    public void repairRooks(final dev.tecte.chesswar.team.Team team) {
+    public void repairRooks(final Team team) {
         for (Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
             Piece piece = entry.getValue();
             if (piece.team() == team && piece.type() == PieceType.ROOK) {

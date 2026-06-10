@@ -6,11 +6,9 @@ import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.triumphteam.gui.builder.item.ItemBuilder;
 import dev.triumphteam.gui.guis.Gui;
-import dev.triumphteam.gui.guis.GuiItem;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
 import org.bukkit.Sound;
@@ -29,11 +27,16 @@ public class ShopController {
     /**
      * 플레이어에게 메인 상점 UI를 엽니다.
      */
-    public void openMainShop(Player player) {
-        Participant participant = gameContext.participants().get(player.getUniqueId());
-        if (participant == null) return;
+    private static final double UPGRADE_HEALTH_INC = 20.0;
+    private static final double UPGRADE_DAMAGE_INC = 5.0;
 
-        Gui gui = Gui.gui()
+    public void openMainShop(final Player player) {
+        final Participant participant = gameContext.participants().get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+
+        final Gui gui = Gui.gui()
                 .title(miniMessage.deserialize("<gold><bold>ChessWar Shop</bold></gold>"))
                 .rows(3)
                 .disableAllInteractions()
@@ -94,8 +97,8 @@ public class ShopController {
     /**
      * 킹 전용 기물 강화 상점을 엽니다.
      */
-    private void openUpgradeShop(Player player) {
-        Gui gui = Gui.gui()
+    private void openUpgradeShop(final Player player) {
+        final Gui gui = Gui.gui()
                 .title(miniMessage.deserialize("<aqua><bold>Piece Upgrades</bold></aqua>"))
                 .rows(3)
                 .disableAllInteractions()
@@ -117,25 +120,26 @@ public class ShopController {
         gui.open(player);
     }
 
-    private void addUpgradeItem(Gui gui, Player player, int slot, PieceType type, Material icon, int cost) {
+    private void addUpgradeItem(final Gui gui, final Player player, final int slot, final PieceType type, final Material icon, final int cost) {
         gui.setItem(slot, ItemBuilder.from(icon)
                 .name(miniMessage.deserialize("<gold>" + type.displayName() + " 강화</gold>"))
                 .lore(
                         miniMessage.deserialize("<gray>해당 기물군 전체의 능력치를 상향합니다.</gray>"),
-                        miniMessage.deserialize("<gray>체력 +20 | 공격력 +5</gray>"),
+                        miniMessage.deserialize("<gray>체력 +" + (int) UPGRADE_HEALTH_INC + " | 공격력 +" + (int) UPGRADE_DAMAGE_INC + "</gray>"),
                         Component.empty(),
                         miniMessage.deserialize("<white>비용: </white><gold>" + cost + "G</gold>"),
                         Component.empty(),
                         miniMessage.deserialize("<yellow>클릭하여 구매</yellow>")
                 )
                 .asGuiItem(event -> {
-                    Participant participant = gameContext.participants().get(player.getUniqueId());
-                    if (participant == null) return;
-                    
+                    final Participant participant = gameContext.participants().get(player.getUniqueId());
+                    if (participant == null) {
+                        return;
+                    }
+
                     if (economyManager.spendGold(player.getUniqueId(), cost)) {
-                        // Logic Delegation: 관리자에게 실제 강화 로직 위임
-                        combatManager.upgradePieceClass(participant.team(), type, 20.0, 5.0);
-                        
+                        combatManager.upgradePieceClass(participant.team(), type, UPGRADE_HEALTH_INC, UPGRADE_DAMAGE_INC);
+
                         player.sendMessage(miniMessage.deserialize("<green>" + type.displayName() + " 클래스가 강화되었습니다!</green>"));
                         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                         player.closeInventory();
