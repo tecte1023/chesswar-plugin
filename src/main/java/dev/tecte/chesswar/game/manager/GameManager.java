@@ -7,7 +7,6 @@ import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
-import dev.tecte.chesswar.economy.GoldSource;
 import dev.tecte.chesswar.economy.ShopController;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
@@ -15,6 +14,8 @@ import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.component.PhaseTimerSettings;
 import dev.tecte.chesswar.game.component.Statistics;
 import dev.tecte.chesswar.game.component.TimerPolicy;
+import dev.tecte.chesswar.game.event.KingDeathEvent;
+import dev.tecte.chesswar.game.event.PiecePromotionEvent;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
@@ -35,25 +36,21 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.BlockFace;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.event.Listener;
-import org.bukkit.event.EventHandler;
-import dev.tecte.chesswar.game.event.KingDeathEvent;
-
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
@@ -72,7 +69,6 @@ import java.util.stream.Collectors;
 @Accessors(fluent = true)
 @lombok.extern.slf4j.Slf4j(topic = "ChessWar")
 public class GameManager implements Listener {
-    // Static Feedback Constants
     private static final Component MSG_COUNTDOWN_SUBTITLE = Component.text("잠시 후 기물 선택이 시작됩니다.", NamedTextColor.YELLOW);
     private static final Component ERROR_INSPECT_OWN_TEAM_ONLY = Component.text("자신의 진영 기물만 살펴볼 수 있습니다!", NamedTextColor.RED);
     private static final Component ERROR_PIECE_ALREADY_TAKEN = Component.text("해당 위치의 기물은 이미 팀원이 선택했습니다!", NamedTextColor.RED);
@@ -98,16 +94,16 @@ public class GameManager implements Listener {
 
     private static final Component UI_DECORATION_LINE = Component.text("━━━━━━━━━━━━━━━", NamedTextColor.DARK_GRAY, TextDecoration.STRIKETHROUGH);
     private static final Component UI_TITLE_CONFIRMATION = Component.text(" [ 기물 확인 ] ", NamedTextColor.GOLD, TextDecoration.BOLD);
-    
+
     private static final Component UI_BTN_BASE = Component.text("[ ⚔ ")
             .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
             .append(Component.text(" ]"));
-    
+
     private static final Component UI_BTN_TAKEN = UI_BTN_BASE.color(NamedTextColor.GRAY);
     private static final Component UI_BTN_SELECT = UI_BTN_BASE.color(NamedTextColor.GREEN);
-    
+
     private static final Component UI_STATS_TITLE = Component.text(" [ 전투 결과 통계 ] ", NamedTextColor.GOLD, TextDecoration.BOLD);
-    
+
     private static final String RECORD_BOOK_TITLE = "전투 기록 일지";
     private static final String RECORD_BOOK_AUTHOR = "ChessWar System";
     private static final Component RECORD_BOOK_HEADER = Component.text("=== 전투 기록 리포트 ===\n\n", NamedTextColor.GOLD, TextDecoration.BOLD);
@@ -127,7 +123,7 @@ public class GameManager implements Listener {
     private static final Component MSG_START_BIND_SUCCESS = Component.text("게임 시작 버튼이 성공적으로 등록되었습니다!", NamedTextColor.GREEN);
     private static final Component MSG_START_REMOVE_SUCCESS = Component.text("게임 시작 버튼이 제거되었습니다.", NamedTextColor.YELLOW);
     private static final Component MSG_START_BUTTON_HOLOGRAM = Component.text("게임 시작", NamedTextColor.GOLD, TextDecoration.BOLD);
-    
+
     private static final Component MSG_TURN_ORDER_GUIDE = Component.text("상자에서 순서 아이템을 가져가 턴 순서를 정하세요!", NamedTextColor.YELLOW);
     private static final Component MSG_TURN_ORDER_APPLIED = Component.text("순서 확정: ", NamedTextColor.GREEN);
 
@@ -338,12 +334,12 @@ public class GameManager implements Listener {
             final Player p = Bukkit.getPlayer(participant.playerId());
             if (p != null) {
                 participant.originalGameMode(p.getGameMode());
-                
+
                 final org.bukkit.attribute.AttributeInstance maxHealth = p.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
                 if (maxHealth != null) {
                     participant.originalHealth(maxHealth.getBaseValue());
                 }
-                
+
                 final org.bukkit.attribute.AttributeInstance attackDamage = p.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
                 if (attackDamage != null) {
                     participant.originalAttackDamage(attackDamage.getBaseValue());
@@ -461,6 +457,42 @@ public class GameManager implements Listener {
     }
 
     @EventHandler
+    public void onPiecePromotion(final PiecePromotionEvent event) {
+        promotePiece(event.player(), event.piece(), event.coordinate());
+    }
+
+    private void promotePiece(final Player player, final Piece piece, final Coordinate coordinate) {
+        final PieceType upgradeType = PieceType.QUEEN;
+
+        pieceManager.removePiece(coordinate);
+
+        final Piece upgradedPiece = (piece.isPlayerPiece())
+                ? Piece.of(piece.ownerId(), piece.team(), upgradeType)
+                : Piece.of(null, piece.team(), upgradeType);
+
+        pieceManager.placePiece(coordinate, upgradedPiece);
+
+        final LivingEntity entity = pieceState.pieceEntities().get(coordinate);
+        if (entity != null) {
+            entity.remove();
+        }
+
+        final Location loc = boardManager.currentBoard().toCenterLocation(coordinate);
+        final Vector direction = (piece.team() == Team.WHITE)
+                ? boardManager.currentBoard().forwardVector()
+                : new Vector(-boardManager.currentBoard().forwardVector().getX(), -boardManager.currentBoard().forwardVector().getY(), -boardManager.currentBoard().forwardVector().getZ());
+
+        pieceManager.spawnPiece(upgradeType, piece.team(), coordinate, loc, direction, false);
+
+        Bukkit.broadcast(Component.text()
+                .append(Component.text(player.getName(), piece.team().color()))
+                .append(Component.text("의 폰이 ", NamedTextColor.GRAY))
+                .append(Component.text(upgradeType.displayName(), NamedTextColor.GOLD))
+                .append(Component.text("(으)로 승급했습니다!", NamedTextColor.GRAY))
+                .build());
+    }
+
+    @EventHandler
     public void onKingDeath(final KingDeathEvent event) {
         win(event.getWinnerTeam());
     }
@@ -497,7 +529,7 @@ public class GameManager implements Listener {
                 } else {
                     combatManager.resetStats(player);
                 }
-                
+
                 player.setHealth(player.getAttribute(Attribute.MAX_HEALTH).getValue());
                 player.setFoodLevel(20);
                 player.setSaturation(5.0f);
@@ -548,7 +580,7 @@ public class GameManager implements Listener {
             player.sendMessage(Component.text("전투 단계에서만 상점을 이용할 수 있습니다!", NamedTextColor.RED));
             return;
         }
-        
+
         shopController.openMainShop(player);
     }
 
@@ -677,6 +709,7 @@ public class GameManager implements Listener {
         scoreboardManager.updateTurnLine(player);
         scoreboardManager.updateAll();
         combatManager.updateInvulnerability(player);
+        combatManager.onTurnStart(player);
 
         clearVisualGuide(player);
         updateVisualGuide(player);
@@ -692,11 +725,11 @@ public class GameManager implements Listener {
                     }
                 } else if (remaining != lastDisplayedSecond) {
                     sendSelectionActionBarGuidance();
-                    
+
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
                         playCountdownTickSound();
                     }
-                    
+
                     lastDisplayedSecond = remaining;
                 }
             }
@@ -709,7 +742,7 @@ public class GameManager implements Listener {
                     }
                     lastDisplayedSecond = remaining;
                 }
-                
+
                 if (areAllParticipantsReady()) {
                     timerManager.accelerateTimerTo(context.timerSettings().readyAccelerateTime());
                 }
@@ -809,7 +842,7 @@ public class GameManager implements Listener {
         }
 
         final boolean isCorrectWool = (participant.team() == Team.WHITE && material == Material.WHITE_WOOL)
-                || (participant.team() == Team.BLACK && material == Material.BLACK_WOOL);
+                                      || (participant.team() == Team.BLACK && material == Material.BLACK_WOOL);
 
         if (isCorrectWool) {
             context.participants().remove(player.getUniqueId());

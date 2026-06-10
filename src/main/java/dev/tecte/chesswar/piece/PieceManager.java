@@ -4,8 +4,15 @@ import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.ChessBoard;
 import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
+import dev.tecte.chesswar.piece.ability.BishopAbility;
+import dev.tecte.chesswar.piece.ability.KingAbility;
+import dev.tecte.chesswar.piece.ability.KnightAbility;
+import dev.tecte.chesswar.piece.ability.PawnAbility;
+import dev.tecte.chesswar.piece.ability.RookAbility;
 import dev.tecte.chesswar.team.Team;
 import io.lumine.mythic.api.mobs.MobManager;
 import io.lumine.mythic.api.mobs.MythicMob;
@@ -40,6 +47,8 @@ public class PieceManager {
     private final MobManager mobManager;
     private final PiecePdcMapper pdcMapper;
     private final BoardManager boardManager;
+    private final MoveValidator moveValidator;
+    private final CombatPolicy combatPolicy;
     private final Map<Coordinate, LivingEntity> bunkerEntities = new HashMap<>();
 
     public void spawnBunker(final ChessBoard board) {
@@ -136,6 +145,7 @@ public class PieceManager {
                     ? Piece.of(participant.playerId(), team, type)
                     : Piece.of(null, team, type);
 
+            attachAbilities(piece);
             placePiece(coordinate, piece);
 
             if (participant == null) {
@@ -181,6 +191,7 @@ public class PieceManager {
                     ? Piece.of(participant.playerId(), team, type)
                     : Piece.of(null, team, type);
 
+            attachAbilities(piece);
             placePiece(coordinate, piece);
 
             // 플레이어가 없는 칸만 NPC를 스폰
@@ -427,10 +438,10 @@ public class PieceManager {
         if (mobEntity != null) {
             toggleForceRender(mobEntity, true);
             mobEntity.teleport(mobTarget);
-            
+
             // 순간이동 후 클라이언트 동기화를 위해 약간의 딜레이 후 렌더링 옵션 해제 권장 (스케줄러 필요)
             Bukkit.getScheduler().runTaskLater(plugin, () -> toggleForceRender(mobEntity, false), 2L);
-            
+
             updateMobMapping(mobEntity, from, to);
         }
 
@@ -486,6 +497,20 @@ public class PieceManager {
         });
 
         return pdcCoord;
+    }
+
+    private void attachAbilities(final Piece piece) {
+        switch (piece.type()) {
+            case ROOK -> piece.addAbility(new RookAbility());
+            case KNIGHT -> piece.addAbility(new KnightAbility(moveValidator, pieceState));
+            case BISHOP -> piece.addAbility(new BishopAbility(pieceState));
+            case PAWN -> piece.addAbility(new PawnAbility());
+            case QUEEN -> {
+                piece.addAbility(new RookAbility());
+                piece.addAbility(new BishopAbility(pieceState));
+            }
+            case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy));
+        }
     }
 
     private Map<Coordinate, Participant> indexParticipants(

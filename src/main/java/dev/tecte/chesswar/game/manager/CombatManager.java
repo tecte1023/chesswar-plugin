@@ -15,6 +15,7 @@ import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.PieceType;
+import dev.tecte.chesswar.piece.ability.PieceAbility;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
@@ -40,11 +41,6 @@ public class CombatManager implements Listener {
 
     private static final float SOUND_VOLUME_ATTACK = 1.0f;
     private static final float SOUND_PITCH_ATTACK = 1.0f;
-    private static final float SOUND_VOLUME_KILL = 1.0f;
-    private static final float SOUND_PITCH_KILL = 0.5f;
-    private static final float SOUND_VOLUME_COMMAND = 1.0f;
-    private static final float SOUND_PITCH_COMMAND_OFF = 0.5f;
-    private static final float SOUND_PITCH_COMMAND_ON = 1.0f;
 
     private static final int PARTICLE_COUNT_ATTACK = 10;
     private static final double PARTICLE_OFFSET = 0.5;
@@ -239,22 +235,38 @@ public class CombatManager implements Listener {
         }
 
         if (targetPiece.team() == attackingPiece.team()) {
-            if (attackingPiece.type() == PieceType.BISHOP) {
-                if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
-                    attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
-                    return false;
+            for (dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
+                if (ability instanceof dev.tecte.chesswar.piece.ability.BishopAbility bishop) {
+                    if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
+                        attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
+                        return false;
+                    }
+
+                    processingAttack = true;
+                    try {
+                        if (participant.commanderTarget() != null) {
+                            applyGlowing(participant.commanderTarget(), false);
+                            participant.commanderTarget(null);
+                        }
+
+                        double actualHeal = bishop.performHeal(attacker, victim, attackingPiece, targetPiece);
+                        participant.statistics().addHealingDone(actualHeal);
+                        return true;
+                    } finally {
+                        processingAttack = false;
+                    }
                 }
-                return performHeal(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
-            } else {
-                handleCommanderOrFriendlyFire(
-                        attacker,
-                        attackingCoordinate,
-                        targetCoordinate,
-                        targetPiece,
-                        commandTarget
-                );
-                return false;
             }
+
+            handleCommanderOrFriendlyFire(
+                    attacker,
+                    attackingCoordinate,
+                    targetCoordinate,
+                    attackingPiece,
+                    targetPiece,
+                    participant
+            );
+            return false;
         }
 
         if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
@@ -265,6 +277,28 @@ public class CombatManager implements Listener {
         return performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
     }
 
+    public void onTurnStart(final Player player) {
+        final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        if (coord == null) {
+            return;
+        }
+
+        final Piece piece = pieceState.boardPieces().get(coord);
+        if (piece == null) {
+            return;
+        }
+
+        final Participant participant = context.participants().get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+
+        for (final PieceAbility ability : piece.abilities()) {
+
+            ability.onTurnStart(player, piece, participant);
+        }
+    }
+
     public void clearCommanderVisuals(final Player player) {
         final Participant participant = context.participants().get(player.getUniqueId());
         if (participant != null && participant.commanderTarget() != null) {
@@ -273,9 +307,13 @@ public class CombatManager implements Listener {
     }
 
     private void applyGlowing(final Coordinate coord, final boolean enabled) {
-        if (coord == null) return;
+        if (coord == null) {
+            return;
+        }
         final LivingEntity entity = pieceState.pieceEntities().get(coord);
-        if (entity == null) return;
+        if (entity == null) {
+            return;
+        }
 
         if (enabled) {
             entity.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
@@ -338,6 +376,12 @@ public class CombatManager implements Listener {
             participant.commanderTarget(null);
         }
 
+        for (final PieceAbility ability : movingPiece.abilities()) {
+            if (!ability.onMove(player, movingPiece, finalFrom, to)) {
+                return false;
+            }
+        }
+
         pieceManager.movePiece(boardManager.currentBoard(), finalFrom, to);
 
         if (commandTarget != null) {
@@ -371,43 +415,17 @@ public class CombatManager implements Listener {
             final Player attacker,
             final Coordinate myCoord,
             final Coordinate targetCoord,
+            final Piece attackingPiece,
             final Piece targetPiece,
-            final Coordinate currentCommandTarget
+            final Participant participant
     ) {
-        final Piece myPiece = pieceState.boardPieces().get(myCoord);
-
-        if (myPiece == null) {
-            return;
+        for (final PieceAbility ability : attackingPiece.abilities()) {
+            if (ability.onInteractSameTeam(attacker, myCoord, targetCoord, attackingPiece, targetPiece, participant)) {
+                return;
+            }
         }
 
-        if (!combatPolicy.canCommand(myPiece, targetPiece)) {
-            attacker.sendMessage(ERROR_FRIENDLY_FIRE_PROHIBITED);
-            return;
-        }
-
-        final Participant participant = context.participants().get(attacker.getUniqueId());
-
-        if (targetCoord.equals(currentCommandTarget)) {
-            applyGlowing(targetCoord, false);
-            participant.commanderTarget(null);
-            attacker.sendMessage(Component.text()
-                    .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                    .append(Component.text(" 지휘를 해제했습니다.", NamedTextColor.YELLOW))
-                    .build());
-            attacker.playSound(attacker.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, SOUND_VOLUME_COMMAND, SOUND_PITCH_COMMAND_OFF);
-
-            return;
-        }
-
-        // 기존 대상 해제 후 새 대상 지정
-        applyGlowing(currentCommandTarget, false);
-        applyGlowing(targetCoord, true);
-        participant.commanderTarget(targetCoord);
-        attacker.sendMessage(Component.text()
-                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text("을(를) 지휘 대상으로 선택했습니다!", NamedTextColor.GOLD))
-                .build());
-        attacker.playSound(attacker.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_COMMAND, SOUND_PITCH_COMMAND_ON);
+        attacker.sendMessage(ERROR_FRIENDLY_FIRE_PROHIBITED);
     }
 
     private boolean performAttack(
@@ -430,12 +448,8 @@ public class CombatManager implements Listener {
             final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
             double damage = baseDamage + buff.damage();
 
-            // Knight's special ability
-            if (attackingPiece.type() == PieceType.KNIGHT) {
-                if (!moveValidator.canMove(pieceState, targetCoord, attackCoord)) {
-                    damage += 15.0; // 추가 피해
-                    attacker.sendMessage(Component.text("비선제 공격! 추가 피해를 입혔습니다.", NamedTextColor.LIGHT_PURPLE));
-                }
+            for (final PieceAbility ability : attackingPiece.abilities()) {
+                damage = ability.onAttack(attacker, victim, attackCoord, targetCoord, attackingPiece, targetPiece, damage);
             }
 
             victim.setNoDamageTicks(0);
@@ -460,55 +474,6 @@ public class CombatManager implements Listener {
             if (victim.getHealth() <= 0) {
                 handleKill(attacker, victim, targetCoord, attackCoord, targetPiece);
             }
-
-            return true;
-        } finally {
-            processingAttack = false;
-        }
-    }
-
-    private boolean performHeal(
-            final Player healer,
-            final LivingEntity victim,
-            final Coordinate targetCoord,
-            final Coordinate healCoord,
-            final Piece healingPiece,
-            final Piece targetPiece
-    ) {
-        processingAttack = true;
-        try {
-            final Participant participant = context.participants().get(healer.getUniqueId());
-            if (participant.commanderTarget() != null) {
-                applyGlowing(participant.commanderTarget(), false);
-                participant.commanderTarget(null);
-            }
-
-            final double baseHeal = healingPiece.type().baseDamage();
-            final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(healingPiece.team(), healingPiece.type());
-            final double healAmount = baseHeal + buff.damage();
-
-            final AttributeInstance maxHealth = victim.getAttribute(Attribute.MAX_HEALTH);
-            final double currentHealth = victim.getHealth();
-            final double maxHp = maxHealth != null ? maxHealth.getValue() : 20.0;
-
-            final double newHealth = Math.min(maxHp, currentHealth + healAmount);
-            final double actualHeal = newHealth - currentHealth;
-
-            victim.setHealth(newHealth);
-            context.participants().get(healer.getUniqueId()).statistics().addHealingDone(actualHeal);
-
-            victim.getWorld().spawnParticle(
-                    Particle.HEART,
-                    victim.getLocation().add(0, 1, 0),
-                    PARTICLE_COUNT_ATTACK, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_SPEED_ATTACK
-            );
-            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, SOUND_VOLUME_ATTACK, SOUND_PITCH_ATTACK);
-            targetPiece.currentHealth(newHealth);
-
-            healer.sendMessage(Component.text()
-                    .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                    .append(Component.text("의 체력을 회복시켰습니다!", NamedTextColor.GREEN))
-                    .build());
 
             return true;
         } finally {

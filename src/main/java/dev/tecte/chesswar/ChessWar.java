@@ -51,6 +51,7 @@ public final class ChessWar extends JavaPlugin {
     private EconomyManager economyManager;
     private ShopController shopController;
     private MoveValidator moveValidator;
+    private CombatPolicy combatPolicy;
     private BoardVisualManager boardVisualManager;
 
     @Override
@@ -88,10 +89,11 @@ public final class ChessWar extends JavaPlugin {
                 new NamespacedKey(this, BoardManager.TURN_ORDER_KEY),
                 boardState
         );
-        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager);
         moveValidator = new MoveValidator();
+        combatPolicy = new CombatPolicy();
+        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy);
         environmentManager = new EnvironmentManager();
-        timerManager = new TimerManager(context);
+
         boardVisualManager = new BoardVisualManager(this, boardManager);
         economyManager = new EconomyManager(context, economyState);
         shopController = new ShopController(context, economyManager, combatManager);
