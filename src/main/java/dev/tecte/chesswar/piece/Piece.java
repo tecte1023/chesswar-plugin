@@ -21,14 +21,15 @@ public class Piece {
     private final Team team;
     private final PieceType type;
     private final List<PieceAbility> abilities = new ArrayList<>();
+    private final StatBuff personalBuff = StatBuff.create();
 
     private double currentHealth;
 
-    public static Piece of(Team team, PieceType type) {
+    public static Piece of(final Team team, final PieceType type) {
         return new Piece(null, team, type, type.baseHealth());
     }
 
-    public static Piece of(UUID ownerId, Team team, PieceType type) {
+    public static Piece of(final UUID ownerId, final Team team, final PieceType type) {
         return new Piece(ownerId, team, type, type.baseHealth());
     }
 

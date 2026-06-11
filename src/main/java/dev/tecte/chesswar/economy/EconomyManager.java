@@ -71,6 +71,10 @@ public class EconomyManager {
         return true;
     }
 
+    public boolean hasGold(final UUID playerId, final int amount) {
+        return economyState.getPlayerGold(playerId).has(amount);
+    }
+
     /**
      * 해당 팀원 전원에게 월급을 지급합니다.
      */

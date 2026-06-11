@@ -20,11 +20,11 @@ public class StatBuff {
         return new StatBuff();
     }
 
-    public void addHealth(double amount) {
-        this.health += amount;
+    public void addHealth(final double amount) {
+        health += amount;
     }
 
-    public void addDamage(double amount) {
-        this.damage += amount;
+    public void addDamage(final double amount) {
+        damage += amount;
     }
 }

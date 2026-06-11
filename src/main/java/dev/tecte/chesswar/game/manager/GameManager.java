@@ -43,6 +43,13 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.TextDisplay;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -532,6 +539,47 @@ public class GameManager implements Listener {
         }
 
         checkVictoryConditions();
+    }
+
+    @EventHandler
+    public void onPlayerSwapHandItems(final PlayerSwapHandItemsEvent event) {
+        final Player player = event.getPlayer();
+        if (player.getOpenInventory().getTopInventory().getType() != InventoryType.CRAFTING) {
+            event.setCancelled(true);
+            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+            return;
+        }
+
+        if (phase() != GamePhase.BATTLE) {
+            return;
+        }
+
+        event.setCancelled(true);
+        plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        openShop(player);
+    }
+
+    @EventHandler
+    public void onPlayerDropItem(final PlayerDropItemEvent event) {
+        final Player player = event.getPlayer();
+        if (player.getOpenInventory().getTopInventory().getType() != InventoryType.CRAFTING) {
+            event.setCancelled(true);
+            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClick(final InventoryClickEvent event) {
+        final Player player = (Player) event.getWhoClicked();
+        if (player.getOpenInventory().getTopInventory().getType() == InventoryType.CRAFTING) {
+            return;
+        }
+
+        final ClickType click = event.getClick();
+        if (click == ClickType.SWAP_OFFHAND || click == ClickType.DROP || click == ClickType.CONTROL_DROP || click == ClickType.NUMBER_KEY) {
+            event.setCancelled(true);
+            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        }
     }
 
     public void openShop(final Player player) {

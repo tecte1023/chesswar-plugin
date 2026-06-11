@@ -77,16 +77,28 @@ public class CombatManager implements Listener {
     public void applyStats(final LivingEntity entity, final PieceType type, final Team team) {
         final AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
         final AttributeInstance attackDamage = entity.getAttribute(Attribute.ATTACK_DAMAGE);
-        final StatBuff buff = pieceState.getBuff(team, type);
+        final StatBuff teamBuff = pieceState.getBuff(team, type);
+
+        double personalHealth = 0.0;
+        double personalDamage = 0.0;
+
+        final Coordinate coord = pieceManager.findCoordinate(entity).orElse(null);
+        if (coord != null) {
+            final Piece piece = pieceState.boardPieces().get(coord);
+            if (piece != null) {
+                personalHealth = piece.personalBuff().health();
+                personalDamage = piece.personalBuff().damage();
+            }
+        }
 
         if (maxHealth != null) {
-            final double finalHealth = type.baseHealth() + buff.health();
+            final double finalHealth = type.baseHealth() + teamBuff.health() + personalHealth;
             maxHealth.setBaseValue(finalHealth);
             entity.setHealth(finalHealth);
         }
 
         if (attackDamage != null) {
-            attackDamage.setBaseValue(type.baseDamage() + buff.damage());
+            attackDamage.setBaseValue(type.baseDamage() + teamBuff.damage() + personalDamage);
         }
     }
 
@@ -95,16 +107,44 @@ public class CombatManager implements Listener {
         buff.addHealth(healthInc);
         buff.addDamage(damageInc);
 
-        // 이미 소환되어 있는 해당 기물들의 스탯도 즉시 업데이트합니다.
-        for (Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
-            Piece piece = entry.getValue();
-            if (piece.team() == team && piece.type() == type) {
-                LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
-                if (entity != null && entity.isValid()) {
-                    applyStats(entity, type, team);
+        for (final Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
+            final Piece piece = entry.getValue();
+            if (piece.team() != team || piece.type() != type) {
+                continue;
+            }
+
+            final LivingEntity mob = pieceState.pieceEntities().get(entry.getKey());
+            if (mob != null && mob.isValid()) {
+                applyStats(mob, type, team);
+            }
+
+            if (piece.isPlayerPiece()) {
+                final Player player = Bukkit.getPlayer(piece.ownerId());
+                if (player != null && player.isOnline()) {
+                    applyStats(player, type, team);
                 }
             }
         }
+    }
+
+    public boolean upgradeIndividualPiece(final Player player, final double healthInc, final double damageInc) {
+        final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        if (coord == null) {
+            player.sendMessage("§c[DEBUG] 기물의 위치를 찾을 수 없어 강화에 실패했습니다.");
+            return false;
+        }
+
+        final Piece piece = pieceState.boardPieces().get(coord);
+        if (piece == null) {
+            player.sendMessage("§c[DEBUG] 해당 위치에 등록된 기물이 없습니다.");
+            return false;
+        }
+
+        piece.personalBuff().addHealth(healthInc);
+        piece.personalBuff().addDamage(damageInc);
+
+        applyStats(player, piece.type(), piece.team());
+        return true;
     }
 
     public void repairRooks(final Team team) {

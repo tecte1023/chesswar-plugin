@@ -1,5 +1,8 @@
 package dev.tecte.chesswar.piece.ability;
 
+import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.board.MoveValidator;
+import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.StatBuff;
@@ -14,26 +17,26 @@ import org.bukkit.entity.Player;
 
 public class BishopAbility implements PieceAbility {
     private final PieceState pieceState;
-    private final dev.tecte.chesswar.board.MoveValidator moveValidator;
+    private final MoveValidator moveValidator;
 
     public BishopAbility(final PieceState pieceState) {
         this.pieceState = pieceState;
-        this.moveValidator = new dev.tecte.chesswar.board.MoveValidator();
+        this.moveValidator = new MoveValidator();
     }
 
     @Override
     public boolean onAttackTeammate(
             final Player attacker,
             final LivingEntity victim,
-            final dev.tecte.chesswar.board.Coordinate attackerCoord,
-            final dev.tecte.chesswar.board.Coordinate victimCoord,
+            final Coordinate attackerCoord,
+            final Coordinate victimCoord,
             final Piece attackingPiece,
             final Piece victimPiece,
-            final dev.tecte.chesswar.game.component.Participant participant
+            final Participant participant
     ) {
         if (!moveValidator.canReach(pieceState, attackerCoord, victimCoord)) {
-            attacker.sendMessage(net.kyori.adventure.text.Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", net.kyori.adventure.text.format.NamedTextColor.RED));
-            return true; // 범위 밖이어도 이벤트는 핸들링한 것으로 간주하여 아군 공격 메시지 방지
+            attacker.sendMessage(Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
+            return true;
         }
 
         performHeal(attacker, victim, attackingPiece, victimPiece);
