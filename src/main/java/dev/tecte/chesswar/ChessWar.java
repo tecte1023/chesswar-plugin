@@ -101,6 +101,7 @@ public final class ChessWar extends JavaPlugin {
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
         final GameAnnouncer gameAnnouncer = new GameAnnouncer(context);
 
+        timerManager = new TimerManager(context);
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
         combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager);
 

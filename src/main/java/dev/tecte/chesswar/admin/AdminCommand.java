@@ -61,6 +61,12 @@ public class AdminCommand extends BaseCommand {
         gameManager.openShop(player);
     }
 
+    @Subcommand("kingrequired")
+    public void setKingRequired(final Player player, final boolean required) {
+        gameManager.context().kingRequired(required);
+        player.sendMessage("§6[Admin] §f킹 필수 배정 여부가 " + (required ? "§a활성화" : "§c비활성화") + "§f되었습니다.");
+    }
+
     @Subcommand("addgold")
     public void addGold(final Player player, final int amount) {
         gameManager.economyManager().addGold(player.getUniqueId(), amount, GoldSource.STEAL);

@@ -32,6 +32,7 @@ public class GameContext {
     private boolean blackOvertime = false;
     private boolean timerRunning = false;
     private boolean isSelectionStarted = false;
+    private boolean kingRequired = true;
     private TimerPolicy currentTimerPolicy = TimerPolicy.GRACEFUL;
 
     private Location startButtonLocation;
@@ -44,6 +45,10 @@ public class GameContext {
 
     public void isSelectionStarted(final boolean isSelectionStarted) {
         this.isSelectionStarted = isSelectionStarted;
+    }
+
+    public void kingRequired(final boolean kingRequired) {
+        this.kingRequired = kingRequired;
     }
 
     public void currentTimerPolicy(final TimerPolicy currentTimerPolicy) {

@@ -985,7 +985,7 @@ public class GameManager implements Listener {
             final boolean hasKing = teamMembers.stream()
                     .anyMatch(p -> p.selectedType() == PieceType.KING);
 
-            if (!hasKing) {
+            if (context.kingRequired() && !hasKing) {
                 final List<Participant> unselected = teamMembers.stream()
                         .filter(p -> p.selectedType() == null)
                         .toList();
