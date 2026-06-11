@@ -108,11 +108,15 @@ public class CombatManager implements Listener {
     }
 
     public void repairRooks(final Team team) {
-        for (Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
-            Piece piece = entry.getValue();
+        for (final Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
+            final Piece piece = entry.getValue();
             if (piece.team() == team && piece.type() == PieceType.ROOK) {
-                LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
+                final LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
                 if (entity != null && entity.isValid()) {
+                    final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
+                    if (maxAbsorption != null) {
+                        maxAbsorption.setBaseValue(40.0);
+                    }
                     entity.setAbsorptionAmount(40.0);
                     entity.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, entity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
                 }
@@ -123,6 +127,7 @@ public class CombatManager implements Listener {
     public void resetStats(final LivingEntity entity) {
         final AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
         final AttributeInstance attackDamage = entity.getAttribute(Attribute.ATTACK_DAMAGE);
+        final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
 
         if (maxHealth != null) {
             maxHealth.setBaseValue(DEFAULT_HEALTH);
@@ -132,11 +137,17 @@ public class CombatManager implements Listener {
         if (attackDamage != null) {
             attackDamage.setBaseValue(DEFAULT_ATTACK_DAMAGE);
         }
+
+        if (maxAbsorption != null) {
+            maxAbsorption.setBaseValue(0.0);
+        }
+        entity.setAbsorptionAmount(0.0);
     }
 
     public void restoreStats(final LivingEntity entity, final Double health, final Double damage) {
         final AttributeInstance maxHealth = entity.getAttribute(Attribute.MAX_HEALTH);
         final AttributeInstance attackDamage = entity.getAttribute(Attribute.ATTACK_DAMAGE);
+        final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
 
         if (maxHealth != null && health != null) {
             maxHealth.setBaseValue(health);
@@ -146,6 +157,11 @@ public class CombatManager implements Listener {
         if (attackDamage != null && damage != null) {
             attackDamage.setBaseValue(damage);
         }
+
+        if (maxAbsorption != null) {
+            maxAbsorption.setBaseValue(0.0);
+        }
+        entity.setAbsorptionAmount(0.0);
     }
 
     public void resetAllStats() {
@@ -232,27 +248,19 @@ public class CombatManager implements Listener {
         }
 
         if (targetPiece.team() == attackingPiece.team()) {
-            for (dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
-                if (ability instanceof dev.tecte.chesswar.piece.ability.BishopAbility bishop) {
-                    if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
-                        attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
-                        return false;
-                    }
-
-                    processingAttack = true;
-                    try {
+            processingAttack = true;
+            try {
+                for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
+                    if (ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant)) {
                         if (participant.commanderTarget() != null) {
                             applyGlowing(participant.commanderTarget(), false);
                             participant.commanderTarget(null);
                         }
-
-                        double actualHeal = bishop.performHeal(attacker, victim, attackingPiece, targetPiece);
-                        participant.statistics().addHealingDone(actualHeal);
                         return true;
-                    } finally {
-                        processingAttack = false;
                     }
                 }
+            } finally {
+                processingAttack = false;
             }
 
             handleCommanderOrFriendlyFire(
@@ -275,23 +283,24 @@ public class CombatManager implements Listener {
     }
 
     public void onTurnStart(final Player player) {
-        final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        final Participant participant = context.participants().get(player.getUniqueId());
+
+        if (coord == null && participant != null && participant.initialCoordinate() != null) {
+            coord = participant.initialCoordinate();
+            pieceManager.registerPlayerPiece(player, participant.team(), participant.selectedType(), coord);
+        }
+
         if (coord == null) {
             return;
         }
 
         final Piece piece = pieceState.boardPieces().get(coord);
-        if (piece == null) {
-            return;
-        }
-
-        final Participant participant = context.participants().get(player.getUniqueId());
-        if (participant == null) {
+        if (piece == null || participant == null) {
             return;
         }
 
         for (final PieceAbility ability : piece.abilities()) {
-
             ability.onTurnStart(player, piece, participant);
         }
     }

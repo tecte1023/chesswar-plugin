@@ -145,7 +145,9 @@ public class PieceManager {
                     ? Piece.of(participant.playerId(), team, type)
                     : Piece.of(null, team, type);
 
-            attachAbilities(piece);
+            if (participant != null) {
+                attachAbilities(piece);
+            }
             placePiece(coordinate, piece);
 
             if (participant == null) {
@@ -191,10 +193,11 @@ public class PieceManager {
                     ? Piece.of(participant.playerId(), team, type)
                     : Piece.of(null, team, type);
 
-            attachAbilities(piece);
+            if (participant != null) {
+                attachAbilities(piece);
+            }
             placePiece(coordinate, piece);
 
-            // 플레이어가 없는 칸만 NPC를 스폰
             if (participant == null) {
                 board.updateToCenterLocation(coordinate, reusableLoc);
                 spawnPiece(type, team, coordinate, reusableLoc, direction, false);
@@ -499,7 +502,13 @@ public class PieceManager {
         return pdcCoord;
     }
 
-    private void attachAbilities(final Piece piece) {
+    public void registerPlayerPiece(final Player player, final Team team, final PieceType type, final Coordinate coordinate) {
+        final Piece piece = Piece.of(player.getUniqueId(), team, type);
+        attachAbilities(piece);
+        placePiece(coordinate, piece);
+    }
+
+    public void attachAbilities(final Piece piece) {
         switch (piece.type()) {
             case ROOK -> piece.addAbility(new RookAbility());
             case KNIGHT -> piece.addAbility(new KnightAbility(moveValidator, pieceState));

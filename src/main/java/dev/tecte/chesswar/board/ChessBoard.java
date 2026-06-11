@@ -17,7 +17,11 @@ public class ChessBoard {
     private final int cellSize;
 
     public ChessBoard(final Location origin, final BlockFace forward, final int cellSize) {
-        this.origin = origin.getBlock().getLocation();
+        // 기준점을 블록의 정중앙(x.5, z.5)으로 설정하여 좌표계 비대칭성 제거
+        final Location blockLoc = origin.getBlock().getLocation();
+        blockLoc.add(0.5, 0.0, 0.5);
+        this.origin = blockLoc;
+
         this.forward = forward;
         this.right = getRightFace(forward);
         this.forwardVector = forward.getDirection();
@@ -34,29 +38,28 @@ public class ChessBoard {
     }
 
     public Location updateToLocation(final Coordinate coordinate, final Location target) {
+        // origin이 정중앙(0.5)이므로, 좌하단 모서리를 기준으로 계산하기 위해 -0.5 보정
         final double offsetX = (rightVector.getX() * (coordinate.x() * cellSize)) + (forwardVector.getX() * (coordinate.y() * cellSize));
         final double offsetZ = (rightVector.getZ() * (coordinate.x() * cellSize)) + (forwardVector.getZ() * (coordinate.y() * cellSize));
 
-        target.setX(origin.getX() + offsetX);
+        target.setX(origin.getX() - 0.5 + offsetX);
         target.setY(origin.getY());
-        target.setZ(origin.getZ() + offsetZ);
+        target.setZ(origin.getZ() - 0.5 + offsetZ);
 
         return target;
     }
 
     public Location updateToCenterLocation(final Coordinate coordinate, final Location target) {
-        final double halfCell = cellSize / 2.0;
+        // origin 자체가 블록 정중앙(0.5)을 포함하므로 순수 오프셋 계산만 수행
+        // 3x3일 경우 1블록(halfCell=1)만 더하면 정중앙 블록의 중앙에 안착함
+        final double halfCell = Math.floor(cellSize / 2.0);
 
         final double offsetX = (rightVector.getX() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getX() * (coordinate.y() * cellSize + halfCell));
         final double offsetZ = (rightVector.getZ() * (coordinate.x() * cellSize + halfCell)) + (forwardVector.getZ() * (coordinate.y() * cellSize + halfCell));
 
-        // 마인크래프트 좌표계 특성상 음수 방향 벡터 사용 시 1블록 오차 보정 (+1.0)
-        final double correctionX = (rightVector.getX() < 0 || forwardVector.getX() < 0) ? 1.0 : 0.0;
-        final double correctionZ = (rightVector.getZ() < 0 || forwardVector.getZ() < 0) ? 1.0 : 0.0;
-
-        target.setX(origin.getX() + offsetX + correctionX);
+        target.setX(origin.getX() + offsetX);
         target.setY(origin.getY() + 0.1); // Visual offset for guides/particles
-        target.setZ(origin.getZ() + offsetZ + correctionZ);
+        target.setZ(origin.getZ() + offsetZ);
 
         return target;
     }

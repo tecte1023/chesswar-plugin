@@ -11,7 +11,6 @@ public class MoveValidator {
         }
 
         final Piece piece = state.boardPieces().get(from);
-
         if (piece == null) {
             return false;
         }
@@ -21,6 +20,20 @@ public class MoveValidator {
             return false;
         }
 
+        return canReach(state, from, to);
+    }
+
+    public boolean canReach(final PieceState state, final Coordinate from, final Coordinate to) {
+        if (!from.isValid() || !to.isValid() || from.equals(to)) {
+            return false;
+        }
+
+        final Piece piece = state.boardPieces().get(from);
+        if (piece == null) {
+            return false;
+        }
+
+        final Piece targetPiece = state.boardPieces().get(to);
         final int dx = to.x() - from.x();
         final int dy = to.y() - from.y();
         final int absDx = Math.abs(dx);

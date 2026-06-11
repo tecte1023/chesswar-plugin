@@ -428,6 +428,7 @@ public class GameManager implements Listener {
                 ? Piece.of(piece.ownerId(), piece.team(), upgradeType)
                 : Piece.of(null, piece.team(), upgradeType);
 
+        pieceManager.attachAbilities(upgradedPiece);
         pieceManager.placePiece(coordinate, upgradedPiece);
 
         final LivingEntity entity = pieceState.pieceEntities().get(coordinate);
@@ -1167,6 +1168,7 @@ public class GameManager implements Listener {
     private void applyPieceAssignment(final Participant participant, final Player player, final Coordinate coord, final PieceType type) {
         participant.initialCoordinate(coord);
         participant.selectedType(type);
+        pieceManager.registerPlayerPiece(player, participant.team(), type, coord);
         combatManager.applyStats(player, type, participant.team());
         PieceItemUtils.replacePlayerPieceItem(player, type);
         scoreboardManager.updateAll();
