@@ -99,13 +99,14 @@ public final class ChessWar extends JavaPlugin {
         environmentManager = new EnvironmentManager();
 
         boardVisualManager = new BoardVisualManager(this, boardManager, gameAnnouncer);
-        economyManager = new EconomyManager(context, economyState, gameAnnouncer);
-        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
-        shopController = new ShopController(context, economyManager, combatManager, gameAnnouncer);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         timerManager = new TimerManager(context);
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
+
+        economyManager = new EconomyManager(context, economyState, gameAnnouncer, scoreboardManager);
+        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
+        shopController = new ShopController(context, economyManager, combatManager, gameAnnouncer);
 
         gameManager = new GameManager(
                 this,

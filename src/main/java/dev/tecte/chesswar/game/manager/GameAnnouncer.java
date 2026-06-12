@@ -296,6 +296,32 @@ public class GameAnnouncer {
         player.sendMessage(message);
     }
 
+    public void announceAttackResult(final Player attacker, final org.bukkit.entity.LivingEntity victim, final dev.tecte.chesswar.piece.Piece victimPiece, final double damage) {
+        final Component baseMessage = Component.text()
+                .append(Component.text("[⚔] ", NamedTextColor.RED))
+                .append(Component.text(attacker.getName(), attacker.getUniqueId().equals(context.currentTurnPlayerId()) ? NamedTextColor.GOLD : NamedTextColor.WHITE))
+                .append(Component.text("님이 ", NamedTextColor.GRAY))
+                .append(Component.text(victimPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text(" 기물을 공격했습니다!", NamedTextColor.GRAY))
+                .build();
+
+        final Component hoverDetail = Component.text()
+                .append(Component.text("전투 세부 정보", NamedTextColor.GOLD, TextDecoration.BOLD))
+                .appendNewline()
+                .append(Component.text("----------------", NamedTextColor.DARK_GRAY))
+                .appendNewline()
+                .append(Component.text("가한 피해: ", NamedTextColor.GRAY))
+                .append(Component.text((int) damage + " ATK", NamedTextColor.RED))
+                .appendNewline()
+                .append(Component.text("대상 잔여 체력: ", NamedTextColor.GRAY))
+                .append(Component.text((int) victim.getHealth() + " / " + (int) victim.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue(), NamedTextColor.GREEN))
+                .build();
+
+        final Component finalMessage = baseMessage.hoverEvent(HoverEvent.showText(hoverDetail));
+
+        broadcast(finalMessage);
+    }
+
     public void announceAttack(final org.bukkit.entity.LivingEntity victim) {
         victim.getWorld().spawnParticle(
                 org.bukkit.Particle.CRIT,

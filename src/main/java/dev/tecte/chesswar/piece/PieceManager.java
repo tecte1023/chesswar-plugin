@@ -450,11 +450,10 @@ public class PieceManager {
             updateMobMapping(mobEntity, from, to);
         }
 
-        // 3. 플레이어 순간이동
+        // 3. 플레이어 상태 갱신 (현재 물리적 위치 유지)
         if (piece.isPlayerPiece()) {
             final Player player = Bukkit.getPlayer(piece.ownerId());
             if (player != null) {
-                player.teleport(playerTarget);
                 updatePlayerMapping(player, to);
             }
         }

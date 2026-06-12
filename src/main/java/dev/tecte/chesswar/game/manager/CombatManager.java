@@ -486,7 +486,7 @@ public class CombatManager implements Listener {
 
             final double baseDamage = attackingPiece.type().baseDamage();
             final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
-            double damage = baseDamage + buff.damage();
+            double damage = baseDamage + buff.damage() + attackingPiece.personalBuff().damage();
 
             for (final PieceAbility ability : attackingPiece.abilities()) {
                 damage = ability.onAttack(attacker, victim, attackCoord, targetCoord, attackingPiece, targetPiece, damage);
@@ -505,6 +505,8 @@ public class CombatManager implements Listener {
 
             announcer.announceAttack(victim);
             targetPiece.currentHealth(victim.getHealth());
+
+            announcer.announceAttackResult(attacker, victim, targetPiece, damage);
 
             if (victim.getHealth() <= 0) {
                 handleKill(attacker, victim, targetCoord, attackCoord, targetPiece);

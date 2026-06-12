@@ -44,9 +44,11 @@ public class ShopController {
                 .disableAllInteractions()
                 .create();
 
-        // 1. 기물 강화 (킹 전용)
-        if (participant.selectedType() == PieceType.KING) {
-            gui.setItem(10, ItemBuilder.from(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE)
+        final boolean isKing = participant.selectedType() == PieceType.KING;
+
+        if (isKing) {
+            // 킹 전용 레이아웃: 기물 강화(11), 개인 강화(13), 전술 아이템(15)
+            gui.setItem(11, ItemBuilder.from(Material.NETHERITE_UPGRADE_SMITHING_TEMPLATE)
                     .name(miniMessage.deserialize("<aqua><bold>[ 기물 강화 ]</bold></aqua>"))
                     .lore(
                             miniMessage.deserialize("<gray>킹의 권한으로 특정 기물군 전체를 강화합니다.</gray>"),
@@ -54,55 +56,41 @@ public class ShopController {
                             miniMessage.deserialize("<yellow>클릭하여 강화 메뉴 열기</yellow>")
                     )
                     .asGuiItem(event -> openUpgradeShop(player)));
+
+            gui.setItem(13, getPersonalUpgradeItem(player));
+            gui.setItem(15, getConsumableItem(player));
         } else {
-            gui.setItem(10, ItemBuilder.from(Material.BARRIER)
-                    .name(miniMessage.deserialize("<red>[ 기물 강화 ]</red>"))
-                    .lore(miniMessage.deserialize("<gray>킹 클래스만 이용 가능합니다.</gray>"))
-                    .asGuiItem());
+            // 일반 기물 레이아웃: 개인 강화(12), 전술 아이템(14)
+            gui.setItem(12, getPersonalUpgradeItem(player));
+            gui.setItem(14, getConsumableItem(player));
         }
 
-        // 2. 개인 강화 (누구나 이용 가능)
-        gui.setItem(12, ItemBuilder.from(Material.EXPERIENCE_BOTTLE)
+        // 배경 채우기
+        gui.getFiller().fill(ItemBuilder.from(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).asGuiItem());
+
+        gui.open(player);
+    }
+
+    private dev.triumphteam.gui.guis.GuiItem getPersonalUpgradeItem(final Player player) {
+        return ItemBuilder.from(Material.EXPERIENCE_BOTTLE)
                 .name(miniMessage.deserialize("<light_purple><bold>[ 개인 강화 ]</bold></light_purple>"))
                 .lore(
                         miniMessage.deserialize("<gray>현재 조종 중인 기물의 성능을 영구적으로 강화합니다.</gray>"),
                         Component.empty(),
                         miniMessage.deserialize("<yellow>클릭하여 강화 메뉴 열기</yellow>")
                 )
-                .asGuiItem(event -> openPersonalUpgradeShop(player)));
+                .asGuiItem(event -> openPersonalUpgradeShop(player));
+    }
 
-        // 3. 룩 수리 (누구나 이용 가능)
-        gui.setItem(14, ItemBuilder.from(Material.GOLD_INGOT)
-                .name(miniMessage.deserialize("<gold><bold>[ 룩 장갑 수리 ]</bold></gold>"))
+    private dev.triumphteam.gui.guis.GuiItem getConsumableItem(final Player player) {
+        return ItemBuilder.from(Material.POTION)
+                .name(miniMessage.deserialize("<green><bold>[ 전술 아이템 ]</bold></green>"))
                 .lore(
-                        miniMessage.deserialize("<gray>아군 룩(Rook) 기물의 황금 체력을 100% 리필합니다.</gray>"),
-                        Component.empty(),
-                        miniMessage.deserialize("<white>비용: </white><gold>150G</gold>"),
-                        Component.empty(),
-                        miniMessage.deserialize("<yellow>클릭하여 수리</yellow>")
-                )
-                .asGuiItem(event -> {
-                    if (economyManager.spendGold(player.getUniqueId(), 150)) {
-                        combatManager.repairRooks(participant.team());
-                        announcer.announceShopRepair(player, miniMessage.deserialize("<green>아군 룩의 황금 체력이 리필되었습니다!</green>"));
-                        player.closeInventory();
-                    }
-                }));
-
-        // 4. 소모성 아이템 구매
-        gui.setItem(16, ItemBuilder.from(Material.POTION)
-                .name(miniMessage.deserialize("<green><bold>[ 아이템 구매 ]</bold></green>"))
-                .lore(
-                        miniMessage.deserialize("<gray>전투에 도움이 되는 특수 아이템을 구매합니다.</gray>"),
+                        miniMessage.deserialize("<gray>전투에 도움이 되는 특수 전술 아이템을 구매합니다.</gray>"),
                         Component.empty(),
                         miniMessage.deserialize("<yellow>클릭하여 상점 열기</yellow>")
                 )
-                .asGuiItem(event -> openConsumableShop(player)));
-
-        // 배경 채우기
-        gui.getFiller().fill(ItemBuilder.from(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).asGuiItem());
-
-        gui.open(player);
+                .asGuiItem(event -> openConsumableShop(player));
     }
 
     private void openConsumableShop(final Player player) {

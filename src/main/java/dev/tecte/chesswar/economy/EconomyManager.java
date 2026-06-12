@@ -3,9 +3,9 @@ package dev.tecte.chesswar.economy;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
+import dev.tecte.chesswar.game.manager.ScoreboardManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -19,7 +19,7 @@ public class EconomyManager {
     private final GameContext gameContext;
     private final EconomyState economyState;
     private final GameAnnouncer announcer;
-    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final ScoreboardManager scoreboardManager;
 
     /**
      * 특정 플레이어에게 골드를 지급합니다.
@@ -39,6 +39,8 @@ public class EconomyManager {
         if (player != null) {
             announcer.announceGoldEarned(player, amount, source.description());
         }
+
+        scoreboardManager.updateAll();
     }
 
     /**
@@ -65,6 +67,8 @@ public class EconomyManager {
         if (player != null) {
             announcer.announceGoldSpent(player);
         }
+
+        scoreboardManager.updateAll();
         return true;
     }
 

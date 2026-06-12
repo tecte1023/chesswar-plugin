@@ -16,8 +16,13 @@ public class MoveValidator {
         }
 
         final Piece targetPiece = state.boardPieces().get(to);
-        if (targetPiece != null && targetPiece.team() == piece.team()) {
-            return false;
+        if (targetPiece != null) {
+            if (targetPiece.team() == piece.team()) {
+                return false;
+            }
+            if (leapActive) {
+                return false;
+            }
         }
 
         return canReach(state, from, to, leapActive);
