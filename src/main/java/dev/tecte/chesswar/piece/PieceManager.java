@@ -8,6 +8,7 @@ import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.ability.BishopAbility;
 import dev.tecte.chesswar.piece.ability.KingAbility;
 import dev.tecte.chesswar.piece.ability.KnightAbility;
@@ -49,6 +50,7 @@ public class PieceManager {
     private final BoardManager boardManager;
     private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
+    private final GameAnnouncer announcer;
     private final Map<Coordinate, LivingEntity> bunkerEntities = new HashMap<>();
 
     public void spawnBunker(final ChessBoard board) {
@@ -510,15 +512,15 @@ public class PieceManager {
 
     public void attachAbilities(final Piece piece) {
         switch (piece.type()) {
-            case ROOK -> piece.addAbility(new RookAbility());
-            case KNIGHT -> piece.addAbility(new KnightAbility(pieceState));
-            case BISHOP -> piece.addAbility(new BishopAbility(pieceState));
+            case ROOK -> piece.addAbility(new RookAbility(announcer));
+            case KNIGHT -> piece.addAbility(new KnightAbility(pieceState, announcer));
+            case BISHOP -> piece.addAbility(new BishopAbility(pieceState, announcer));
             case PAWN -> piece.addAbility(new PawnAbility());
             case QUEEN -> {
-                piece.addAbility(new RookAbility());
-                piece.addAbility(new BishopAbility(pieceState));
+                piece.addAbility(new RookAbility(announcer));
+                piece.addAbility(new BishopAbility(pieceState, announcer));
             }
-            case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy));
+            case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy, announcer));
         }
     }
 

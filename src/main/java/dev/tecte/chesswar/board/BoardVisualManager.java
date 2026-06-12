@@ -1,6 +1,7 @@
 package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.ChessWar;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
@@ -32,6 +33,7 @@ public class BoardVisualManager {
     private final Map<UUID, List<BlockDisplay>> activeGuideEntities = new HashMap<>();
     private final ChessWar plugin;
     private final BoardManager boardManager;
+    private final GameAnnouncer announcer;
 
     public void showGuide(final Player player, final Map<Coordinate, Boolean> moves) {
         clearGuide(player);
@@ -134,26 +136,17 @@ public class BoardVisualManager {
                     final double stepRX = dxR * i;
                     final double stepRZ = dzR * i;
 
-                    spawnParticle(startX + stepRX, startY, startZ + stepRZ);
-                    spawnParticle(startX + stepRX + offsetFX, startY, startZ + stepRZ + offsetFZ);
+                    announcer.announceBoardOutline(player, startX + stepRX, startY, startZ + stepRZ, OUTLINE_OPTIONS);
+                    announcer.announceBoardOutline(player, startX + stepRX + offsetFX, startY, startZ + stepRZ + offsetFZ, OUTLINE_OPTIONS);
 
                     final double stepFX = dxF * i;
                     final double stepFZ = dzF * i;
 
-                    spawnParticle(startX + stepFX, startY, startZ + stepFZ);
-                    spawnParticle(startX + stepFX + offsetRX, startY, startZ + stepFZ + offsetRZ);
+                    announcer.announceBoardOutline(player, startX + stepFX, startY, startZ + stepFZ, OUTLINE_OPTIONS);
+                    announcer.announceBoardOutline(player, startX + stepFX + offsetRX, startY, startZ + stepFZ + offsetRZ, OUTLINE_OPTIONS);
                 }
 
                 ticks += 5;
-            }
-
-            private void spawnParticle(final double x, final double y, final double z) {
-                player.spawnParticle(
-                        Particle.DUST,
-                        x, y, z,
-                        1,
-                        OUTLINE_OPTIONS
-                );
             }
         }.runTaskTimer(plugin, 0L, 5L);
     }

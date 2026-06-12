@@ -3,13 +3,12 @@ package dev.tecte.chesswar.piece.ability;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.StatBuff;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
@@ -18,9 +17,11 @@ import org.bukkit.entity.Player;
 public class BishopAbility implements PieceAbility {
     private final PieceState pieceState;
     private final MoveValidator moveValidator = new MoveValidator();
+    private final GameAnnouncer announcer;
 
-    public BishopAbility(final PieceState pieceState) {
+    public BishopAbility(final PieceState pieceState, final GameAnnouncer announcer) {
         this.pieceState = pieceState;
+        this.announcer = announcer;
     }
 
     @Override
@@ -34,7 +35,7 @@ public class BishopAbility implements PieceAbility {
             final Participant participant
     ) {
         if (!moveValidator.canReach(pieceState, attackerCoord, victimCoord, false)) {
-            attacker.sendMessage(Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
+            announcer.announceCombatError(attacker, Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
             return true;
         }
 
@@ -57,18 +58,7 @@ public class BishopAbility implements PieceAbility {
 
         victim.setHealth(newHealth);
 
-        victim.getWorld().spawnParticle(
-                Particle.HEART,
-                victim.getLocation().add(0, 1, 0),
-                10, 0.5, 0.5, 0.5, 0.1
-        );
-        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-        targetPiece.currentHealth(newHealth);
-
-        healer.sendMessage(Component.text()
-                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text("의 체력을 회복시켰습니다!", NamedTextColor.GREEN))
-                .build());
+        announcer.announceHeal(healer, victim, targetPiece);
 
         return actualHeal;
     }

@@ -205,4 +205,143 @@ public class GameAnnouncer {
             }
         }
     }
+
+    public void announceShopSuccess(final Player player, final Component message) {
+        player.sendMessage(message);
+        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+    }
+
+    public void announceShopItemPurchase(final Player player, final Component message) {
+        player.sendMessage(message);
+        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
+    }
+
+    public void announceShopRepair(final Player player, final Component message) {
+        player.sendMessage(message);
+        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.0f);
+    }
+
+    public void announceShopFailure(final Player player, final Component message) {
+        player.sendMessage(message);
+    }
+
+    public void announceLeapUsage(final Player player) {
+        player.sendMessage(Component.text("도약 아이템을 사용하여 이번 턴에 아군을 뛰어넘을 수 있습니다!", NamedTextColor.AQUA));
+        player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.2f);
+        player.getWorld().spawnParticle(org.bukkit.Particle.CLOUD, player.getLocation().add(0, 0.5, 0), 20, 0.3, 0.3, 0.3, 0.1);
+    }
+
+    public void announceAlreadyLeaping(final Player player) {
+        player.sendMessage(Component.text("이미 도약 효과가 활성화되어 있습니다!", NamedTextColor.YELLOW));
+    }
+
+    public void announceHeal(final Player healer, final org.bukkit.entity.LivingEntity victim, final dev.tecte.chesswar.piece.Piece targetPiece) {
+        victim.getWorld().spawnParticle(
+                org.bukkit.Particle.HEART,
+                victim.getLocation().add(0, 1, 0),
+                10, 0.5, 0.5, 0.5, 0.1
+        );
+        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+        
+        healer.sendMessage(Component.text()
+                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text("의 체력을 회복시켰습니다!", NamedTextColor.GREEN))
+                .build());
+    }
+
+    public void announceKnightPreemptiveStrike(final Player attacker) {
+        attacker.sendMessage(Component.text("비선제 공격! 추가 피해를 입혔습니다.", NamedTextColor.LIGHT_PURPLE));
+    }
+
+    public void announceKingCommanderSelect(final Player player, final dev.tecte.chesswar.piece.Piece targetPiece) {
+        player.sendMessage(Component.text()
+                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text(" 기물에 지휘권을 발동했습니다.", NamedTextColor.AQUA))
+                .build());
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+    }
+
+    public void announceKingCommanderDeselect(final Player player, final dev.tecte.chesswar.piece.Piece targetPiece) {
+        player.sendMessage(Component.text()
+                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
+                .append(Component.text(" 기물 지휘를 취소했습니다.", NamedTextColor.YELLOW))
+                .build());
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
+    }
+
+    public void announceRookRepair(final org.bukkit.entity.LivingEntity entity) {
+        entity.getWorld().spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING, entity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
+    }
+
+    public void announceCombatError(final Player player, final Component message) {
+        player.sendMessage(message);
+    }
+
+    public void announceMoveSuccess(final Player player, final dev.tecte.chesswar.piece.Piece movingPiece, final Coordinate to, final boolean isCommander) {
+        if (isCommander) {
+            player.sendMessage(Component.text()
+                    .append(Component.text(movingPiece.type().displayName(), NamedTextColor.GOLD))
+                    .append(Component.text(" 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN))
+                    .build());
+        } else {
+            player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
+        }
+    }
+
+    public void announceTurnStart(final Player player, final PieceType pieceType) {
+        player.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
+    }
+
+    public void announcePieceSelection(final Player player, final Component message) {
+        player.sendMessage(message);
+    }
+
+    public void announceAttack(final org.bukkit.entity.LivingEntity victim) {
+        victim.getWorld().spawnParticle(
+                org.bukkit.Particle.CRIT,
+                victim.getLocation().add(0, 1, 0),
+                10, 0.5, 0.5, 0.5, 0.1
+        );
+        victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
+    }
+
+    public void announceKill(final org.bukkit.entity.LivingEntity victim) {
+        victim.getWorld().spawnParticle(
+                org.bukkit.Particle.EXPLOSION,
+                victim.getLocation().add(0, 1, 0),
+                1, 0, 0, 0, 0
+        );
+    }
+
+    public void announceAdminMessage(final Player admin, final Component message) {
+        admin.sendMessage(message);
+    }
+
+    public void announceBoardOutline(final Player player, final double x, final double y, final double z, final org.bukkit.Particle.DustOptions options) {
+        player.spawnParticle(
+                org.bukkit.Particle.DUST,
+                x, y, z,
+                1,
+                options
+        );
+    }
+
+    public void announceGoldEarned(final Player player, final int amount, final String sourceDescription) {
+        final Component message = Component.text()
+                .append(Component.text("+ " + amount + " Gold", NamedTextColor.GOLD))
+                .append(Component.text(" (" + sourceDescription + ")", NamedTextColor.GRAY))
+                .build();
+        player.sendActionBar(message);
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+    }
+
+    public void announceInsufficientGold(final Player player) {
+        player.sendMessage(Component.text("골드가 부족합니다!", NamedTextColor.RED));
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1.0f, 0.5f);
+    }
+
+    public void announceGoldSpent(final Player player) {
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_IRON_XYLOPHONE, 1.0f, 1.2f);
+    }
+
 }

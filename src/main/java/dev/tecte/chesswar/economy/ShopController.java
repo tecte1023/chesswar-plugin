@@ -3,6 +3,7 @@ package dev.tecte.chesswar.economy;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.CombatManager;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.ConsumableItemUtils;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.triumphteam.gui.builder.item.ItemBuilder;
@@ -12,7 +13,6 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 
 /**
@@ -23,6 +23,7 @@ public class ShopController {
     private final GameContext gameContext;
     private final EconomyManager economyManager;
     private final CombatManager combatManager;
+    private final GameAnnouncer announcer;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
     /**
@@ -83,8 +84,7 @@ public class ShopController {
                 .asGuiItem(event -> {
                     if (economyManager.spendGold(player.getUniqueId(), 150)) {
                         combatManager.repairRooks(participant.team());
-                        player.sendMessage(miniMessage.deserialize("<green>아군 룩의 황금 체력이 리필되었습니다!</green>"));
-                        player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1.0f, 1.0f);
+                        announcer.announceShopRepair(player, miniMessage.deserialize("<green>아군 룩의 황금 체력이 리필되었습니다!</green>"));
                         player.closeInventory();
                     }
                 }));
@@ -125,8 +125,7 @@ public class ShopController {
                 .asGuiItem(event -> {
                     if (economyManager.spendGold(player.getUniqueId(), 300)) {
                         player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
-                        player.sendMessage(miniMessage.deserialize("<green>도약 아이템을 구매했습니다!</green>"));
-                        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
+                        announcer.announceShopItemPurchase(player, miniMessage.deserialize("<green>도약 아이템을 구매했습니다!</green>"));
                         player.closeInventory();
                     }
                 }));
@@ -162,12 +161,11 @@ public class ShopController {
                     if (economyManager.hasGold(player.getUniqueId(), 200)) {
                         if (combatManager.upgradeIndividualPiece(player, 10.0, 0.0)) {
                             economyManager.spendGold(player.getUniqueId(), 200);
-                            player.sendMessage(miniMessage.deserialize("<green>최대 체력이 상승했습니다!</green>"));
-                            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+                            announcer.announceShopSuccess(player, miniMessage.deserialize("<green>최대 체력이 상승했습니다!</green>"));
                             player.closeInventory();
                         }
                     } else {
-                        player.sendMessage(miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
+                        announcer.announceShopFailure(player, miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
                     }
                 }));
 
@@ -186,12 +184,11 @@ public class ShopController {
                     if (economyManager.hasGold(player.getUniqueId(), 250)) {
                         if (combatManager.upgradeIndividualPiece(player, 0.0, 2.0)) {
                             economyManager.spendGold(player.getUniqueId(), 250);
-                            player.sendMessage(miniMessage.deserialize("<green>공격력이 상승했습니다!</green>"));
-                            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.2f);
+                            announcer.announceShopSuccess(player, miniMessage.deserialize("<green>공격력이 상승했습니다!</green>"));
                             player.closeInventory();
                         }
                     } else {
-                        player.sendMessage(miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
+                        announcer.announceShopFailure(player, miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
                     }
                 }));
 
@@ -250,8 +247,7 @@ public class ShopController {
                     if (economyManager.spendGold(player.getUniqueId(), cost)) {
                         combatManager.upgradePieceClass(participant.team(), type, UPGRADE_HEALTH_INC, UPGRADE_DAMAGE_INC);
 
-                        player.sendMessage(miniMessage.deserialize("<green>" + type.displayName() + " 클래스가 강화되었습니다!</green>"));
-                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                        announcer.announceShopSuccess(player, miniMessage.deserialize("<green>" + type.displayName() + " 클래스가 강화되었습니다!</green>"));
                         player.closeInventory();
                     }
                 }));

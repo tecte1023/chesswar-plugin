@@ -3,11 +3,9 @@ package dev.tecte.chesswar.piece.ability;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Sound;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
@@ -16,10 +14,12 @@ import org.bukkit.potion.PotionEffectType;
 public class KingAbility implements PieceAbility {
     private final PieceState pieceState;
     private final CombatPolicy combatPolicy;
+    private final GameAnnouncer announcer;
 
-    public KingAbility(final PieceState pieceState, final CombatPolicy combatPolicy) {
+    public KingAbility(final PieceState pieceState, final CombatPolicy combatPolicy, final GameAnnouncer announcer) {
         this.pieceState = pieceState;
         this.combatPolicy = combatPolicy;
+        this.announcer = announcer;
     }
 
     @Override
@@ -57,11 +57,7 @@ public class KingAbility implements PieceAbility {
         applyGlowing(targetCoord, true);
         participant.commanderTarget(targetCoord);
 
-        player.sendMessage(Component.text()
-                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text("을(를) 지휘 대상으로 선택했습니다!", NamedTextColor.GOLD))
-                .build());
-        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+        announcer.announceKingCommanderSelect(player, targetPiece);
     }
 
     private void deselect(
@@ -73,11 +69,7 @@ public class KingAbility implements PieceAbility {
         applyGlowing(targetCoord, false);
         participant.commanderTarget(null);
 
-        player.sendMessage(Component.text()
-                .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text(" 지휘를 해제했습니다.", NamedTextColor.YELLOW))
-                .build());
-        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 0.5f);
+        announcer.announceKingCommanderDeselect(player, targetPiece);
     }
 
     private void applyGlowing(final Coordinate coord, final boolean enabled) {

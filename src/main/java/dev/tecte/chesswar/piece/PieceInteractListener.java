@@ -1,6 +1,7 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.game.component.GamePhase;
+import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.game.manager.GameManager;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import org.bukkit.inventory.ItemStack;
 @RequiredArgsConstructor
 public class PieceInteractListener implements Listener {
     private final GameManager gameManager;
+    private final GameAnnouncer announcer;
 
     @EventHandler
     public void onItemHeld(final PlayerItemHeldEvent event) {
@@ -69,7 +71,7 @@ public class PieceInteractListener implements Listener {
 
         if (targetTeam != null) {
             gameManager.join(player, targetTeam);
-            player.sendMessage(Component.text(targetTeam.teamName() + "에 참가했습니다!", targetTeam.color()));
+            announcer.announcePieceSelection(player, Component.text(targetTeam.teamName() + "에 참가했습니다!", targetTeam.color()));
         }
     }
 

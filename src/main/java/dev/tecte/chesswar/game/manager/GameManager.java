@@ -287,12 +287,12 @@ public class GameManager implements Listener {
 
     public void startGame(final Player player) {
         if (!boardManager.hasBoard()) {
-            player.sendMessage(ERROR_NO_BOARD);
+            announcer.announceCombatError(player, ERROR_NO_BOARD);
             return;
         }
 
         if (context.participants().isEmpty()) {
-            player.sendMessage(ERROR_NO_PARTICIPANTS);
+            announcer.announceCombatError(player, ERROR_NO_PARTICIPANTS);
             return;
         }
 
@@ -319,7 +319,7 @@ public class GameManager implements Listener {
 
     public void setupBoard(final Player admin) {
         if (context.currentPhase() != GamePhase.WAITING) {
-            admin.sendMessage(Component.text("대기 단계에서만 체스판을 설정할 수 있습니다!", NamedTextColor.RED));
+            announcer.announceAdminMessage(admin, Component.text("대기 단계에서만 체스판을 설정할 수 있습니다!", NamedTextColor.RED));
             return;
         }
 
@@ -329,9 +329,9 @@ public class GameManager implements Listener {
         boardManager.updateBoard(board);
         environmentManager.configure(board.origin().getWorld());
 
-        admin.sendMessage(GameAnnouncer.MSG_BOARD_SETUP_COMPLETE);
-        admin.sendMessage(Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
-        admin.sendMessage(Component.text(
+        announcer.announceAdminMessage(admin, GameAnnouncer.MSG_BOARD_SETUP_COMPLETE);
+        announcer.announceAdminMessage(admin, Component.text("기준점: " + formatLocation(board.origin()), NamedTextColor.GRAY));
+        announcer.announceAdminMessage(admin, Component.text(
                 "방향: %s | 칸 크기: %s".formatted(board.forward(), board.cellSize()),
                 NamedTextColor.GRAY
         ));
@@ -367,7 +367,7 @@ public class GameManager implements Listener {
         meta.addPages(content);
         book.setItemMeta(meta);
         admin.getInventory().addItem(book);
-        admin.sendMessage(GameAnnouncer.MSG_RECORD_BOOK_GIVEN);
+        announcer.announceAdminMessage(admin, GameAnnouncer.MSG_RECORD_BOOK_GIVEN);
     }
 
     private BlockFace getCardinalDirection(final Location location) {
@@ -611,7 +611,7 @@ public class GameManager implements Listener {
 
         if (ConsumableItemUtils.ID_LEAP.equals(consumableId)) {
             if (participant.leapActive()) {
-                player.sendMessage(Component.text("이미 도약 효과가 활성화되어 있습니다!", NamedTextColor.YELLOW));
+                announcer.announceAlreadyLeaping(player);
                 return;
             }
 
@@ -619,9 +619,7 @@ public class GameManager implements Listener {
             item.setAmount(item.getAmount() - 1);
             participant.leapActive(true);
             
-            player.sendMessage(Component.text("도약 아이템을 사용하여 이번 턴에 아군을 뛰어넘을 수 있습니다!", NamedTextColor.AQUA));
-            player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.2f);
-            player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0), 20, 0.3, 0.3, 0.3, 0.1);
+            announcer.announceLeapUsage(player);
             
             updateVisualGuide(player);
             plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
@@ -781,7 +779,7 @@ public class GameManager implements Listener {
                     announcer.sendSelectionActionBarGuidance(areAllPiecesSelected());
 
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
-                        playCountdownTickSound();
+                        announcer.playCountdownTickSound();
                     }
 
                     lastDisplayedSecond = remaining;
@@ -792,7 +790,7 @@ public class GameManager implements Listener {
 
                 if (remaining != lastDisplayedSecond) {
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
-                        playCountdownTickSound();
+                        announcer.playCountdownTickSound();
                     }
                     lastDisplayedSecond = remaining;
                 }
@@ -805,21 +803,12 @@ public class GameManager implements Listener {
                 if (remaining != lastDisplayedSecond) {
                     scoreboardManager.updateTimer(remaining);
                     if (remaining <= SELECTION_UI_COUNTDOWN_THRESHOLD && remaining > 0) {
-                        playCountdownTickSound();
+                        announcer.playCountdownTickSound();
                     }
                     lastDisplayedSecond = remaining;
                 }
             }
             default -> {
-            }
-        }
-    }
-
-    private void playCountdownTickSound() {
-        for (final UUID playerId : context.participants().keySet()) {
-            final Player player = Bukkit.getPlayer(playerId);
-            if (player != null) {
-                player.playSound(player, Sound.BLOCK_NOTE_BLOCK_HAT, 1.0f, 1.0f);
             }
         }
     }
@@ -845,7 +834,7 @@ public class GameManager implements Listener {
 
     public void handleReadyUp(final Player player, final Location location) {
         if (context.currentPhase() != GamePhase.TURN_ORDER) {
-            player.sendMessage(ERROR_NOT_READY_PHASE);
+            announcer.announceCombatError(player, ERROR_NOT_READY_PHASE);
             return;
         }
 
@@ -856,7 +845,7 @@ public class GameManager implements Listener {
 
         // 자신이 속한 팀의 상자인지 검증
         if (!boardManager.isTeamChest(location, participant.team())) {
-            player.sendMessage(Component.text("자신의 팀 상자에서만 준비를 완료할 수 있습니다.", NamedTextColor.RED));
+            announcer.announceCombatError(player, Component.text("자신의 팀 상자에서만 준비를 완료할 수 있습니다.", NamedTextColor.RED));
             return;
         }
 
@@ -879,7 +868,7 @@ public class GameManager implements Listener {
             p.ready(true);
             final Player pObj = Bukkit.getPlayer(p.playerId());
             if (pObj != null) {
-                pObj.sendMessage(GameAnnouncer.MSG_READY_COMPLETE);
+                announcer.announcePieceSelection(pObj, GameAnnouncer.MSG_READY_COMPLETE);
                 pObj.playSound(pObj, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
             }
         }
@@ -902,7 +891,7 @@ public class GameManager implements Listener {
             context.participants().remove(player.getUniqueId());
             scoreboardManager.remove(player);
             scoreboardManager.updateAll();
-            player.sendMessage(Component.text(participant.team().teamName()).append(GameAnnouncer.MSG_LEAVE_TEAM));
+            announcer.announcePieceSelection(player, Component.text(participant.team().teamName()).append(GameAnnouncer.MSG_LEAVE_TEAM));
         }
     }
 

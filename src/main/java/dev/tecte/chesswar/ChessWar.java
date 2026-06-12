@@ -51,6 +51,7 @@ public final class ChessWar extends JavaPlugin {
     private CombatManager combatManager;
     private EconomyManager economyManager;
     private ShopController shopController;
+    private GameAnnouncer gameAnnouncer;
     private MoveValidator moveValidator;
     private CombatPolicy combatPolicy;
     private BoardVisualManager boardVisualManager;
@@ -92,15 +93,16 @@ public final class ChessWar extends JavaPlugin {
         );
         moveValidator = new MoveValidator();
         combatPolicy = new CombatPolicy();
-        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy);
+        gameAnnouncer = new GameAnnouncer(context);
+        
+        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy, gameAnnouncer);
         environmentManager = new EnvironmentManager();
 
-        boardVisualManager = new BoardVisualManager(this, boardManager);
-        economyManager = new EconomyManager(context, economyState);
-        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager);
-        shopController = new ShopController(context, economyManager, combatManager);
+        boardVisualManager = new BoardVisualManager(this, boardManager, gameAnnouncer);
+        economyManager = new EconomyManager(context, economyState, gameAnnouncer);
+        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
+        shopController = new ShopController(context, economyManager, combatManager, gameAnnouncer);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
-        final GameAnnouncer gameAnnouncer = new GameAnnouncer(context);
 
         timerManager = new TimerManager(context);
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
@@ -146,7 +148,7 @@ public final class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new GameStartListener(gameManager), this);
         pluginManager.registerEvents(new MythicPieceListener(pieceManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
-        pluginManager.registerEvents(new PieceInteractListener(gameManager), this);
+        pluginManager.registerEvents(new PieceInteractListener(gameManager, gameAnnouncer), this);
         pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager), this);
         pluginManager.registerEvents(new EnvironmentListener(gameManager), this);
     }
@@ -155,6 +157,6 @@ public final class ChessWar extends JavaPlugin {
         final co.aikar.commands.PaperCommandManager commandManager = new co.aikar.commands.PaperCommandManager(this);
 
         commandManager.registerCommand(new PieceCommand(gameManager));
-        commandManager.registerCommand(new AdminCommand(gameManager));
+        commandManager.registerCommand(new AdminCommand(gameManager, gameAnnouncer));
     }
 }

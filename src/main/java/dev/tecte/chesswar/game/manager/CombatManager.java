@@ -65,6 +65,7 @@ public class CombatManager implements Listener {
     private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
     private final EconomyManager economyManager;
+    private final GameAnnouncer announcer;
 
     @Getter
     private boolean processingAttack = false;
@@ -130,13 +131,13 @@ public class CombatManager implements Listener {
     public boolean upgradeIndividualPiece(final Player player, final double healthInc, final double damageInc) {
         final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
         if (coord == null) {
-            player.sendMessage("§c[DEBUG] 기물의 위치를 찾을 수 없어 강화에 실패했습니다.");
+            announcer.announceCombatError(player, Component.text("§c[DEBUG] 기물의 위치를 찾을 수 없어 강화에 실패했습니다."));
             return false;
         }
 
         final Piece piece = pieceState.boardPieces().get(coord);
         if (piece == null) {
-            player.sendMessage("§c[DEBUG] 해당 위치에 등록된 기물이 없습니다.");
+            announcer.announceCombatError(player, Component.text("§c[DEBUG] 해당 위치에 등록된 기물이 없습니다."));
             return false;
         }
 
@@ -315,7 +316,7 @@ public class CombatManager implements Listener {
         }
 
         if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate, participant.leapActive())) {
-            attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
+            announcer.announceCombatError(attacker, ERROR_ATTACK_OUT_OF_RANGE);
             return false;
         }
 
@@ -374,21 +375,21 @@ public class CombatManager implements Listener {
         }
 
         if (!boardManager.hasBoard()) {
-            player.sendMessage(ERROR_NO_BOARD);
+            announcer.announceCombatError(player, ERROR_NO_BOARD);
             return false;
         }
 
         final Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
 
         if (!to.isValid()) {
-            player.sendMessage(ERROR_OUT_OF_BOARD);
+            announcer.announceCombatError(player, ERROR_OUT_OF_BOARD);
             return false;
         }
 
         final Coordinate from = pieceManager.findCoordinate(player).orElse(null);
 
         if (from == null) {
-            player.sendMessage(ERROR_NO_PIECE_ON_BOARD);
+            announcer.announceCombatError(player, ERROR_NO_PIECE_ON_BOARD);
             return false;
         }
 
@@ -397,12 +398,12 @@ public class CombatManager implements Listener {
         final Coordinate finalFrom = (commandTarget != null) ? commandTarget : from;
 
         if (finalFrom.equals(to)) {
-            player.sendMessage(ERROR_SAME_POSITION);
+            announcer.announceCombatError(player, ERROR_SAME_POSITION);
             return false;
         }
 
         if (!moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
-            player.sendMessage(ERROR_INVALID_MOVE_RANGE);
+            announcer.announceCombatError(player, ERROR_INVALID_MOVE_RANGE);
             return false;
         }
 
@@ -413,7 +414,7 @@ public class CombatManager implements Listener {
         }
 
         if (pieceState.boardPieces().containsKey(to)) {
-            player.sendMessage(ERROR_OCCUPIED_BY_PIECE);
+            announcer.announceCombatError(player, ERROR_OCCUPIED_BY_PIECE);
             return false;
         }
 
@@ -430,14 +431,7 @@ public class CombatManager implements Listener {
 
         pieceManager.movePiece(boardManager.currentBoard(), finalFrom, to);
 
-        if (commandTarget != null) {
-            player.sendMessage(Component.text()
-                    .append(Component.text(movingPiece.type().displayName(), NamedTextColor.GOLD))
-                    .append(Component.text(" 기물을 " + to.x() + ", " + to.y() + " 좌표로 이동시켰습니다.", NamedTextColor.GREEN))
-                    .build());
-        } else {
-            player.sendMessage(Component.text(to.x() + ", " + to.y() + " 좌표로 이동했습니다.", NamedTextColor.GREEN));
-        }
+        announcer.announceMoveSuccess(player, movingPiece, to, commandTarget != null);
 
         return true;
     }
@@ -450,7 +444,7 @@ public class CombatManager implements Listener {
         final UUID currentTurnPlayerId = context.currentTurnPlayerId();
 
         if (currentTurnPlayerId == null || !currentTurnPlayerId.equals(player.getUniqueId())) {
-            player.sendMessage(ERROR_NOT_YOUR_TURN);
+            announcer.announceCombatError(player, ERROR_NOT_YOUR_TURN);
             return false;
         }
 
@@ -471,7 +465,7 @@ public class CombatManager implements Listener {
             }
         }
 
-        attacker.sendMessage(ERROR_FRIENDLY_FIRE_PROHIBITED);
+        announcer.announceCombatError(attacker, ERROR_FRIENDLY_FIRE_PROHIBITED);
     }
 
     private boolean performAttack(
@@ -509,12 +503,7 @@ public class CombatManager implements Listener {
                 }
             }
 
-            victim.getWorld().spawnParticle(
-                    Particle.CRIT,
-                    victim.getLocation().add(0, 1, 0),
-                    PARTICLE_COUNT_ATTACK, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_OFFSET, PARTICLE_SPEED_ATTACK
-            );
-            victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_IRON_GOLEM_ATTACK, SOUND_VOLUME_ATTACK, SOUND_PITCH_ATTACK);
+            announcer.announceAttack(victim);
             targetPiece.currentHealth(victim.getHealth());
 
             if (victim.getHealth() <= 0) {
@@ -540,11 +529,7 @@ public class CombatManager implements Listener {
         // 처치 보상 지급 (200G)
         economyManager.addGold(attacker.getUniqueId(), 200, GoldSource.KILL);
 
-        victim.getWorld().spawnParticle(
-                Particle.EXPLOSION,
-                victim.getLocation().add(0, 1, 0),
-                1, 0, 0, 0, 0
-        );
+        announcer.announceKill(victim);
 
         pieceManager.capturePiece(boardManager.currentBoard(), attackCoord, targetCoord);
 
