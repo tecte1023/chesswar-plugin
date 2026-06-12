@@ -314,7 +314,7 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
+        if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate, participant.leapActive())) {
             attacker.sendMessage(ERROR_ATTACK_OUT_OF_RANGE);
             return false;
         }
@@ -401,7 +401,7 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        if (!moveValidator.canMove(pieceState, finalFrom, to)) {
+        if (!moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
             player.sendMessage(ERROR_INVALID_MOVE_RANGE);
             return false;
         }

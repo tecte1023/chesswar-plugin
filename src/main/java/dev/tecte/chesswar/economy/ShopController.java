@@ -3,6 +3,7 @@ package dev.tecte.chesswar.economy;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.CombatManager;
+import dev.tecte.chesswar.piece.ConsumableItemUtils;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.triumphteam.gui.builder.item.ItemBuilder;
 import dev.triumphteam.gui.guis.Gui;
@@ -88,19 +89,54 @@ public class ShopController {
                     }
                 }));
 
-        // 4. 소모성 아이템 구매 (준비 중)
+        // 4. 소모성 아이템 구매
         gui.setItem(16, ItemBuilder.from(Material.POTION)
                 .name(miniMessage.deserialize("<green><bold>[ 아이템 구매 ]</bold></green>"))
                 .lore(
                         miniMessage.deserialize("<gray>전투에 도움이 되는 특수 아이템을 구매합니다.</gray>"),
                         Component.empty(),
-                        miniMessage.deserialize("<red>현재 개발 중인 기능입니다.</red>")
+                        miniMessage.deserialize("<yellow>클릭하여 상점 열기</yellow>")
                 )
-                .asGuiItem());
+                .asGuiItem(event -> openConsumableShop(player)));
 
         // 배경 채우기
         gui.getFiller().fill(ItemBuilder.from(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).asGuiItem());
 
+        gui.open(player);
+    }
+
+    private void openConsumableShop(final Player player) {
+        final Gui gui = Gui.gui()
+                .title(miniMessage.deserialize("<green><bold>Consumable Items</bold></green>"))
+                .rows(3)
+                .disableAllInteractions()
+                .create();
+
+        // 1. 도약 (300G)
+        gui.setItem(13, ItemBuilder.from(Material.FEATHER)
+                .name(miniMessage.deserialize("<aqua><bold>도약</bold></aqua>"))
+                .lore(
+                        miniMessage.deserialize("<gray>아군 기물 하나를 뛰어넘어 이동할 수 있습니다.</gray>"),
+                        Component.empty(),
+                        miniMessage.deserialize("<white>비용: </white><gold>300G</gold>"),
+                        Component.empty(),
+                        miniMessage.deserialize("<yellow>클릭하여 구매</yellow>")
+                )
+                .asGuiItem(event -> {
+                    if (economyManager.spendGold(player.getUniqueId(), 300)) {
+                        player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
+                        player.sendMessage(miniMessage.deserialize("<green>도약 아이템을 구매했습니다!</green>"));
+                        player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP, 1.0f, 1.0f);
+                        player.closeInventory();
+                    }
+                }));
+
+        // 뒤로 가기
+        gui.setItem(22, ItemBuilder.from(Material.ARROW)
+                .name(Component.text("뒤로 가기", NamedTextColor.YELLOW))
+                .asGuiItem(event -> openMainShop(player)));
+
+        gui.getFiller().fill(ItemBuilder.from(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).asGuiItem());
         gui.open(player);
     }
 

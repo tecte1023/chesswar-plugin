@@ -10,11 +10,10 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 public class KnightAbility implements PieceAbility {
-    private final MoveValidator moveValidator;
     private final PieceState pieceState;
+    private final MoveValidator moveValidator = new MoveValidator();
 
-    public KnightAbility(final MoveValidator moveValidator, final PieceState pieceState) {
-        this.moveValidator = moveValidator;
+    public KnightAbility(final PieceState pieceState) {
         this.pieceState = pieceState;
     }
 
@@ -28,7 +27,7 @@ public class KnightAbility implements PieceAbility {
             final Piece victimPiece,
             final double damage
     ) {
-        if (!moveValidator.canMove(pieceState, victimCoord, attackerCoord)) {
+        if (!moveValidator.canMove(pieceState, victimCoord, attackerCoord, false)) {
             attacker.sendMessage(Component.text("비선제 공격! 추가 피해를 입혔습니다.", NamedTextColor.LIGHT_PURPLE));
             return damage + 15.0;
         }

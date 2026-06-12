@@ -5,7 +5,7 @@ import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.team.Team;
 
 public class MoveValidator {
-    public boolean canMove(final PieceState state, final Coordinate from, final Coordinate to) {
+    public boolean canMove(final PieceState state, final Coordinate from, final Coordinate to, final boolean leapActive) {
         if (!from.isValid() || !to.isValid() || from.equals(to)) {
             return false;
         }
@@ -20,10 +20,10 @@ public class MoveValidator {
             return false;
         }
 
-        return canReach(state, from, to);
+        return canReach(state, from, to, leapActive);
     }
 
-    public boolean canReach(final PieceState state, final Coordinate from, final Coordinate to) {
+    public boolean canReach(final PieceState state, final Coordinate from, final Coordinate to, final boolean leapActive) {
         if (!from.isValid() || !to.isValid() || from.equals(to)) {
             return false;
         }
@@ -41,9 +41,9 @@ public class MoveValidator {
 
         return switch (piece.type()) {
             case KING -> absDx <= 1 && absDy <= 1;
-            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(state, from, to);
-            case ROOK -> (dx == 0 || dy == 0) && isPathClear(state, from, to);
-            case BISHOP -> (absDx == absDy) && isPathClear(state, from, to);
+            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(state, from, to, piece.team(), leapActive);
+            case ROOK -> (dx == 0 || dy == 0) && isPathClear(state, from, to, piece.team(), leapActive);
+            case BISHOP -> (absDx == absDy) && isPathClear(state, from, to, piece.team(), leapActive);
             case KNIGHT -> (absDx == 1 && absDy == 2) || (absDx == 2 && absDy == 1);
             case PAWN -> {
                 final int direction = (piece.team() == Team.WHITE ? 1 : -1);
@@ -56,7 +56,7 @@ public class MoveValidator {
                 }
 
                 if (isFirstMove) {
-                    yield targetPiece == null && isPathClear(state, from, to);
+                    yield targetPiece == null && isPathClear(state, from, to, piece.team(), leapActive);
                 }
 
                 if (isCapture) {
@@ -68,20 +68,32 @@ public class MoveValidator {
         };
     }
 
-    private boolean isPathClear(final PieceState state, final Coordinate from, final Coordinate to) {
+    private boolean isPathClear(final PieceState state, final Coordinate from, final Coordinate to, final Team team, final boolean leapActive) {
         final int xDirection = Integer.compare(to.x(), from.x());
         final int yDirection = Integer.compare(to.y(), from.y());
         final int steps = Math.max(Math.abs(to.x() - from.x()), Math.abs(to.y() - from.y()));
 
+        int obstacleCount = 0;
+
         for (int i = 1; i < steps; i++) {
             final int currentX = from.x() + (xDirection * i);
             final int currentY = from.y() + (yDirection * i);
+            final Coordinate coord = Coordinate.of(currentX, currentY);
+            final Piece obstacle = state.boardPieces().get(coord);
 
-            if (state.boardPieces().containsKey(Coordinate.of(currentX, currentY))) {
-                return false;
+            if (obstacle != null) {
+                if (obstacle.team() != team) {
+                    return false;
+                }
+
+                obstacleCount++;
             }
         }
 
-        return true;
+        if (obstacleCount == 0) {
+            return true;
+        }
+
+        return leapActive && obstacleCount == 1;
     }
 }

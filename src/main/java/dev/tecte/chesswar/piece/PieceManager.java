@@ -511,7 +511,7 @@ public class PieceManager {
     public void attachAbilities(final Piece piece) {
         switch (piece.type()) {
             case ROOK -> piece.addAbility(new RookAbility());
-            case KNIGHT -> piece.addAbility(new KnightAbility(moveValidator, pieceState));
+            case KNIGHT -> piece.addAbility(new KnightAbility(pieceState));
             case BISHOP -> piece.addAbility(new BishopAbility(pieceState));
             case PAWN -> piece.addAbility(new PawnAbility());
             case QUEEN -> {

@@ -27,18 +27,19 @@ public class Participant {
     private boolean ready;
     private int turnOrder;
     private Coordinate commanderTarget;
-    private org.bukkit.GameMode originalGameMode;
+    private GameMode originalGameMode;
     private Double originalHealth;
     private Double originalAttackDamage;
     private int gold;
     private final List<String> statusEffects;
+    private boolean leapActive;
 
-    public static Participant of(UUID playerId, String playerName, Team team, org.bukkit.GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>());
+    public static Participant of(final UUID playerId, final String playerName, final Team team, final GameMode originalGameMode) {
+        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>(), false);
     }
 
-    public static Participant of(UUID playerId, String playerName, Team team, Coordinate coordinate, org.bukkit.GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>());
+    public static Participant of(final UUID playerId, final String playerName, final Team team, final Coordinate coordinate, final GameMode originalGameMode) {
+        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>(), false);
     }
 
     public boolean hasPiece() {

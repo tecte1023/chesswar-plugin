@@ -16,6 +16,7 @@ import dev.tecte.chesswar.game.component.Statistics;
 import dev.tecte.chesswar.game.component.TimerPolicy;
 import dev.tecte.chesswar.game.event.KingDeathEvent;
 import dev.tecte.chesswar.game.event.PiecePromotionEvent;
+import dev.tecte.chesswar.piece.ConsumableItemUtils;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
@@ -32,6 +33,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.BlockFace;
@@ -582,6 +584,50 @@ public class GameManager implements Listener {
         }
     }
 
+    @EventHandler
+    public void onPlayerInteract(final PlayerInteractEvent event) {
+        if (!event.getAction().isRightClick()) {
+            return;
+        }
+
+        final Player player = event.getPlayer();
+        final ItemStack item = event.getItem();
+        final String consumableId = ConsumableItemUtils.getConsumableId(item);
+
+        if (consumableId == null) {
+            return;
+        }
+
+        final UUID turnId = context.currentTurnPlayerId();
+        if (phase() != GamePhase.BATTLE || turnId == null || !turnId.equals(player.getUniqueId())) {
+            player.sendMessage(Component.text("자신의 전투 턴에만 아이템을 사용할 수 있습니다!", NamedTextColor.RED));
+            return;
+        }
+
+        final Participant participant = context.participants().get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+
+        if (ConsumableItemUtils.ID_LEAP.equals(consumableId)) {
+            if (participant.leapActive()) {
+                player.sendMessage(Component.text("이미 도약 효과가 활성화되어 있습니다!", NamedTextColor.YELLOW));
+                return;
+            }
+
+            event.setCancelled(true);
+            item.setAmount(item.getAmount() - 1);
+            participant.leapActive(true);
+            
+            player.sendMessage(Component.text("도약 아이템을 사용하여 이번 턴에 아군을 뛰어넘을 수 있습니다!", NamedTextColor.AQUA));
+            player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 1.2f);
+            player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0), 20, 0.3, 0.3, 0.3, 0.1);
+            
+            updateVisualGuide(player);
+            plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        }
+    }
+
     public void openShop(final Player player) {
         if (phase() != GamePhase.BATTLE) {
             player.sendMessage(Component.text("전투 단계에서만 상점을 이용할 수 있습니다!", NamedTextColor.RED));
@@ -696,6 +742,7 @@ public class GameManager implements Listener {
         }
 
         final Participant participant = participantOpt.get();
+        participant.leapActive(false);
         final Team team = participant.team();
 
         // 턴 시작 시 월급 지급 (팀 전원)
@@ -887,11 +934,16 @@ public class GameManager implements Listener {
             return;
         }
 
+        final Participant participant = context.participants().get(player.getUniqueId());
+        if (participant == null) {
+            return;
+        }
+
         final Map<Coordinate, Boolean> validMoves = new HashMap<>();
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
                 final Coordinate to = Coordinate.of(x, y);
-                if (moveValidator.canMove(pieceState, finalFrom, to)) {
+                if (moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
                     validMoves.put(to, pieceState.boardPieces().containsKey(to));
                 }
             }
@@ -1107,6 +1159,14 @@ public class GameManager implements Listener {
                 inventoryAdapter.extractTurnOrder(player).ifPresent(order -> {
                     playerOrders.put(participant.playerId(), order);
                 });
+
+                // 장거리 기물(룩, 비숍, 퀸)에게 초반 이동권을 위한 도약 아이템 지급
+                final PieceType type = participant.selectedType();
+                if (type == PieceType.ROOK || type == PieceType.BISHOP || type == PieceType.QUEEN) {
+                    player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
+                }
+
+                player.getInventory().remove(Material.NETHER_STAR);
             }
         }
 

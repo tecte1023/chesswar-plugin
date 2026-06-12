@@ -17,11 +17,10 @@ import org.bukkit.entity.Player;
 
 public class BishopAbility implements PieceAbility {
     private final PieceState pieceState;
-    private final MoveValidator moveValidator;
+    private final MoveValidator moveValidator = new MoveValidator();
 
     public BishopAbility(final PieceState pieceState) {
         this.pieceState = pieceState;
-        this.moveValidator = new MoveValidator();
     }
 
     @Override
@@ -34,7 +33,7 @@ public class BishopAbility implements PieceAbility {
             final Piece victimPiece,
             final Participant participant
     ) {
-        if (!moveValidator.canReach(pieceState, attackerCoord, victimCoord)) {
+        if (!moveValidator.canReach(pieceState, attackerCoord, victimCoord, false)) {
             attacker.sendMessage(Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
             return true;
         }
