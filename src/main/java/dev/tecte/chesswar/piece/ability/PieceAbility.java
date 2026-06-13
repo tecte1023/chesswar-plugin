@@ -22,8 +22,8 @@ public interface PieceAbility {
         return true;
     }
 
-    default boolean onAttackTeammate(final Player attacker, final LivingEntity victim, final Coordinate attackerCoord, final Coordinate victimCoord, final Piece attackingPiece, final Piece victimPiece, final Participant participant) {
-        return false;
+    default InteractionResult onAttackTeammate(final Player attacker, final LivingEntity victim, final Coordinate attackerCoord, final Coordinate victimCoord, final Piece attackingPiece, final Piece victimPiece, final Participant participant) {
+        return InteractionResult.IGNORED;
     }
 
     default boolean onInteractSameTeam(final Player player, final Coordinate playerCoord, final Coordinate targetCoord, final Piece playerPiece, final Piece targetPiece, final Participant participant) {

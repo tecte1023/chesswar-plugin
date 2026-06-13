@@ -18,14 +18,16 @@ public class BishopAbility implements PieceAbility {
     private final PieceState pieceState;
     private final MoveValidator moveValidator = new MoveValidator();
     private final GameAnnouncer announcer;
+    private final double efficiency;
 
-    public BishopAbility(final PieceState pieceState, final GameAnnouncer announcer) {
+    public BishopAbility(final PieceState pieceState, final GameAnnouncer announcer, final double efficiency) {
         this.pieceState = pieceState;
         this.announcer = announcer;
+        this.efficiency = efficiency;
     }
 
     @Override
-    public boolean onAttackTeammate(
+    public InteractionResult onAttackTeammate(
             final Player attacker,
             final LivingEntity victim,
             final Coordinate attackerCoord,
@@ -34,31 +36,43 @@ public class BishopAbility implements PieceAbility {
             final Piece victimPiece,
             final Participant participant
     ) {
-        if (!moveValidator.canReach(pieceState, attackerCoord, victimCoord, false)) {
+        if (!attackerCoord.equals(victimCoord) && !moveValidator.canReach(pieceState, attackerCoord, victimCoord, false)) {
             announcer.announceCombatError(attacker, Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
-            return true;
+            return InteractionResult.FAIL_HANDLED;
         }
 
-        performHeal(attacker, victim, attackingPiece, victimPiece);
-        participant.statistics().addHealingDone(attackingPiece.type().baseDamage());
-        return true;
+        final org.bukkit.attribute.AttributeInstance maxHealthAttr = victim.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        final double maxHp = maxHealthAttr != null ? maxHealthAttr.getValue() : 20.0;
+
+        if (victim.getHealth() >= maxHp) {
+            announcer.announceCombatError(attacker, Component.text("대상의 체력이 이미 최대입니다!", NamedTextColor.RED));
+            return InteractionResult.FAIL_HANDLED;
+        }
+
+        performHeal(attacker, victim, attackingPiece, victimPiece, participant);
+        return InteractionResult.SUCCESS;
     }
 
-    public double performHeal(final Player healer, final LivingEntity victim, final Piece healingPiece, final Piece targetPiece) {
-        final double baseHeal = healingPiece.type().baseDamage();
+    public double performHeal(final Player healer, final LivingEntity victim, final Piece healingPiece, final Piece targetPiece, final Participant participant) {
+        final double baseHeal = healingPiece.type().baseDamage() * efficiency;
         final StatBuff buff = pieceState.getBuff(healingPiece.team(), healingPiece.type());
-        final double healAmount = baseHeal + buff.damage();
+        final double healAmount = Math.round(baseHeal + (buff.damage() * efficiency));
 
-        final AttributeInstance maxHealth = victim.getAttribute(Attribute.MAX_HEALTH);
+        final org.bukkit.attribute.AttributeInstance maxHealth = victim.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
         final double currentHealth = victim.getHealth();
         final double maxHp = maxHealth != null ? maxHealth.getValue() : 20.0;
 
-        final double newHealth = Math.min(maxHp, currentHealth + healAmount);
+        final double newHealth = Math.min(maxHp, Math.round(currentHealth + healAmount));
         final double actualHeal = newHealth - currentHealth;
 
         victim.setHealth(newHealth);
+        targetPiece.currentHealth(newHealth);
 
-        announcer.announceHeal(healer, victim, targetPiece);
+        announcer.announceHeal(healer, victim, targetPiece, actualHeal);
+
+        if (participant != null) {
+            participant.statistics().addHealingDone(actualHeal);
+        }
 
         return actualHeal;
     }

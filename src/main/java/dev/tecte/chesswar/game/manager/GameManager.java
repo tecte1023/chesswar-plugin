@@ -592,6 +592,14 @@ public class GameManager implements Listener {
 
         final Player player = event.getPlayer();
         final ItemStack item = event.getItem();
+        useConsumableItem(player, item);
+    }
+
+    public void useConsumableItem(final Player player, final ItemStack item) {
+        if (item == null) {
+            return;
+        }
+        
         final String consumableId = ConsumableItemUtils.getConsumableId(item);
 
         if (consumableId == null) {
@@ -615,7 +623,6 @@ public class GameManager implements Listener {
                 return;
             }
 
-            event.setCancelled(true);
             item.setAmount(item.getAmount() - 1);
             participant.leapActive(true);
             
@@ -649,11 +656,12 @@ public class GameManager implements Listener {
     }
 
     public void attackPiece(final Player attacker, final LivingEntity victim) {
-        if (combatManager.handleAttack(attacker, victim)) {
+        final CombatManager.AttackResult result = combatManager.handleAttack(attacker, victim);
+
+        if (result == CombatManager.AttackResult.ACTION_DONE) {
             updateVisualGuide(attacker);
             nextTurn();
-        } else {
-            // 킹의 지휘 대상 변경 등 턴이 넘어가지 않는 상호작용 후에도 가이드 즉각 갱신
+        } else if (result == CombatManager.AttackResult.COMMAND_CHANGED) {
             updateVisualGuide(attacker);
         }
     }
@@ -928,12 +936,18 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Map<Coordinate, Boolean> validMoves = new HashMap<>();
+        final Map<Coordinate, dev.tecte.chesswar.board.GuideType> validMoves = new HashMap<>();
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
                 final Coordinate to = Coordinate.of(x, y);
+
                 if (moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
-                    validMoves.put(to, pieceState.boardPieces().containsKey(to));
+                    validMoves.put(to, pieceState.boardPieces().containsKey(to) ? dev.tecte.chesswar.board.GuideType.CAPTURE : dev.tecte.chesswar.board.GuideType.MOVE);
+                } else if (moveValidator.canReach(pieceState, finalFrom, to, participant.leapActive())) {
+                    final dev.tecte.chesswar.piece.Piece targetPiece = pieceState.boardPieces().get(to);
+                    if (targetPiece != null && targetPiece.team() == participant.team()) {
+                        validMoves.put(to, dev.tecte.chesswar.board.GuideType.INTERACT);
+                    }
                 }
             }
         }

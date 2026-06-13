@@ -38,6 +38,13 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 public class CombatManager implements Listener {
+
+    public enum AttackResult {
+        ACTION_DONE,
+        COMMAND_CHANGED,
+        INVALID
+    }
+
     private static final double DEFAULT_HEALTH = 20.0;
     private static final double DEFAULT_ATTACK_DAMAGE = 1.0;
 
@@ -253,23 +260,23 @@ public class CombatManager implements Listener {
         return context.participants().containsKey(participant.getUniqueId()) && context.currentPhase() == GamePhase.BATTLE;
     }
 
-    public boolean handleAttack(final Player attacker, final LivingEntity victim) {
+    public AttackResult handleAttack(final Player attacker, final LivingEntity victim) {
         if (processingAttack) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         if (!isPlayerTurn(attacker)) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         if (!boardManager.hasBoard()) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         final Coordinate attackingCoordinate = pieceManager.findCoordinate(attacker).orElse(null);
 
         if (attackingCoordinate == null) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         final Participant participant = context.participants().get(attacker.getUniqueId());
@@ -278,33 +285,36 @@ public class CombatManager implements Listener {
         final Coordinate targetCoordinate = pieceManager.findCoordinate(victim).orElse(null);
 
         if (targetCoordinate == null) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         final Piece attackingPiece = pieceState.boardPieces().get(finalAttackingCoordinate);
         final Piece targetPiece = pieceState.boardPieces().get(targetCoordinate);
 
         if (attackingPiece == null || targetPiece == null) {
-            return false;
+            return AttackResult.INVALID;
         }
 
         if (targetPiece.team() == attackingPiece.team()) {
             processingAttack = true;
             try {
                 for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
-                    if (ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant)) {
+                    final dev.tecte.chesswar.piece.ability.InteractionResult result = ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant);
+                    if (result == dev.tecte.chesswar.piece.ability.InteractionResult.SUCCESS) {
                         if (participant.commanderTarget() != null) {
                             applyGlowing(participant.commanderTarget(), false);
                             participant.commanderTarget(null);
                         }
-                        return true;
+                        return AttackResult.ACTION_DONE;
+                    } else if (result == dev.tecte.chesswar.piece.ability.InteractionResult.FAIL_HANDLED) {
+                        return AttackResult.INVALID;
                     }
                 }
             } finally {
                 processingAttack = false;
             }
 
-            handleCommanderOrFriendlyFire(
+            return handleCommanderOrFriendlyFire(
                     attacker,
                     attackingCoordinate,
                     targetCoordinate,
@@ -312,15 +322,18 @@ public class CombatManager implements Listener {
                     targetPiece,
                     participant
             );
-            return false;
         }
 
         if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate, participant.leapActive())) {
             announcer.announceCombatError(attacker, ERROR_ATTACK_OUT_OF_RANGE);
-            return false;
+            return AttackResult.INVALID;
         }
 
-        return performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece);
+        if (performAttack(attacker, victim, targetCoordinate, finalAttackingCoordinate, attackingPiece, targetPiece)) {
+            return AttackResult.ACTION_DONE;
+        }
+
+        return AttackResult.INVALID;
     }
 
     public void onTurnStart(final Player player) {
@@ -451,7 +464,7 @@ public class CombatManager implements Listener {
         return true;
     }
 
-    private void handleCommanderOrFriendlyFire(
+    private AttackResult handleCommanderOrFriendlyFire(
             final Player attacker,
             final Coordinate myCoord,
             final Coordinate targetCoord,
@@ -461,11 +474,12 @@ public class CombatManager implements Listener {
     ) {
         for (final PieceAbility ability : attackingPiece.abilities()) {
             if (ability.onInteractSameTeam(attacker, myCoord, targetCoord, attackingPiece, targetPiece, participant)) {
-                return;
+                return AttackResult.COMMAND_CHANGED;
             }
         }
 
         announcer.announceCombatError(attacker, ERROR_FRIENDLY_FIRE_PROHIBITED);
+        return AttackResult.INVALID;
     }
 
     private boolean performAttack(
@@ -486,7 +500,7 @@ public class CombatManager implements Listener {
 
             final double baseDamage = attackingPiece.type().baseDamage();
             final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
-            double damage = baseDamage + buff.damage() + attackingPiece.personalBuff().damage();
+            double damage = Math.round(baseDamage + buff.damage() + attackingPiece.personalBuff().damage());
 
             for (final PieceAbility ability : attackingPiece.abilities()) {
                 damage = ability.onAttack(attacker, victim, attackCoord, targetCoord, attackingPiece, targetPiece, damage);

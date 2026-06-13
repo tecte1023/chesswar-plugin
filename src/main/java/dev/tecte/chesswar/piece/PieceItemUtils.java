@@ -47,6 +47,16 @@ public class PieceItemUtils {
 
             meta.getPersistentDataContainer().set(PIECE_TYPE_KEY, PersistentDataType.STRING, type.name());
 
+            if (type == PieceType.BISHOP || type == PieceType.QUEEN) {
+                final AttributeModifier rangeModifier = new AttributeModifier(
+                        new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "ranged_interaction"),
+                        24.0,
+                        AttributeModifier.Operation.ADD_NUMBER,
+                        EquipmentSlotGroup.MAINHAND
+                );
+                meta.addAttributeModifier(Attribute.ENTITY_INTERACTION_RANGE, rangeModifier);
+            }
+
             final AttributeModifier modifier = new AttributeModifier(
                     new NamespacedKey(JavaPlugin.getPlugin(ChessWar.class), "no_attack_cooldown"),
                     2048.0,

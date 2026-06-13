@@ -511,13 +511,13 @@ public class PieceManager {
 
     public void attachAbilities(final Piece piece) {
         switch (piece.type()) {
-            case ROOK -> piece.addAbility(new RookAbility(announcer));
+            case ROOK -> piece.addAbility(new RookAbility(announcer, 1.0));
             case KNIGHT -> piece.addAbility(new KnightAbility(pieceState, announcer));
-            case BISHOP -> piece.addAbility(new BishopAbility(pieceState, announcer));
+            case BISHOP -> piece.addAbility(new BishopAbility(pieceState, announcer, 1.0));
             case PAWN -> piece.addAbility(new PawnAbility());
             case QUEEN -> {
-                piece.addAbility(new RookAbility(announcer));
-                piece.addAbility(new BishopAbility(pieceState, announcer));
+                piece.addAbility(new RookAbility(announcer, 0.5));
+                piece.addAbility(new BishopAbility(pieceState, announcer, 0.5));
             }
             case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy, announcer));
         }

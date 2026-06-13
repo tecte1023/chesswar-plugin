@@ -28,6 +28,7 @@ import java.util.UUID;
 public class BoardVisualManager {
     private static final BlockData GUIDE_MOVE = Material.LIME_STAINED_GLASS.createBlockData();
     private static final BlockData GUIDE_CAPTURE = Material.RED_STAINED_GLASS.createBlockData();
+    private static final BlockData GUIDE_INTERACT = Material.LIGHT_BLUE_STAINED_GLASS.createBlockData();
     private static final Particle.DustOptions OUTLINE_OPTIONS = new Particle.DustOptions(Color.GREEN, 1.0f);
 
     private final Map<UUID, List<BlockDisplay>> activeGuideEntities = new HashMap<>();
@@ -35,7 +36,7 @@ public class BoardVisualManager {
     private final BoardManager boardManager;
     private final GameAnnouncer announcer;
 
-    public void showGuide(final Player player, final Map<Coordinate, Boolean> moves) {
+    public void showGuide(final Player player, final Map<Coordinate, GuideType> moves) {
         clearGuide(player);
 
         if (!boardManager.hasBoard() || moves.isEmpty()) {
@@ -47,23 +48,29 @@ public class BoardVisualManager {
         final Location centerLoc = board.origin().clone();
         final float size = (float) board.cellSize();
 
-        for (final Map.Entry<Coordinate, Boolean> entry : moves.entrySet()) {
+        for (final Map.Entry<Coordinate, GuideType> entry : moves.entrySet()) {
             final Coordinate to = entry.getKey();
-            final boolean isCapture = entry.getValue();
+            final GuideType type = entry.getValue();
 
             board.updateToCenterLocation(to, centerLoc);
-            
+
             // BlockDisplay 스폰 (정확한 3x3 범위를 위해 중심에서 절반만큼 차감하여 코너에서 시작)
             final Location spawnLoc = centerLoc.clone().subtract(size / 2.0, 0, size / 2.0);
-            
+
             final BlockDisplay display = spawnLoc.getWorld().spawn(spawnLoc, BlockDisplay.class, entity -> {
-                entity.setBlock(isCapture ? GUIDE_CAPTURE : GUIDE_MOVE);
-                
+                if (type == GuideType.CAPTURE) {
+                    entity.setBlock(GUIDE_CAPTURE);
+                } else if (type == GuideType.INTERACT) {
+                    entity.setBlock(GUIDE_INTERACT);
+                } else {
+                    entity.setBlock(GUIDE_MOVE);
+                }
+
                 // 크기 조절 (3x3x0.01), 그림자 제거 및 밝기 최적화
                 final Transformation transformation = entity.getTransformation();
                 transformation.getScale().set(size, 0.01f, size);
                 entity.setTransformation(transformation);
-                
+
                 entity.setShadowRadius(0f);
                 entity.setShadowStrength(0f);
                 entity.setBrightness(new Display.Brightness(15, 15));

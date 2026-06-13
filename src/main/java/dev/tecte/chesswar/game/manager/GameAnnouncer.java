@@ -235,18 +235,37 @@ public class GameAnnouncer {
         player.sendMessage(Component.text("이미 도약 효과가 활성화되어 있습니다!", NamedTextColor.YELLOW));
     }
 
-    public void announceHeal(final Player healer, final org.bukkit.entity.LivingEntity victim, final dev.tecte.chesswar.piece.Piece targetPiece) {
+    public void announceHeal(final Player healer, final org.bukkit.entity.LivingEntity victim, final dev.tecte.chesswar.piece.Piece targetPiece, final double healAmount) {
         victim.getWorld().spawnParticle(
                 org.bukkit.Particle.HEART,
                 victim.getLocation().add(0, 1, 0),
                 10, 0.5, 0.5, 0.5, 0.1
         );
         victim.getWorld().playSound(victim.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
-        
-        healer.sendMessage(Component.text()
+
+        final Component baseMessage = Component.text()
+                .append(Component.text("[✚] ", NamedTextColor.GREEN))
+                .append(Component.text(healer.getName(), healer.getUniqueId().equals(context.currentTurnPlayerId()) ? NamedTextColor.GOLD : NamedTextColor.WHITE))
+                .append(Component.text("님이 ", NamedTextColor.GRAY))
                 .append(Component.text(targetPiece.type().displayName(), NamedTextColor.GOLD))
-                .append(Component.text("의 체력을 회복시켰습니다!", NamedTextColor.GREEN))
-                .build());
+                .append(Component.text(" 기물을 회복시켰습니다!", NamedTextColor.GREEN))
+                .build();
+
+        final Component hoverDetail = Component.text()
+                .append(Component.text("회복 세부 정보", NamedTextColor.GREEN, TextDecoration.BOLD))
+                .appendNewline()
+                .append(Component.text("----------------", NamedTextColor.DARK_GRAY))
+                .appendNewline()
+                .append(Component.text("회복량: ", NamedTextColor.GRAY))
+                .append(Component.text("+" + (int) healAmount + " HP", NamedTextColor.GREEN))
+                .appendNewline()
+                .append(Component.text("대상 잔여 체력: ", NamedTextColor.GRAY))
+                .append(Component.text((int) victim.getHealth() + " / " + (int) victim.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue(), NamedTextColor.GREEN))
+                .build();
+
+        final Component finalMessage = baseMessage.hoverEvent(HoverEvent.showText(hoverDetail));
+
+        broadcast(finalMessage);
     }
 
     public void announceKnightPreemptiveStrike(final Player attacker) {

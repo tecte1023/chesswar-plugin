@@ -12,6 +12,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -21,6 +22,28 @@ import org.bukkit.inventory.ItemStack;
 public class PieceInteractListener implements Listener {
     private final GameManager gameManager;
     private final GameAnnouncer announcer;
+
+    @EventHandler
+    public void onInteractEntity(final PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
+
+        if (gameManager.phase() != GamePhase.BATTLE) {
+            return;
+        }
+
+        final Player player = event.getPlayer();
+        final ItemStack item = player.getInventory().getItemInMainHand();
+
+        if (ConsumableItemUtils.getConsumableId(item) != null) {
+            gameManager.useConsumableItem(player, item);
+        }
+
+        if (PieceItemUtils.isPieceItem(item)) {
+            gameManager.movePiece(player);
+        }
+    }
 
     @EventHandler
     public void onItemHeld(final PlayerItemHeldEvent event) {
@@ -82,19 +105,9 @@ public class PieceInteractListener implements Listener {
 
         if (action == Action.RIGHT_CLICK_AIR || action == Action.RIGHT_CLICK_BLOCK) {
             gameManager.movePiece(player);
-            return;
-        }
-
-        if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
-            final org.bukkit.util.RayTraceResult result = player.getWorld().rayTraceEntities(
-                    player.getEyeLocation(),
-                    player.getLocation().getDirection(),
-                    50.0,
-                    entity -> entity instanceof LivingEntity && !entity.equals(player)
-            );
-
-            if (result != null && result.getHitEntity() instanceof LivingEntity victim) {
-                gameManager.attackPiece(player, victim);
+        } else if (action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK) {
+            if (player.isSneaking()) {
+                gameManager.attackPiece(player, player);
             }
         }
     }

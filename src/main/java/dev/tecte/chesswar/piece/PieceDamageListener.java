@@ -45,6 +45,11 @@ public class PieceDamageListener implements Listener {
         }
 
         event.setCancelled(true);
-        gameManager.attackPiece(attacker, victim);
+
+        if (attacker.isSneaking()) {
+            gameManager.attackPiece(attacker, attacker);
+        } else {
+            gameManager.attackPiece(attacker, victim);
+        }
     }
 }

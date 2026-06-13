@@ -114,7 +114,6 @@ public class ShopController {
                     if (economyManager.spendGold(player.getUniqueId(), 300)) {
                         player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
                         announcer.announceShopItemPurchase(player, miniMessage.deserialize("<green>도약 아이템을 구매했습니다!</green>"));
-                        player.closeInventory();
                     }
                 }));
 
@@ -150,7 +149,6 @@ public class ShopController {
                         if (combatManager.upgradeIndividualPiece(player, 10.0, 0.0)) {
                             economyManager.spendGold(player.getUniqueId(), 200);
                             announcer.announceShopSuccess(player, miniMessage.deserialize("<green>최대 체력이 상승했습니다!</green>"));
-                            player.closeInventory();
                         }
                     } else {
                         announcer.announceShopFailure(player, miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
@@ -173,7 +171,6 @@ public class ShopController {
                         if (combatManager.upgradeIndividualPiece(player, 0.0, 2.0)) {
                             economyManager.spendGold(player.getUniqueId(), 250);
                             announcer.announceShopSuccess(player, miniMessage.deserialize("<green>공격력이 상승했습니다!</green>"));
-                            player.closeInventory();
                         }
                     } else {
                         announcer.announceShopFailure(player, miniMessage.deserialize("<red>골드가 부족합니다!</red>"));
@@ -236,7 +233,6 @@ public class ShopController {
                         combatManager.upgradePieceClass(participant.team(), type, UPGRADE_HEALTH_INC, UPGRADE_DAMAGE_INC);
 
                         announcer.announceShopSuccess(player, miniMessage.deserialize("<green>" + type.displayName() + " 클래스가 강화되었습니다!</green>"));
-                        player.closeInventory();
                     }
                 }));
     }

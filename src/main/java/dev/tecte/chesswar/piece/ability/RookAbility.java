@@ -11,15 +11,18 @@ import org.bukkit.entity.Player;
 @RequiredArgsConstructor
 public class RookAbility implements PieceAbility {
     private final GameAnnouncer announcer;
+    private final double efficiency;
 
     @Override
     public void onTurnStart(final Player player, final Piece piece, final Participant participant) {
-        final AttributeInstance maxAbsorption = player.getAttribute(Attribute.MAX_ABSORPTION);
+        final double absorptionAmount = Math.round(40.0 * efficiency);
+        final org.bukkit.attribute.AttributeInstance maxAbsorption = player.getAttribute(org.bukkit.attribute.Attribute.MAX_ABSORPTION);
+
         if (maxAbsorption != null) {
-            maxAbsorption.setBaseValue(40.0);
+            maxAbsorption.setBaseValue(absorptionAmount);
         }
 
-        player.setAbsorptionAmount(40.0);
+        player.setAbsorptionAmount(absorptionAmount);
         announcer.announceRookRepair(player);
     }
 }
