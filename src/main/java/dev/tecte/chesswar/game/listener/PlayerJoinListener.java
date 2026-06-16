@@ -22,7 +22,7 @@ public class PlayerJoinListener implements Listener {
         
         // 게임 단계가 WAITING일 때만 지연 초기화 수행
         if (gameManager.phase() == GamePhase.WAITING) {
-            final dev.tecte.chesswar.game.component.Participant participant = gameManager.context().participants().get(player.getUniqueId());
+            final dev.tecte.chesswar.game.component.Participant participant = gameManager.context().participant(player.getUniqueId());
             
             // 기존 참가자 정보가 있고 저장된 원래 상태가 있는 경우에만 복구 (Lazy Reset)
             if (participant != null && participant.originalGameMode() != null) {

@@ -15,4 +15,14 @@ public enum GamePhase {
     ENDED("종료");
 
     private final String displayName;
+
+    public GamePhase next() {
+        return switch (this) {
+            case WAITING -> PIECE_SELECTION;
+            case PIECE_SELECTION -> TURN_ORDER;
+            case TURN_ORDER -> BATTLE;
+            case BATTLE -> ENDED;
+            case ENDED -> WAITING;
+        };
+    }
 }

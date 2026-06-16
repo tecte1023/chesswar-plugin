@@ -33,7 +33,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.block.BlockFace;
@@ -50,7 +49,6 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
@@ -59,9 +57,6 @@ import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -236,11 +231,11 @@ public class GameManager implements Listener {
     }
 
     public Optional<Participant> findParticipant(final UUID playerId) {
-        return Optional.ofNullable(context.participants().get(playerId));
+        return Optional.ofNullable(context.participant(playerId));
     }
 
     public boolean isParticipant(final Player player) {
-        return context.participants().containsKey(player.getUniqueId());
+        return context.isParticipant(player.getUniqueId());
     }
 
     public boolean isHungerProtected(final Player player) {
@@ -252,13 +247,13 @@ public class GameManager implements Listener {
     }
 
     public Statistics stats(final UUID playerId) {
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         return participant != null ? participant.statistics() : new Statistics();
     }
 
     public boolean isReady(final UUID playerId) {
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         return participant != null && participant.ready();
     }
@@ -280,7 +275,7 @@ public class GameManager implements Listener {
     }
 
     public Optional<Coordinate> findCommandTarget(final UUID commanderId) {
-        final Participant participant = context.participants().get(commanderId);
+        final Participant participant = context.participant(commanderId);
 
         return participant == null ? Optional.empty() : Optional.ofNullable(participant.commanderTarget());
     }
@@ -291,13 +286,12 @@ public class GameManager implements Listener {
             return;
         }
 
-        if (context.participants().isEmpty()) {
+        if (context.isParticipantsEmpty()) {
             announcer.announceCombatError(player, ERROR_NO_PARTICIPANTS);
             return;
         }
 
-        // 게임 시작 시점의 플레이어 상태(모드, 체력, 공격력)를 저장
-        for (final Participant participant : context.participants().values()) {
+        for (final Participant participant : context.participantsValues()) {
             final Player p = Bukkit.getPlayer(participant.playerId());
             if (p != null) {
                 participant.originalGameMode(p.getGameMode());
@@ -351,7 +345,7 @@ public class GameManager implements Listener {
 
         Component content = GameAnnouncer.RECORD_BOOK_HEADER;
 
-        for (final Participant p : context.participants().values()) {
+        for (final Participant p : context.participantsValues()) {
             final Statistics s = p.statistics();
             final Player participantPlayer = Bukkit.getPlayer(p.playerId());
             final String name = (participantPlayer != null) ? participantPlayer.getName() : "오프라인";
@@ -389,38 +383,86 @@ public class GameManager implements Listener {
     }
 
     public void advancePhase() {
-        final GamePhase nextPhase = switch (context.currentPhase()) {
-            case WAITING -> GamePhase.PIECE_SELECTION;
-            case PIECE_SELECTION -> GamePhase.TURN_ORDER;
-            case TURN_ORDER -> GamePhase.BATTLE;
-            case BATTLE -> GamePhase.ENDED;
-            case ENDED -> GamePhase.WAITING;
-        };
-
-        context.currentPhase(nextPhase);
-        scoreboardManager.handlePhaseChange(nextPhase);
-        scoreboardManager.updateAll();
-
-        switch (nextPhase) {
-            case PIECE_SELECTION -> {
-                announcer.broadcast(GameAnnouncer.MSG_COUNTDOWN_SUBTITLE);
-                pieceManager.clearSpawnedEntities(false);
-                pieceManager.spawnBunker(boardManager.currentBoard());
-
-                lastDisplayedSecond = SELECTION_COUNTDOWN_START;
-                announcer.broadcastSelectionCountdown(SELECTION_COUNTDOWN_START);
-                timerManager.startTimer(SELECTION_COUNTDOWN_START, TimerPolicy.IMMEDIATE);
-            }
-            case TURN_ORDER -> {
-                timerManager.startTimer(context.timerSettings().turnOrderSelectionTime());
-                boardManager.setupTurnOrderChests(countTeam(Team.WHITE), countTeam(Team.BLACK));
-                announcer.broadcast(GameAnnouncer.MSG_TURN_ORDER_DECISION);
-                announcer.sendTurnOrderActionBarGuidance(inventoryAdapter);
-            }
-            case BATTLE -> prepareBattleContext();
-            case ENDED -> prepareEndContext();
-            case WAITING -> reset();
+        switch (context.advancePhase()) {
+            case PIECE_SELECTION -> handleTransitionToPieceSelection();
+            case TURN_ORDER -> handleTransitionToTurnOrder();
+            case BATTLE -> handleTransitionToBattle();
+            case ENDED -> handleTransitionToEnded();
+            case WAITING -> handleTransitionToWaiting();
         }
+
+        scoreboardManager.updateAll();
+    }
+
+    private void handleTransitionToPieceSelection() {
+        announcer.broadcast(GameAnnouncer.MSG_COUNTDOWN_SUBTITLE);
+        pieceManager.clearSpawnedEntities(false);
+        pieceManager.spawnBunker(boardManager.currentBoard());
+
+        lastDisplayedSecond = SELECTION_COUNTDOWN_START;
+        announcer.broadcastSelectionCountdown(SELECTION_COUNTDOWN_START);
+        timerManager.startTimer(SELECTION_COUNTDOWN_START, TimerPolicy.IMMEDIATE);
+    }
+
+    private void handleTransitionToTurnOrder() {
+        timerManager.startTimer(context.timerSettings().turnOrderSelectionTime());
+        boardManager.setupTurnOrderChests(countTeam(Team.WHITE), countTeam(Team.BLACK));
+        announcer.broadcast(GameAnnouncer.MSG_TURN_ORDER_DECISION);
+        announcer.sendTurnOrderActionBarGuidance(inventoryAdapter);
+    }
+
+    private void handleTransitionToBattle() {
+        combatManager.calculateTurnOrder(inventoryAdapter);
+        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard(), context.participantsValues());
+        boardManager.clearBarracksChests();
+
+        for (final Participant participant : context.participantsValues()) {
+            final Player player = Bukkit.getPlayer(participant.playerId());
+            if (player == null) continue;
+
+            preparePlayerForBattle(player, participant);
+        }
+
+        nextTurn();
+    }
+
+    private void preparePlayerForBattle(final Player player, final Participant participant) {
+        inventoryAdapter.clearOrderItems(player);
+
+        final PieceType type = participant.selectedType();
+        if (type != null && type.isLongRange()) {
+            player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
+        }
+
+        player.getInventory().remove(Material.NETHER_STAR);
+
+        if (participant.initialCoordinate() != null) {
+            boardManager.deployToBattlefield(participant.team(), participant.initialCoordinate(), player);
+        }
+    }
+
+    private void handleTransitionToEnded() {
+        scoreboardManager.clearTurnLine();
+        timerManager.stopTimer();
+        announcer.displayStatisticsHologram();
+    }
+
+    private void handleTransitionToWaiting() {
+        reset();
+    }
+
+    private void startBarracksSelection() {
+        pieceManager.deployBunkerToBarracks();
+
+        for (final Participant participant : context.participantsValues()) {
+            final Player player = Bukkit.getPlayer(participant.playerId());
+            if (player != null) {
+                player.clearTitle();
+                boardManager.teleportToBarracks(participant.team(), player);
+            }
+        }
+
+        timerManager.startTimer(context.timerSettings().barracksSelectionTime());
     }
 
     @EventHandler
@@ -481,7 +523,7 @@ public class GameManager implements Listener {
         context.currentPhase(GamePhase.WAITING);
         lastDisplayedSecond = -1;
 
-        for (final Participant participant : context.participants().values()) {
+        for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
 
             if (player != null) {
@@ -524,7 +566,7 @@ public class GameManager implements Listener {
     }
 
     public void eliminate(final UUID playerId) {
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         if (participant == null) {
             return;
@@ -599,7 +641,7 @@ public class GameManager implements Listener {
         if (item == null) {
             return;
         }
-        
+
         final String consumableId = ConsumableItemUtils.getConsumableId(item);
 
         if (consumableId == null) {
@@ -612,7 +654,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant == null) {
             return;
         }
@@ -625,9 +667,9 @@ public class GameManager implements Listener {
 
             item.setAmount(item.getAmount() - 1);
             participant.leapActive(true);
-            
+
             announcer.announceLeapUsage(player);
-            
+
             updateVisualGuide(player);
             plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
         }
@@ -643,7 +685,7 @@ public class GameManager implements Listener {
     }
 
     public void join(final Player player, final Team team) {
-        context.participants().put(player.getUniqueId(), Participant.of(player.getUniqueId(), player.getName(), team, null));
+        context.addParticipant(player.getUniqueId(), Participant.of(player.getUniqueId(), player.getName(), team, null));
         scoreboardManager.updateAll();
         player.sendMessage(Component.text("[Admin] " + team.teamName() + "에 강제 참가했습니다!", team.color()));
     }
@@ -687,7 +729,7 @@ public class GameManager implements Listener {
         final Team team = teamOpt.get();
         final Coordinate coord = coordOpt.get();
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant == null || participant.team() != team) {
             player.sendMessage(ERROR_INSPECT_OWN_TEAM_ONLY);
             return true;
@@ -719,7 +761,7 @@ public class GameManager implements Listener {
 
     public void processPieceSelection(final Player player, final Coordinate coordinate) {
         final UUID playerId = player.getUniqueId();
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         if (participant == null) {
             return;
@@ -768,7 +810,6 @@ public class GameManager implements Listener {
 
         scoreboardManager.updateTurnLine(player);
         scoreboardManager.updateAll();
-        combatManager.updateInvulnerability(player);
         combatManager.onTurnStart(player);
 
         clearVisualGuide(player);
@@ -826,7 +867,7 @@ public class GameManager implements Listener {
             case PIECE_SELECTION -> {
                 if (!context.isSelectionStarted()) {
                     context.isSelectionStarted(true);
-                    prepareSelectionContext();
+                    startBarracksSelection();
                 } else {
                     finalizePieceSelection();
                     advancePhase();
@@ -846,7 +887,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant == null) {
             return;
         }
@@ -861,7 +902,7 @@ public class GameManager implements Listener {
     }
 
     public void registerReady(final Team team) {
-        final List<Participant> teamMembers = context.participants().values().stream()
+        final List<Participant> teamMembers = context.participantsValues().stream()
                 .filter(p -> p.team() == team)
                 .toList();
 
@@ -887,7 +928,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant == null) {
             return;
         }
@@ -896,7 +937,7 @@ public class GameManager implements Listener {
                                       || (participant.team() == Team.BLACK && material == Material.BLACK_WOOL);
 
         if (isCorrectWool) {
-            context.participants().remove(player.getUniqueId());
+            context.removeParticipant(player.getUniqueId());
             scoreboardManager.remove(player);
             scoreboardManager.updateAll();
             announcer.announcePieceSelection(player, Component.text(participant.team().teamName()).append(GameAnnouncer.MSG_LEAVE_TEAM));
@@ -931,22 +972,34 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant == null) {
             return;
         }
 
         final Map<Coordinate, dev.tecte.chesswar.board.GuideType> validMoves = new HashMap<>();
+        final dev.tecte.chesswar.piece.Piece myPiece = pieceState.boardPieces().get(finalFrom);
+
         for (int x = 0; x < 8; x++) {
             for (int y = 0; y < 8; y++) {
                 final Coordinate to = Coordinate.of(x, y);
 
                 if (moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
                     validMoves.put(to, pieceState.boardPieces().containsKey(to) ? dev.tecte.chesswar.board.GuideType.CAPTURE : dev.tecte.chesswar.board.GuideType.MOVE);
-                } else if (moveValidator.canReach(pieceState, finalFrom, to, participant.leapActive())) {
+                } else if (moveValidator.canReach(pieceState, finalFrom, to, participant.leapActive()) || finalFrom.equals(to)) {
                     final dev.tecte.chesswar.piece.Piece targetPiece = pieceState.boardPieces().get(to);
-                    if (targetPiece != null && targetPiece.team() == participant.team()) {
-                        validMoves.put(to, dev.tecte.chesswar.board.GuideType.INTERACT);
+                    if (targetPiece != null && targetPiece.team() == participant.team() && myPiece != null) {
+                        final LivingEntity targetEntity = pieceState.pieceEntities().get(to);
+                        boolean interactable = false;
+                        for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : myPiece.abilities()) {
+                            if (ability.canInteract(player, myPiece, targetPiece, targetEntity)) {
+                                interactable = true;
+                                break;
+                            }
+                        }
+                        if (interactable) {
+                            validMoves.put(to, dev.tecte.chesswar.board.GuideType.INTERACT);
+                        }
                     }
                 }
             }
@@ -956,7 +1009,7 @@ public class GameManager implements Listener {
     }
 
     public void registerCommandTarget(final UUID playerId, final Coordinate target) {
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         if (participant != null) {
             participant.commanderTarget(target);
@@ -964,7 +1017,7 @@ public class GameManager implements Listener {
     }
 
     public void clearCommandTarget(final UUID playerId) {
-        final Participant participant = context.participants().get(playerId);
+        final Participant participant = context.participant(playerId);
 
         if (participant != null) {
             participant.commanderTarget(null);
@@ -1080,7 +1133,7 @@ public class GameManager implements Listener {
 
     private void finalizePieceSelection() {
         for (final Team team : Team.values()) {
-            final List<Participant> teamMembers = context.participants().values().stream()
+            final List<Participant> teamMembers = context.participantsValues().stream()
                     .filter(p -> p.team() == team)
                     .toList();
 
@@ -1102,10 +1155,9 @@ public class GameManager implements Listener {
             }
         }
 
-        // 남은 미선택자들 랜덤 배정
-        for (final Participant p : context.participants().values()) {
+        for (final Participant p : context.participantsValues()) {
             if (p.selectedType() == null) {
-                final PieceType randomType = PieceType.values()[(int) (Math.random() * (PieceType.values().length - 1)) + 1]; // KING 제외 랜덤
+                final PieceType randomType = PieceType.values()[(int) (Math.random() * (PieceType.values().length - 1)) + 1];
                 forceAssignPiece(p, randomType);
             }
         }
@@ -1115,7 +1167,6 @@ public class GameManager implements Listener {
         final Player player = Bukkit.getPlayer(participant.playerId());
         if (player == null) return;
 
-        // 해당 팀의 기물 타입에 맞는 초기 레이아웃 좌표를 검색하여 할당
         final Coordinate targetCoord = ChessFormation.getFullInitialLayout().entrySet().stream()
                 .filter(entry -> entry.getValue() == type && ChessFormation.getTeamAt(entry.getKey()) == participant.team())
                 .map(Map.Entry::getKey)
@@ -1127,94 +1178,6 @@ public class GameManager implements Listener {
 
     private int teamPieceRow(final Team team) {
         return team == Team.WHITE ? 0 : 7;
-    }
-
-    private void prepareSelectionContext() {
-        // 막사 이동 시점에 벙커 기물을 막사로 배치
-        pieceManager.deployBunkerToBarracks();
-
-        for (final Participant participant : context.participants().values()) {
-            final Player player = Bukkit.getPlayer(participant.playerId());
-            if (player != null) {
-                player.clearTitle();
-                boardManager.teleportToBarracks(participant.team(), player);
-            }
-        }
-
-        timerManager.startTimer(context.timerSettings().barracksSelectionTime());
-    }
-
-    public void prepareEndContext() {
-        timerManager.stopTimer();
-        announcer.displayStatisticsHologram();
-    }
-
-    private void prepareBattleContext() {
-        // 전투 단계 진입 시 벙커 기물을 전장으로 배치
-        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard(), context.participants().values());
-
-        final Map<UUID, Integer> playerOrders = new HashMap<>();
-
-        for (final Participant participant : context.participants().values()) {
-            final Player player = Bukkit.getPlayer(participant.playerId());
-
-            if (player != null) {
-                inventoryAdapter.extractTurnOrder(player).ifPresent(order -> {
-                    playerOrders.put(participant.playerId(), order);
-                });
-
-                // 장거리 기물(룩, 비숍, 퀸)에게 초반 이동권을 위한 도약 아이템 지급
-                final PieceType type = participant.selectedType();
-                if (type == PieceType.ROOK || type == PieceType.BISHOP || type == PieceType.QUEEN) {
-                    player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
-                }
-
-                player.getInventory().remove(Material.NETHER_STAR);
-            }
-        }
-
-        calculateTurnOrder(playerOrders);
-
-        // 전투 단계 진입 전 막사 상자 정리
-        boardManager.clearBarracksChests();
-
-        for (final Participant participant : context.participants().values()) {
-            final Player player = Bukkit.getPlayer(participant.playerId());
-
-            if (player == null) {
-                continue;
-            }
-
-            inventoryAdapter.clearOrderItems(player);
-
-            if (participant.initialCoordinate() != null) {
-                boardManager.deployToBattlefield(participant.team(), participant.initialCoordinate(), player);
-            }
-        }
-
-        currentTurnPlayer().ifPresent(playerId -> {
-            final Player firstPlayer = Bukkit.getPlayer(playerId);
-
-            if (firstPlayer != null) {
-                onTurnStart(firstPlayer);
-            }
-        });
-    }
-
-    private void calculateTurnOrder(final Map<UUID, Integer> orders) {
-        final List<Participant> sorted = new ArrayList<>(context.participants().values());
-        Collections.shuffle(sorted);
-
-        sorted.sort(Comparator.comparingInt(p -> {
-            return orders.getOrDefault(p.playerId(), 99);
-        }));
-
-        for (int i = 0; i < sorted.size(); i++) {
-            sorted.get(i).turnOrder(i);
-        }
-
-        context.turnOrder(sorted.toArray(new Participant[0]));
-        context.currentTurnIndex(0);
     }
 
     public void checkVictoryConditions() {
@@ -1267,7 +1230,7 @@ public class GameManager implements Listener {
     }
 
     private boolean isCoordinateOccupiedByTeammate(final UUID playerId, final Team team, final Coordinate coord) {
-        return context.participants().values().stream()
+        return context.participantsValues().stream()
                 .filter(p -> {
                     return p.team() == team && !p.playerId().equals(playerId);
                 })

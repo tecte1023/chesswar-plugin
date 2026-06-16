@@ -8,8 +8,11 @@ import lombok.experimental.Accessors;
 import org.bukkit.Location;
 import org.bukkit.entity.Entity;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -39,28 +42,36 @@ public class GameContext {
     private UUID bindingAdmin;
     private Entity startButtonHologram;
 
-    public void currentPhase(final GamePhase currentPhase) {
-        this.currentPhase = currentPhase;
+    public Participant participant(final UUID playerId) {
+        return participants.get(playerId);
     }
 
-    public void isSelectionStarted(final boolean isSelectionStarted) {
-        this.isSelectionStarted = isSelectionStarted;
+    public boolean isParticipant(final UUID playerId) {
+        return participants.containsKey(playerId);
     }
 
-    public void kingRequired(final boolean kingRequired) {
-        this.kingRequired = kingRequired;
+    public Collection<Participant> participantsValues() {
+        return Collections.unmodifiableCollection(participants.values());
     }
 
-    public void currentTimerPolicy(final TimerPolicy currentTimerPolicy) {
-        this.currentTimerPolicy = currentTimerPolicy;
+    public int participantsCount() {
+        return participants.size();
     }
 
-    public void turnOrder(final Participant[] turnOrder) {
-        this.turnOrder = turnOrder;
+    public boolean isParticipantsEmpty() {
+        return participants.isEmpty();
     }
 
-    public void currentTurnIndex(final int currentTurnIndex) {
-        this.currentTurnIndex = currentTurnIndex;
+    public void addParticipant(final UUID playerId, final Participant participant) {
+        participants.put(playerId, participant);
+    }
+
+    public void removeParticipant(final UUID playerId) {
+        participants.remove(playerId);
+    }
+
+    public Set<UUID> participantIds() {
+        return Collections.unmodifiableSet(participants.keySet());
     }
 
     public int getTeamTime(final Team team) {
@@ -87,6 +98,18 @@ public class GameContext {
         final Participant participant = turnOrder[currentTurnIndex];
 
         return participant == null ? null : participant.playerId();
+    }
+
+    public Team currentTurnTeam() {
+        final UUID turnId = currentTurnPlayerId();
+
+        if (turnId == null) {
+            return null;
+        }
+
+        final Participant p = participant(turnId);
+
+        return p == null ? null : p.team();
     }
 
     public int countTeam(final Team team) {
@@ -215,6 +238,10 @@ public class GameContext {
         currentTurnIndex = (currentTurnIndex + 1) % turnOrder.length;
     }
 
+    public GamePhase advancePhase() {
+        return currentPhase = currentPhase.next();
+    }
+
     public void reset() {
         turnOrder = new Participant[0];
         currentTurnIndex = -1;
@@ -228,11 +255,8 @@ public class GameContext {
         for (final Participant participant : participants.values()) {
             participant.initialCoordinate(null);
             participant.ready(false);
-            participant.turnOrder(-1);
             participant.commanderTarget(null);
-            participant.gold(0);
             participant.statusEffects().clear();
         }
     }
 }
-

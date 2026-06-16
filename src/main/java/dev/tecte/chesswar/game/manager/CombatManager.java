@@ -25,7 +25,6 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Particle;
-import org.bukkit.Sound;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
@@ -33,6 +32,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -106,7 +108,10 @@ public class CombatManager implements Listener {
         }
 
         if (attackDamage != null) {
-            attackDamage.setBaseValue(type.baseDamage() + teamBuff.damage() + personalDamage);
+            // 플레이어인 경우 베이스 데미지를 0.0으로 설정하여 무기 속성값이 곧 최종 데미지가 되도록 함
+            // NPC인 경우 PieceType의 기본 데미지를 베이스로 설정
+            final double baseValue = (entity instanceof Player) ? 0.0 : type.baseDamage();
+            attackDamage.setBaseValue(baseValue + teamBuff.damage() + personalDamage);
         }
     }
 
@@ -218,46 +223,8 @@ public class CombatManager implements Listener {
         }
     }
 
-    public void updateInvulnerability(final Player currentPlayer) {
-        final Participant participant = context.participants().get(currentPlayer.getUniqueId());
-
-        if (participant == null) {
-            return;
-        }
-
-        final Coordinate commandTarget = participant.commanderTarget();
-        final Piece attackerPiece = (commandTarget != null)
-                ? pieceState.boardPieces().get(commandTarget)
-                : combatPolicy.getPrimaryAttacker(participant, pieceState);
-
-        if (attackerPiece == null) {
-            return;
-        }
-
-        for (final Map.Entry<Coordinate, LivingEntity> entry : pieceState.pieceEntities().entrySet()) {
-            final Coordinate coord = entry.getKey();
-            final LivingEntity living = entry.getValue();
-
-            if (living == null || !living.isValid()) {
-                continue;
-            }
-
-            final Piece targetPiece = pieceState.boardPieces().get(coord);
-
-            if (targetPiece == null) {
-                continue;
-            }
-
-            final boolean canAttack = combatPolicy.canAttack(attackerPiece, targetPiece);
-
-            if (!(living instanceof Player)) {
-                living.setInvulnerable(!canAttack);
-            }
-        }
-    }
-
     public boolean canTakeDamage(final Player participant) {
-        return context.participants().containsKey(participant.getUniqueId()) && context.currentPhase() == GamePhase.BATTLE;
+        return context.isParticipant(participant.getUniqueId()) && context.currentPhase() == GamePhase.BATTLE;
     }
 
     public AttackResult handleAttack(final Player attacker, final LivingEntity victim) {
@@ -279,7 +246,7 @@ public class CombatManager implements Listener {
             return AttackResult.INVALID;
         }
 
-        final Participant participant = context.participants().get(attacker.getUniqueId());
+        final Participant participant = context.participant(attacker.getUniqueId());
         final Coordinate commandTarget = participant.commanderTarget();
         final Coordinate finalAttackingCoordinate = (commandTarget != null) ? commandTarget : attackingCoordinate;
         final Coordinate targetCoordinate = pieceManager.findCoordinate(victim).orElse(null);
@@ -338,7 +305,7 @@ public class CombatManager implements Listener {
 
     public void onTurnStart(final Player player) {
         Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
 
         if (coord == null && participant != null && participant.initialCoordinate() != null) {
             coord = participant.initialCoordinate();
@@ -360,7 +327,7 @@ public class CombatManager implements Listener {
     }
 
     public void clearCommanderVisuals(final Player player) {
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         if (participant != null && participant.commanderTarget() != null) {
             applyGlowing(participant.commanderTarget(), false);
         }
@@ -406,7 +373,7 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        final Participant participant = context.participants().get(player.getUniqueId());
+        final Participant participant = context.participant(player.getUniqueId());
         final Coordinate commandTarget = participant.commanderTarget();
         final Coordinate finalFrom = (commandTarget != null) ? commandTarget : from;
 
@@ -492,7 +459,7 @@ public class CombatManager implements Listener {
     ) {
         processingAttack = true;
         try {
-            final Participant participant = context.participants().get(attacker.getUniqueId());
+            final Participant participant = context.participant(attacker.getUniqueId());
             if (participant.commanderTarget() != null) {
                 applyGlowing(participant.commanderTarget(), false);
                 participant.commanderTarget(null);
@@ -508,10 +475,10 @@ public class CombatManager implements Listener {
 
             victim.setNoDamageTicks(0);
             victim.damage(damage, attacker);
-            context.participants().get(attacker.getUniqueId()).statistics().addDamageDealt(damage);
+            participant.statistics().addDamageDealt(damage);
 
             if (victim instanceof Player playerTarget) {
-                final Participant victimParticipant = context.participants().get(playerTarget.getUniqueId());
+                final Participant victimParticipant = context.participant(playerTarget.getUniqueId());
                 if (victimParticipant != null) {
                     victimParticipant.statistics().addDamageTaken(damage);
                 }
@@ -539,7 +506,7 @@ public class CombatManager implements Listener {
             final Coordinate attackCoord,
             final Piece targetPiece
     ) {
-        final Participant participant = context.participants().get(attacker.getUniqueId());
+        final Participant participant = context.participant(attacker.getUniqueId());
         participant.statistics().addKill();
 
         // 처치 보상 지급 (200G)
@@ -557,5 +524,40 @@ public class CombatManager implements Listener {
             pieceManager.purgeEntity(victim);
             victim.remove();
         }
+    }
+
+    public void calculateTurnOrder(final PlayerInventoryAdapter inventoryAdapter) {
+        final int count = context.participantsCount();
+
+        if (count == 0) {
+            return;
+        }
+
+        final Participant[] result = new Participant[count];
+        final List<Participant> nonHolders = new ArrayList<>();
+
+        for (final Participant p : context.participantsValues()) {
+            final Player player = Bukkit.getPlayer(p.playerId());
+            final int itemOrder = inventoryAdapter.extractTurnOrder(player);
+
+            if (itemOrder >= 1 && itemOrder <= count) {
+                result[itemOrder - 1] = p;
+            } else {
+                nonHolders.add(p);
+            }
+        }
+
+        Collections.shuffle(nonHolders);
+
+        int nonHolderIndex = 0;
+
+        for (int i = 0; i < count; i++) {
+            if (result[i] == null) {
+                result[i] = nonHolders.get(nonHolderIndex++);
+            }
+        }
+
+        context.turnOrder(result);
+        context.resetTurnIndex();
     }
 }

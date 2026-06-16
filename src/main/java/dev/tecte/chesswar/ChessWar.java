@@ -55,6 +55,7 @@ public final class ChessWar extends JavaPlugin {
     private MoveValidator moveValidator;
     private CombatPolicy combatPolicy;
     private BoardVisualManager boardVisualManager;
+    private PiecePdcMapper piecePdcMapper;
 
     @Override
     public void onEnable() {
@@ -84,7 +85,7 @@ public final class ChessWar extends JavaPlugin {
         final PieceState pieceState = PieceState.create();
         final BoardState boardState = BoardState.create();
         final EconomyState economyState = EconomyState.create();
-        final PiecePdcMapper piecePdcMapper = PiecePdcMapper.create(this);
+        piecePdcMapper = PiecePdcMapper.create(this);
 
         boardManager = new BoardManager(
                 new NamespacedKey(this, BoardManager.READY_BUTTON_KEY),
@@ -102,7 +103,7 @@ public final class ChessWar extends JavaPlugin {
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         timerManager = new TimerManager(context);
-        scoreboardManager = new ScoreboardManager(context, inventoryAdapter);
+        scoreboardManager = new ScoreboardManager(context, inventoryAdapter, economyState);
 
         economyManager = new EconomyManager(context, economyState, gameAnnouncer, scoreboardManager);
         combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
@@ -150,7 +151,7 @@ public final class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(new MythicPieceListener(pieceManager), this);
         pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
         pluginManager.registerEvents(new PieceInteractListener(gameManager, gameAnnouncer), this);
-        pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager), this);
+        pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager, pieceManager, piecePdcMapper), this);
         pluginManager.registerEvents(new EnvironmentListener(gameManager), this);
     }
 

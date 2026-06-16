@@ -24,8 +24,6 @@ public class EnvironmentManager {
         world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
         world.setGameRule(GameRule.MOB_GRIEFING, false);
         world.setGameRule(GameRule.DO_FIRE_TICK, false);
-        world.setGameRule(GameRule.DO_TILE_DROPS, true);
-        world.setGameRule(GameRule.FALL_DAMAGE, true);
         world.setGameRule(GameRule.ANNOUNCE_ADVANCEMENTS, false);
     }
 }

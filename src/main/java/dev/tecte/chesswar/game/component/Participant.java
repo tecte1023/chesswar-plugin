@@ -25,21 +25,19 @@ public class Participant {
     private Coordinate initialCoordinate;
     private PieceType selectedType;
     private boolean ready;
-    private int turnOrder;
     private Coordinate commanderTarget;
     private GameMode originalGameMode;
     private Double originalHealth;
     private Double originalAttackDamage;
-    private int gold;
     private final List<String> statusEffects;
     private boolean leapActive;
 
     public static Participant of(final UUID playerId, final String playerName, final Team team, final GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>(), false);
+        return new Participant(playerId, playerName, team, new Statistics(), null, null, false, null, originalGameMode, null, null, new ArrayList<>(), false);
     }
 
     public static Participant of(final UUID playerId, final String playerName, final Team team, final Coordinate coordinate, final GameMode originalGameMode) {
-        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, -1, null, originalGameMode, null, null, 0, new ArrayList<>(), false);
+        return new Participant(playerId, playerName, team, new Statistics(), coordinate, null, false, null, originalGameMode, null, null, new ArrayList<>(), false);
     }
 
     public boolean hasPiece() {
