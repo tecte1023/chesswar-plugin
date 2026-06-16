@@ -11,6 +11,8 @@ Piece:
     PreventOtherDrops: true           # 바닐라 드롭 방지
     Despawn: false                    # 서버/청크 이동 시 자동 despawn 방지
     PreventRenaming: true             # 이름표로 이름 변경 불가
+    LockPitch: true                   # 몹 머리 상하 고정
+    PreventSlimeSplit: true           # 슬라임 분할 방지
   Skills:
     - setrotation{pitch=0} @self ~onSpawn
 

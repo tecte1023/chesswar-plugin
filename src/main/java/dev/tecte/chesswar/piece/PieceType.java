@@ -63,4 +63,8 @@ public enum PieceType {
     private final String rangeDescription;
     private final double baseHealth;
     private final double baseDamage;
+
+    public boolean isLongRange() {
+        return this == ROOK || this == BISHOP || this == QUEEN;
+    }
 }

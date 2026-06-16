@@ -30,9 +30,17 @@ public class PieceState {
     }
 
     public void reset() {
-        boardPieces.clear();
-        pieceEntities.clear();
-        entityToCoordinate.clear();
+        boardPieces.values().removeIf(piece -> piece.ownerId() == null);
+
+        final Set<UUID> playerIds = new HashSet<>();
+        for (final Piece piece : boardPieces.values()) {
+            if (piece.ownerId() != null) {
+                playerIds.add(piece.ownerId());
+            }
+        }
+
+        pieceEntities.entrySet().removeIf(entry -> !playerIds.contains(entry.getValue().getUniqueId()));
+        entityToCoordinate.keySet().removeIf(uuid -> !playerIds.contains(uuid));
         spawnedEntities.clear();
         teamBuffs.clear();
     }

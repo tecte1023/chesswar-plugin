@@ -15,6 +15,10 @@ import dev.tecte.chesswar.piece.ability.KnightAbility;
 import dev.tecte.chesswar.piece.ability.PawnAbility;
 import dev.tecte.chesswar.piece.ability.RookAbility;
 import dev.tecte.chesswar.team.Team;
+import kr.toxicity.model.api.BetterModel;
+import kr.toxicity.model.api.tracker.EntityTracker;
+import kr.toxicity.model.api.tracker.EntityTrackerRegistry;
+import kr.toxicity.model.api.tracker.TrackerUpdateAction;
 import io.lumine.mythic.api.mobs.MobManager;
 import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.BukkitAdapter;
@@ -55,6 +59,7 @@ public class PieceManager {
 
     public void spawnBunker(final ChessBoard board) {
         clearBunker();
+        pieceState.reset();
         final Location bunkerLoc = board.origin().clone();
         bunkerLoc.setY(BUNKER_Y);
 
@@ -73,6 +78,11 @@ public class PieceManager {
             final LivingEntity entity = spawnBunkerPiece(type, team, coord, loc);
             if (entity != null) {
                 bunkerEntities.put(coord, entity);
+
+                // 관리자 명령어 및 시스템 추적을 위해 즉시 등록
+                final Piece piece = Piece.of(null, team, type);
+                placePiece(coord, piece);
+                registerPieceEntity(coord, entity);
             }
         }
     }
@@ -105,7 +115,21 @@ public class PieceManager {
 
         living.setAI(false);
         living.setGravity(false);
-        living.setInvulnerable(true);
+
+        // BetterModel 연동: 원본 엔티티 은닉
+        BetterModel.registry(living.getUniqueId()).ifPresent(registry -> {
+            for (final EntityTracker tracker : registry.trackers()) {
+                tracker.hideOption(new kr.toxicity.model.api.tracker.EntityHideOption(true, true, true, true));
+            }
+        });
+
+        // Java(PieceType)의 스탯을 물리 엔티티에 강제 주입 (SSOT 동기화)
+        final org.bukkit.attribute.AttributeInstance maxHealthAttr = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        if (maxHealthAttr != null) {
+            maxHealthAttr.setBaseValue(type.baseHealth());
+        }
+        living.setHealth(type.baseHealth());
+
         // 바닐라 투명화는 모델링에 영향을 줄 수 있으므로 일단 보류 (MythicMobs 옵션에서 처리 권장)
 
         Bukkit.getPluginManager().callEvent(new PieceSpawnEvent(living, type, team));
@@ -142,27 +166,26 @@ public class PieceManager {
             final Team team = ChessFormation.getTeamAt(coordinate);
             final Participant participant = participantMap.get(coordinate);
 
-            final PieceType type = pdcMapper.readType(entity).orElse(PieceType.PAWN);
-            final Piece piece = (participant != null)
-                    ? Piece.of(participant.playerId(), team, type)
-                    : Piece.of(null, team, type);
-
             if (participant != null) {
-                attachAbilities(piece);
+                entity.remove();
+                final Player player = Bukkit.getPlayer(participant.playerId());
+                if (player != null) {
+                    registerPieceEntity(coordinate, player);
+                }
+                continue;
             }
+
+            final PieceType type = pdcMapper.readType(entity).orElse(PieceType.PAWN);
+            final Piece piece = Piece.of(null, team, type);
             placePiece(coordinate, piece);
 
-            if (participant == null) {
-                board.updateToCenterLocation(coordinate, reusableLoc);
-                final Vector direction = (team == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
-                reusableLoc.setDirection(direction);
+            board.updateToCenterLocation(coordinate, reusableLoc);
+            final Vector direction = (team == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
+            reusableLoc.setDirection(direction);
 
-                entity.teleport(reusableLoc);
-                registerPieceEntity(coordinate, entity);
-            } else {
-                // 플레이어가 차지할 자리는 벙커 기물을 숨기거나 제거
-                entity.remove();
-            }
+            entity.teleport(reusableLoc);
+            snapModelTracker(entity, reusableLoc, true);
+            registerPieceEntity(coordinate, entity);
         }
         bunkerEntities.clear();
     }
@@ -418,6 +441,12 @@ public class PieceManager {
             return;
         }
 
+        // Snapshot: 엔티티 제거 전 마지막 체력 상태를 Piece 객체에 보존 (Snapshot & Restore)
+        final Piece piece = pieceState.boardPieces().get(coordinate);
+        if (piece != null) {
+            piece.currentHealth(entity.getHealth());
+        }
+
         pieceState.entityToCoordinate().remove(entity.getUniqueId());
     }
 
@@ -431,42 +460,42 @@ public class PieceManager {
             return;
         }
 
-        // 1. 목적지 위치 계산
         final Location mobTarget = board.updateToCenterLocation(to, board.origin().clone());
         final Vector direction = (piece.team() == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
         mobTarget.setDirection(direction);
 
-        final Location playerTarget = mobTarget.clone().add(0, PLAYER_TELEPORT_OFFSET_Y, 0);
-
-        // 2. 몹 순간이동 및 렌더링 글리치 방어
         final LivingEntity mobEntity = pieceState.pieceEntities().get(from);
         if (mobEntity != null) {
-            toggleForceRender(mobEntity, true);
             mobEntity.teleport(mobTarget);
-
-            // 순간이동 후 클라이언트 동기화를 위해 약간의 딜레이 후 렌더링 옵션 해제 권장 (스케줄러 필요)
-            Bukkit.getScheduler().runTaskLater(plugin, () -> toggleForceRender(mobEntity, false), 2L);
-
+            snapModelTracker(mobEntity, mobTarget, true);
             updateMobMapping(mobEntity, from, to);
         }
 
-        // 3. 플레이어 상태 갱신 (현재 물리적 위치 유지)
         if (piece.isPlayerPiece()) {
             final Player player = Bukkit.getPlayer(piece.ownerId());
             if (player != null) {
                 updatePlayerMapping(player, to);
+
+                final Location playerStart = player.getLocation();
+                final Location playerEnd = mobTarget.clone().add(0, PLAYER_TELEPORT_OFFSET_Y, 0);
+
+                if (playerStart.distanceSquared(playerEnd) > 1.0) {
+                    player.teleport(playerEnd);
+                }
             }
         }
 
-        // 4. 보드 데이터 상태 갱신
         pieceState.boardPieces().remove(from);
         pieceState.boardPieces().put(to, piece);
     }
 
-    private void toggleForceRender(final LivingEntity entity, final boolean enabled) {
-        // TODO: BetterModel API 연동 (v1.6.1+ smooth 옵션 및 tracker.forceUpdate 활용 권장)
-        // 현재 클래스패스에 BetterModel API가 감지되지 않아 플레이스홀더로 유지함.
-        // 예: BetterModelAPI.getTracker(entity).ifPresent(t -> t.setForceRender(enabled));
+    private void snapModelTracker(final LivingEntity entity, final Location location, final boolean forceRender) {
+        BetterModel.registry(entity.getUniqueId()).ifPresent(registry -> {
+            for (final EntityTracker tracker : registry.trackers()) {
+                tracker.update(TrackerUpdateAction.moveDuration(0));
+                tracker.forceUpdate(true);
+            }
+        });
     }
 
     private void updateMobMapping(final LivingEntity entity, final Coordinate from, final Coordinate to) {
@@ -506,7 +535,9 @@ public class PieceManager {
     public void registerPlayerPiece(final Player player, final Team team, final PieceType type, final Coordinate coordinate) {
         final Piece piece = Piece.of(player.getUniqueId(), team, type);
         attachAbilities(piece);
+        pdcMapper.writeData(player, type, team, coordinate, false);
         placePiece(coordinate, piece);
+        registerPieceEntity(coordinate, player);
     }
 
     public void attachAbilities(final Piece piece) {
