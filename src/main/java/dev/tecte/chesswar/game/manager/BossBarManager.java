@@ -51,7 +51,7 @@ public class BossBarManager {
 
         bossBar.color(determineColor(progress));
 
-        for (final UUID playerId : context.participants().keySet()) {
+        for (final UUID playerId : context.participantIds()) {
             final Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 player.showBossBar(bossBar);
@@ -64,7 +64,7 @@ public class BossBarManager {
             return;
         }
 
-        for (final UUID playerId : context.participants().keySet()) {
+        for (final UUID playerId : context.participantIds()) {
             final Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 player.hideBossBar(bossBar);

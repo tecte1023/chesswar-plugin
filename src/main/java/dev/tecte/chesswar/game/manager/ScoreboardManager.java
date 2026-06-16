@@ -5,13 +5,11 @@ import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.team.Team;
 import fr.mrmicky.fastboard.adventure.FastBoard;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
 import java.util.ArrayList;
@@ -50,6 +48,8 @@ public class ScoreboardManager {
     private static final int MAX_CACHE_SECONDS = 3600;
 
     private static final Map<GamePhase, Component> PHASE_LINE_CACHE = new EnumMap<>(GamePhase.class);
+    private static final Map<Team, Component> TEAM_TIME_PREFIX_CACHE = new EnumMap<>(Team.class);
+    private static final Map<Team, Component> TEAM_STATUS_PREFIX_CACHE = new EnumMap<>(Team.class);
     private static final Component[] TIME_LINE_CACHE = new Component[MAX_CACHE_SECONDS + 1];
     private static final Component TURN_NONE_LINE = Component.text()
             .append(PREFIX_TURN)
@@ -64,6 +64,12 @@ public class ScoreboardManager {
                     .build());
         }
 
+        TEAM_TIME_PREFIX_CACHE.put(Team.WHITE, PREFIX_TIME_WHITE);
+        TEAM_TIME_PREFIX_CACHE.put(Team.BLACK, PREFIX_TIME_BLACK);
+
+        TEAM_STATUS_PREFIX_CACHE.put(Team.WHITE, PREFIX_STATUS_WHITE);
+        TEAM_STATUS_PREFIX_CACHE.put(Team.BLACK, PREFIX_STATUS_BLACK);
+
         for (int i = 0; i <= MAX_CACHE_SECONDS; i++) {
             TIME_LINE_CACHE[i] = Component.text()
                     .append(PREFIX_TIME)
@@ -75,20 +81,27 @@ public class ScoreboardManager {
 
     private final GameContext context;
     private final PlayerInventoryAdapter inventoryAdapter;
+    private final dev.tecte.chesswar.economy.EconomyState economyState;
     private final Map<UUID, FastBoard> boards = new HashMap<>();
 
     private Component turnLineCache;
 
-    public ScoreboardManager(final GameContext context, final PlayerInventoryAdapter inventoryAdapter) {
+    public ScoreboardManager(final GameContext context, final PlayerInventoryAdapter inventoryAdapter, final dev.tecte.chesswar.economy.EconomyState economyState) {
         this.context = context;
         this.inventoryAdapter = inventoryAdapter;
+        this.economyState = economyState;
     }
 
     public void updateAll() {
-        for (final Player player : Bukkit.getOnlinePlayers()) {
+        for (final UUID playerId : context.participantIds()) {
+            final Player player = Bukkit.getPlayer(playerId);
+
+            if (player == null || !player.isOnline()) {
+                continue;
+            }
+
             updatePlayer(player);
         }
-        cleanupStaleBoards();
     }
 
     public void updatePlayer(final Player player) {
@@ -114,7 +127,7 @@ public class ScoreboardManager {
             return;
         }
 
-        final Participant p = context.participants().get(currentTurnId);
+        final Participant p = context.participant(currentTurnId);
         if (p == null) {
             return;
         }
@@ -128,12 +141,11 @@ public class ScoreboardManager {
     }
 
     private Component getTeamTimeLine(final Team team, final boolean isActive) {
-        // 현재 턴인 팀은 context.remainingSeconds()를, 아니면 팀 공유 시간을 표시
         final int displayTime = isActive ? context.remainingSeconds() : context.getTeamTime(team);
 
         return Component.text()
                 .append(isActive ? MARKER_ACTIVE : MARKER_INACTIVE)
-                .append(team == Team.WHITE ? PREFIX_TIME_WHITE : PREFIX_TIME_BLACK)
+                .append(TEAM_TIME_PREFIX_CACHE.get(team))
                 .append(Component.text(formatTime(displayTime), NamedTextColor.WHITE))
                 .build();
     }
@@ -142,10 +154,6 @@ public class ScoreboardManager {
         final int m = Math.max(0, seconds / 60);
         final int s = Math.max(0, seconds % 60);
         return String.format("%02d:%02d", m, s);
-    }
-
-    public void tick() {
-        // 기존 tick 로직 제거 (외부에서 필요 시에만 호출하도록 변경)
     }
 
     public void remove(final Player player) {
@@ -174,14 +182,6 @@ public class ScoreboardManager {
                 .build();
     }
 
-    public void handlePhaseChange(final GamePhase nextPhase) {
-        if (nextPhase == GamePhase.BATTLE) {
-            return;
-        }
-
-        clearTurnLine();
-    }
-
     public void clearTurnLine() {
         turnLineCache = null;
     }
@@ -201,35 +201,30 @@ public class ScoreboardManager {
     }
 
     private void applyBoard(final Player player, final FastBoard board) {
-        final Participant me = context.participants().get(player.getUniqueId());
+        final UUID playerId = player.getUniqueId();
 
-        // 팀에 참가하지 않은 플레이어는 스코어보드를 표시하지 않음
-        if (me == null) {
-            boards.remove(player.getUniqueId());
+        if (context.participant(playerId) == null) {
+            boards.remove(playerId);
             board.delete();
             return;
         }
 
-        if (context.currentPhase() == GamePhase.WAITING || (context.currentPhase() == GamePhase.PIECE_SELECTION && !context.isSelectionStarted())) {
-            applyWaitingBoard(player, board);
-            return;
+        switch (context.currentPhase()) {
+            case WAITING -> applyWaitingBoard(player, board);
+            case PIECE_SELECTION -> {
+                if (context.isSelectionStarted()) {
+                    applySelectionBoard(player, board);
+                } else {
+                    applyWaitingBoard(player, board);
+                }
+            }
+            case TURN_ORDER -> applyTurnOrderBoard(player, board);
+            case BATTLE -> applyBattleBoard(player, board);
+            default -> applyDefaultBoard(player, board);
         }
+    }
 
-        if (context.currentPhase() == GamePhase.PIECE_SELECTION) {
-            applySelectionBoard(player, board);
-            return;
-        }
-
-        if (context.currentPhase() == GamePhase.TURN_ORDER) {
-            applyTurnOrderBoard(player, board);
-            return;
-        }
-
-        if (context.currentPhase() == GamePhase.BATTLE) {
-            applyBattleBoard(player, board);
-            return;
-        }
-
+    private void applyDefaultBoard(final Player player, final FastBoard board) {
         final int remaining = context.remainingSeconds();
         final Component timeLine;
 
@@ -243,179 +238,201 @@ public class ScoreboardManager {
                     .build();
         }
 
-        board.updateLines(
-                Component.empty(),
-                PHASE_LINE_CACHE.getOrDefault(context.currentPhase(), Component.empty()),
-                turnLineCache == null ? TURN_NONE_LINE : turnLineCache,
-                timeLine,
-                Component.empty()
-        );
+        board.updateLines(ScoreboardBuilder.create()
+                .blank()
+                .line(PHASE_LINE_CACHE.getOrDefault(context.currentPhase(), Component.empty()))
+                .line(turnLineCache == null ? TURN_NONE_LINE : turnLineCache)
+                .line(timeLine)
+                .blank()
+                .build());
     }
 
     private void applyWaitingBoard(final Player player, final FastBoard board) {
-        final List<Component> lines = new ArrayList<>();
-        final Participant me = context.participants().get(player.getUniqueId());
+        final UUID playerId = player.getUniqueId();
+        final Participant me = context.participant(playerId);
+        final ScoreboardBuilder builder = ScoreboardBuilder.create();
 
-        lines.add(Component.empty());
-        lines.add(Component.text(" 소속 팀: ").append(Component.text(me.team().teamName(), me.team().color())));
-        lines.add(Component.empty());
+        builder.blank()
+                .line(Component.text(" 소속 팀: ").append(Component.text(me.team().teamName(), me.team().color())))
+                .blank();
 
         for (final Team team : Team.values()) {
-            final List<Participant> teamMembers = context.participants().values().stream()
+            final List<Participant> teamMembers = context.participantsValues().stream()
                     .filter(p -> p.team() == team)
                     .sorted(Comparator.comparing(Participant::playerName))
                     .toList();
 
-            lines.add(Component.text(" [ " + team.teamName() + " : " + teamMembers.size() + "명 ]", team.color()));
-            
+            builder.line(Component.text(" [ " + team.teamName() + " : " + teamMembers.size() + "명 ]", team.color()));
+
             if (teamMembers.isEmpty()) {
-                lines.add(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
+                builder.line(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
             } else {
                 for (final Participant p : teamMembers) {
-                    final boolean isMe = p.playerId().equals(player.getUniqueId());
-                    lines.add(Component.text(" ▶ " + p.playerName(), isMe ? NamedTextColor.GOLD : NamedTextColor.WHITE));
+                    final boolean isMe = p.playerId().equals(playerId);
+                    builder.line(Component.text(" ▶ " + p.playerName(), isMe ? NamedTextColor.GOLD : NamedTextColor.WHITE));
                 }
             }
-            lines.add(Component.empty());
+            builder.blank();
         }
 
-        board.updateLines(lines);
+        board.updateLines(builder.build());
     }
 
     private void applyTurnOrderBoard(final Player player, final FastBoard board) {
-        final Participant me = context.participants().get(player.getUniqueId());
+        final UUID playerId = player.getUniqueId();
+        final Participant me = context.participant(playerId);
         if (me == null) return;
 
         final Team myTeam = me.team();
-        final List<Component> lines = new ArrayList<>();
+        final ScoreboardBuilder builder = ScoreboardBuilder.create();
 
-        lines.add(Component.empty());
-        lines.add(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())));
-        lines.add(Component.empty());
-
-        lines.add(Component.text(" [ 턴 순서 ]", myTeam.color()));
+        builder.blank()
+                .line(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())))
+                .blank()
+                .line(Component.text(" [ 턴 순서 ]", myTeam.color()));
 
         final List<TeamStatus> teamStatusList = new ArrayList<>();
-        for (final Participant p : context.participants().values()) {
+        for (final Participant p : context.participantsValues()) {
             if (p.team() != myTeam) continue;
 
             final Player pObj = Bukkit.getPlayer(p.playerId());
-            final Integer currentOrder = pObj != null ? inventoryAdapter.extractTurnOrder(pObj).orElse(null) : null;
+            final int currentOrder = pObj != null ? inventoryAdapter.extractTurnOrder(pObj) : -1;
             teamStatusList.add(new TeamStatus(p, pObj, currentOrder));
         }
 
-        // 정렬: 순서 번호 오름차순, 미정(null)은 맨 아래
         teamStatusList.sort((a, b) -> {
-            if (a.order == null && b.order == null) return 0;
-            if (a.order == null) return 1;
-            if (b.order == null) return -1;
+            if (a.order == -1 && b.order == -1) return 0;
+            if (a.order == -1) return 1;
+            if (b.order == -1) return -1;
             return Integer.compare(a.order, b.order);
         });
 
         for (final TeamStatus status : teamStatusList) {
-            final boolean isMe = status.participant.playerId().equals(player.getUniqueId());
-            final boolean hasOrder = status.order != null;
+            final boolean isMe = status.participant.playerId().equals(playerId);
+            final boolean hasOrder = status.order != -1;
             final String orderText = hasOrder ? status.order + "번" : "-";
-            final String pieceText = status.participant.selectedType() != null 
-                    ? status.participant.selectedType().symbol() + " " + status.participant.selectedType().displayName() 
+            final String pieceText = status.participant.selectedType() != null
+                    ? status.participant.selectedType().symbol() + " " + status.participant.selectedType().displayName()
                     : "?";
 
             final NamedTextColor color = isMe ? NamedTextColor.GOLD : (hasOrder ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY);
-            
-            lines.add(Component.text(" [" + orderText + "] " + status.participant.playerName() + ": " + pieceText, color));
+            builder.line(Component.text(" [" + orderText + "] " + status.participant.playerName() + ": " + pieceText, color));
         }
 
-        lines.add(Component.empty());
-        board.updateLines(lines);
+        builder.blank();
+        board.updateLines(builder.build());
     }
 
-    private record TeamStatus(Participant participant, Player player, Integer order) {}
+    private record TeamStatus(Participant participant, Player player, int order) {
+    }
 
     private void applySelectionBoard(final Player player, final FastBoard board) {
-        final Participant me = context.participants().get(player.getUniqueId());
+        final UUID playerId = player.getUniqueId();
+        final Participant me = context.participant(playerId);
         if (me == null) return;
 
         final Team myTeam = me.team();
-        final List<Component> lines = new ArrayList<>();
+        final ScoreboardBuilder builder = ScoreboardBuilder.create();
 
-        lines.add(Component.empty());
-        lines.add(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())));
-        lines.add(Component.empty());
-        
-        lines.add(Component.text(" [ 내 기물 ]", myTeam.color()));
-        final String myPieceText = me.hasPiece() && me.selectedType() != null 
-                ? me.selectedType().symbol() + " " + me.selectedType().displayName() 
+        builder.blank()
+                .line(Component.text(" 소속 팀: ").append(Component.text(myTeam.teamName(), myTeam.color())))
+                .blank()
+                .line(Component.text(" [ 내 기물 ]", myTeam.color()));
+
+        final String myPieceText = me.hasPiece() && me.selectedType() != null
+                ? me.selectedType().symbol() + " " + me.selectedType().displayName()
                 : "-";
-        lines.add(Component.text(" ▶ " + myPieceText, NamedTextColor.GOLD));
-        lines.add(Component.empty());
 
-        lines.add(Component.text(" [ 아군 현황 ]", myTeam.color()));
+        builder.line(Component.text(" ▶ " + myPieceText, NamedTextColor.GOLD))
+                .blank()
+                .line(Component.text(" [ 아군 현황 ]", myTeam.color()));
 
-        final List<Participant> allies = context.participants().values().stream()
-                .filter(p -> p.team() == myTeam && !p.playerId().equals(player.getUniqueId()))
+        final List<Participant> allies = context.participantsValues().stream()
+                .filter(p -> p.team() == myTeam && !p.playerId().equals(playerId))
                 .sorted(Comparator.comparing(Participant::playerName))
                 .toList();
 
         if (allies.isEmpty()) {
-            lines.add(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
+            builder.line(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
         } else {
             for (final Participant p : allies) {
                 final boolean hasPiece = p.hasPiece() && p.selectedType() != null;
-                final String pieceText = hasPiece 
-                        ? p.selectedType().symbol() + " " + p.selectedType().displayName() 
+                final String pieceText = hasPiece
+                        ? p.selectedType().symbol() + " " + p.selectedType().displayName()
                         : "-";
 
-                lines.add(Component.text(" ▶ " + p.playerName() + ": " + pieceText, hasPiece ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
+                builder.line(Component.text(" ▶ " + p.playerName() + ": " + pieceText, hasPiece ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
             }
         }
 
-        lines.add(Component.empty());
-        board.updateLines(lines);
+        builder.blank();
+        board.updateLines(builder.build());
     }
 
     private void applyBattleBoard(final Player player, final FastBoard board) {
-        final Participant me = context.participants().get(player.getUniqueId());
-        if (me == null) return;
+        final Participant me = context.participant(player.getUniqueId());
 
-        final List<Component> lines = new ArrayList<>();
+        if (me == null) {
+            return;
+        }
 
-        lines.add(Component.empty());
-        lines.add(turnLineCache == null ? TURN_NONE_LINE : turnLineCache);
-        lines.add(Component.empty());
+        final Team turnTeam = context.currentTurnTeam();
 
-        // 내 상태 정보 (골드 및 상태이상)
-        final String statusStr = me.statusEffects().isEmpty() ? "정상" : String.join(", ", me.statusEffects());
-        lines.add(Component.text()
-                .append(PREFIX_GOLD).append(Component.text(me.gold() + "G", NamedTextColor.WHITE))
+        board.updateLines(ScoreboardBuilder.create()
+                .blank()
+                .line(turnLineCache == null ? TURN_NONE_LINE : turnLineCache)
+                .blank()
+                .line(getPersonalStatusLine(me))
+                .blank()
+                .line(getTeamTimeLine(Team.WHITE, turnTeam == Team.WHITE))
+                .line(getTeamTimeLine(Team.BLACK, turnTeam == Team.BLACK))
+                .blank()
+                .line(getTeamSurvivalLine(Team.WHITE))
+                .line(getTeamSurvivalLine(Team.BLACK))
+                .blank()
+                .build());
+    }
+
+    private Component getPersonalStatusLine(final Participant me) {
+        final Component statusComponent = me.statusEffects().isEmpty()
+                ? Component.text("정상", NamedTextColor.WHITE)
+                : Component.text(String.join(", ", me.statusEffects()), NamedTextColor.RED);
+
+        final int gold = economyState.getPlayerGold(me.playerId()).currentGold();
+
+        return Component.text()
+                .append(PREFIX_GOLD).append(Component.text(gold + "G", NamedTextColor.WHITE))
                 .append(Component.text(" | ", NamedTextColor.DARK_GRAY))
-                .append(PREFIX_STATUS).append(Component.text(statusStr, me.statusEffects().isEmpty() ? NamedTextColor.WHITE : NamedTextColor.RED))
-                .build());
+                .append(PREFIX_STATUS).append(statusComponent)
+                .build();
+    }
 
-        lines.add(Component.empty());
+    private Component getTeamSurvivalLine(final Team team) {
+        return Component.text()
+                .append(TEAM_STATUS_PREFIX_CACHE.get(team))
+                .append(Component.text(context.countTeam(team), NamedTextColor.WHITE))
+                .build();
+    }
 
-        // 팀별 제한 시간 표시
-        final UUID currentTurnId = context.currentTurnPlayerId();
-        final Team turnTeam = currentTurnId != null && context.participants().containsKey(currentTurnId)
-                ? context.participants().get(currentTurnId).team()
-                : null;
+    private static class ScoreboardBuilder {
+        private final List<Component> lines = new ArrayList<>();
 
-        lines.add(getTeamTimeLine(Team.WHITE, turnTeam == Team.WHITE));
-        lines.add(getTeamTimeLine(Team.BLACK, turnTeam == Team.BLACK));
+        public static ScoreboardBuilder create() {
+            return new ScoreboardBuilder();
+        }
 
-        lines.add(Component.empty());
+        public ScoreboardBuilder blank() {
+            lines.add(Component.empty());
+            return this;
+        }
 
-        // 팀별 생존 현황
-        lines.add(Component.text()
-                .append(PREFIX_STATUS_WHITE)
-                .append(Component.text(context.countTeam(Team.WHITE), NamedTextColor.WHITE))
-                .build());
-        lines.add(Component.text()
-                .append(PREFIX_STATUS_BLACK)
-                .append(Component.text(context.countTeam(Team.BLACK), NamedTextColor.WHITE))
-                .build());
+        public ScoreboardBuilder line(final Component line) {
+            lines.add(line);
+            return this;
+        }
 
-        lines.add(Component.empty());
-
-        board.updateLines(lines);
+        public List<Component> build() {
+            return lines;
+        }
     }
 }

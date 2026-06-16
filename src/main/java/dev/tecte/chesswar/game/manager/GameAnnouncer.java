@@ -129,7 +129,7 @@ public class GameAnnouncer {
                 Title.Times.times(Duration.ZERO, Duration.ofSeconds(1), Duration.ofMillis(250))
         );
 
-        for (final UUID playerId : context.participants().keySet()) {
+        for (final UUID playerId : context.participantIds()) {
             final Player player = Bukkit.getPlayer(playerId);
 
             if (player != null) {
@@ -140,7 +140,7 @@ public class GameAnnouncer {
     }
 
     public void sendSelectionActionBarGuidance(final boolean allSelected) {
-        for (final Participant participant : context.participants().values()) {
+        for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player != null) {
                 final Component guide = allSelected ? MSG_SELECTION_COMPLETED :
@@ -151,13 +151,13 @@ public class GameAnnouncer {
     }
 
     public void sendTurnOrderActionBarGuidance(final PlayerInventoryAdapter inventoryAdapter) {
-        for (final Participant participant : context.participants().values()) {
+        for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player == null) continue;
 
-            final Optional<Integer> order = inventoryAdapter.extractTurnOrder(player);
-            if (order.isPresent()) {
-                player.sendActionBar(MSG_TURN_ORDER_APPLIED.append(Component.text(order.get() + "번", NamedTextColor.WHITE, TextDecoration.BOLD)));
+            final int order = inventoryAdapter.extractTurnOrder(player);
+            if (order != -1) {
+                player.sendActionBar(MSG_TURN_ORDER_APPLIED.append(Component.text(order + "번", NamedTextColor.WHITE, TextDecoration.BOLD)));
             } else {
                 player.sendActionBar(MSG_TURN_ORDER_GUIDE);
             }
@@ -169,7 +169,7 @@ public class GameAnnouncer {
         lines.add(UI_STATS_TITLE);
         lines.add(Component.empty());
 
-        context.participants().values().forEach(p -> {
+        context.participantsValues().forEach(p -> {
             final Statistics s = p.statistics();
             final Player player = Bukkit.getPlayer(p.playerId());
             final String name = (player != null) ? player.getName() : "오프라인";
@@ -188,7 +188,7 @@ public class GameAnnouncer {
     }
 
     public void broadcast(final Component message) {
-        for (final UUID playerId : context.participants().keySet()) {
+        for (final UUID playerId : context.participantIds()) {
             final Player player = Bukkit.getPlayer(playerId);
 
             if (player != null) {
@@ -198,7 +198,7 @@ public class GameAnnouncer {
     }
 
     public void playCountdownTickSound() {
-        for (final UUID playerId : context.participants().keySet()) {
+        for (final UUID playerId : context.participantIds()) {
             final Player player = Bukkit.getPlayer(playerId);
             if (player != null) {
                 player.playSound(player, Sound.BLOCK_NOTE_BLOCK_HAT, SOUND_VOLUME_DEFAULT, SOUND_PITCH_DEFAULT);
