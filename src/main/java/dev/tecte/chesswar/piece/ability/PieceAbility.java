@@ -29,4 +29,8 @@ public interface PieceAbility {
     default boolean onInteractSameTeam(final Player player, final Coordinate playerCoord, final Coordinate targetCoord, final Piece playerPiece, final Piece targetPiece, final Participant participant) {
         return false;
     }
+
+    default boolean canInteract(final Player player, final Piece myPiece, final Piece targetPiece, final LivingEntity targetEntity) {
+        return false;
+    }
 }

@@ -53,6 +53,16 @@ public class BishopAbility implements PieceAbility {
         return InteractionResult.SUCCESS;
     }
 
+    @Override
+    public boolean canInteract(final Player player, final Piece myPiece, final Piece targetPiece, final LivingEntity targetEntity) {
+        if (targetEntity == null) {
+            return false;
+        }
+        final org.bukkit.attribute.AttributeInstance maxHealthAttr = targetEntity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        final double maxHp = maxHealthAttr != null ? maxHealthAttr.getValue() : 20.0;
+        return targetEntity.getHealth() < maxHp;
+    }
+
     public double performHeal(final Player healer, final LivingEntity victim, final Piece healingPiece, final Piece targetPiece, final Participant participant) {
         final double baseHeal = healingPiece.type().baseDamage() * efficiency;
         final StatBuff buff = pieceState.getBuff(healingPiece.team(), healingPiece.type());

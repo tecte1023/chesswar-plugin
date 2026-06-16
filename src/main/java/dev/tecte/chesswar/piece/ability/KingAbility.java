@@ -46,6 +46,11 @@ public class KingAbility implements PieceAbility {
         return true;
     }
 
+    @Override
+    public boolean canInteract(final Player player, final Piece myPiece, final Piece targetPiece, final LivingEntity targetEntity) {
+        return combatPolicy.canCommand(myPiece, targetPiece);
+    }
+
     private void select(
             final Player player,
             final Participant participant,

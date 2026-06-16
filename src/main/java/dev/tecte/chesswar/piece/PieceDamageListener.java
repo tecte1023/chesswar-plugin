@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.manager.CombatManager;
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
@@ -14,20 +15,37 @@ import org.bukkit.event.entity.EntityDamageEvent;
 public class PieceDamageListener implements Listener {
     private final GameManager gameManager;
     private final CombatManager combatManager;
+    private final PieceManager pieceManager;
+    private final PiecePdcMapper pdcMapper;
 
     @EventHandler
     public void onDamage(final EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof final Player participant)) {
+        if (gameManager.phase() != GamePhase.BATTLE) {
             return;
         }
 
-        if (!combatManager.canTakeDamage(participant)) {
-            event.setCancelled(true);
+        final boolean isPiece = pieceManager.findCoordinate(event.getEntity()).isPresent();
+
+        if (isPiece) {
+            if (!combatManager.isProcessingAttack()) {
+                event.setCancelled(true);
+            }
+            return;
+        }
+
+        if (event.getEntity() instanceof final Player player) {
+            if (!combatManager.canTakeDamage(player)) {
+                event.setCancelled(true);
+            }
         }
     }
 
     @EventHandler
     public void onAttack(final EntityDamageByEntityEvent event) {
+        if (gameManager.phase() != GamePhase.BATTLE) {
+            return;
+        }
+
         if (combatManager.isProcessingAttack()) {
             return;
         }
@@ -40,16 +58,20 @@ public class PieceDamageListener implements Listener {
             return;
         }
 
+        if (attacker.hasPermission("chesswar.admin") && !PieceItemUtils.isPieceItem(attacker.getInventory().getItemInMainHand())) {
+            return;
+        }
+
         if (!PieceItemUtils.isPieceItem(attacker.getInventory().getItemInMainHand())) {
+            event.setCancelled(true);
+            return;
+        }
+
+        if (pieceManager.findCoordinate(victim).isEmpty()) {
             return;
         }
 
         event.setCancelled(true);
-
-        if (attacker.isSneaking()) {
-            gameManager.attackPiece(attacker, attacker);
-        } else {
-            gameManager.attackPiece(attacker, victim);
-        }
+        gameManager.attackPiece(attacker, victim);
     }
 }

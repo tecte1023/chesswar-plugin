@@ -20,9 +20,6 @@ public class MoveValidator {
             if (targetPiece.team() == piece.team()) {
                 return false;
             }
-            if (leapActive) {
-                return false;
-            }
         }
 
         return canReach(state, from, to, leapActive);
