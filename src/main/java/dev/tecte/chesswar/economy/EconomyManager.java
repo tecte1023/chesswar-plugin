@@ -28,10 +28,8 @@ public class EconomyManager {
         final GoldComponent gold = economyState.getPlayerGold(playerId);
         gold.add(amount);
 
-        // 기존 Participant 객체와 동기화 (레거시 호환성 및 스코어보드 출력용)
-        final Participant participant = gameContext.participants().get(playerId);
+        final Participant participant = gameContext.participant(playerId);
         if (participant != null) {
-            participant.gold(gold.currentGold());
             participant.statistics().addGoldEarned(amount);
         }
 
@@ -56,10 +54,8 @@ public class EconomyManager {
             return false;
         }
 
-        // 기존 Participant 객체와 동기화
-        final Participant participant = gameContext.participants().get(playerId);
+        final Participant participant = gameContext.participant(playerId);
         if (participant != null) {
-            participant.gold(gold.currentGold());
             participant.statistics().addGoldSpent(amount);
         }
 
@@ -80,7 +76,7 @@ public class EconomyManager {
      * 해당 팀원 전원에게 월급을 지급합니다.
      */
     public void distributeSalary(final Team team) {
-        for (final Participant p : gameContext.participants().values()) {
+        for (final Participant p : gameContext.participantsValues()) {
             if (p.team() == team) {
                 final int amount = economyState.getPlayerGold(p.playerId()).baseIncome();
                 addGold(p.playerId(), amount, GoldSource.SALARY);

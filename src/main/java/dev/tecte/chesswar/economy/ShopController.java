@@ -33,7 +33,7 @@ public class ShopController {
     private static final double UPGRADE_DAMAGE_INC = 5.0;
 
     public void openMainShop(final Player player) {
-        final Participant participant = gameContext.participants().get(player.getUniqueId());
+        final Participant participant = gameContext.participant(player.getUniqueId());
         if (participant == null) {
             return;
         }
@@ -224,7 +224,7 @@ public class ShopController {
                         miniMessage.deserialize("<yellow>클릭하여 구매</yellow>")
                 )
                 .asGuiItem(event -> {
-                    final Participant participant = gameContext.participants().get(player.getUniqueId());
+                    final Participant participant = gameContext.participant(player.getUniqueId());
                     if (participant == null) {
                         return;
                     }
