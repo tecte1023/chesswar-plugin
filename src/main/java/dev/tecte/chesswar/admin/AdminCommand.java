@@ -4,12 +4,15 @@ import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.CommandPermission;
 import co.aikar.commands.annotation.Subcommand;
+import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.economy.GoldSource;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.game.manager.GameManager;
+import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 @CommandAlias("chesswaradmin|cwa")
@@ -18,6 +21,34 @@ import org.bukkit.entity.Player;
 public class AdminCommand extends BaseCommand {
     private final GameManager gameManager;
     private final GameAnnouncer announcer;
+
+    @Subcommand("damage")
+    public void damagePiece(final Player player, final int x, final int y, final double amount) {
+        final Coordinate coord = Coordinate.of(x, y);
+        applyDamage(player, coord, amount);
+    }
+
+    @Subcommand("damagehere")
+    public void damageHere(final Player player, final double amount) {
+        gameManager.pieceManager().findCoordinate(player).ifPresentOrElse(
+                coord -> applyDamage(player, coord, amount),
+                () -> announcer.announceAdminMessage(player, Component.text("§6[Admin] §c당신은 현재 기물 위에 서 있지 않습니다."))
+        );
+    }
+
+    private void applyDamage(final Player player, final Coordinate coord, final double amount) {
+        final Piece piece = gameManager.pieceState().boardPieces().get(coord);
+        final LivingEntity entity = gameManager.pieceState().pieceEntities().get(coord);
+
+        if (piece == null || entity == null) {
+            announcer.announceAdminMessage(player, Component.text("§6[Admin] §c" + coord.x() + ", " + coord.y() + " 좌표에 기물이 존재하지 않습니다."));
+            return;
+        }
+
+        entity.damage(amount, player);
+
+        announcer.announceAdminMessage(player, Component.text("§6[Admin] §f" + coord.x() + ", " + coord.y() + " 좌표의 기물(" + piece.type().displayName() + ")에게 " + (int)amount + " 대미지를 입혔습니다."));
+    }
 
     @Subcommand("start")
     public void startGame(final Player player) {
