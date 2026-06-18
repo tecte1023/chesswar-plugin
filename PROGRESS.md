@@ -24,6 +24,7 @@
 - [x] `Engine-Native` 피드백 시스템 구현을 통한 출력 오버헤드 최소화
 - [x] 시스템 GUI 전역 보안 정책 (Global Total Lockout) 구축 및 시각적 글리치 방어
 - [x] 바닐라 물리 엔진 및 데미지 방어를 위한 **이벤트 기반 데미지 제어 (Event-Based Damage Control)** 시스템 정립
+- [x] **Null Safety (Lombok @NonNull)** 기술 표준 수립 및 문서화 완성
 
 ## 4. 기능 확장 - [90%] ⏳
 ### 경제 및 성장 시스템 - [100%] ✅
