@@ -23,6 +23,7 @@ public class ShopController {
     private final GameContext gameContext;
     private final EconomyManager economyManager;
     private final CombatManager combatManager;
+    private final dev.tecte.chesswar.piece.PieceState pieceState;
     private final GameAnnouncer announcer;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
 
@@ -44,7 +45,8 @@ public class ShopController {
                 .disableAllInteractions()
                 .create();
 
-        final boolean isKing = participant.selectedType() == PieceType.KING;
+        final dev.tecte.chesswar.piece.Piece piece = participant.getPiece(pieceState);
+        final boolean isKing = piece != null && piece.type() == dev.tecte.chesswar.piece.PieceType.KING;
 
         if (isKing) {
             // 킹 전용 레이아웃: 기물 강화(11), 개인 강화(13), 전술 아이템(15)

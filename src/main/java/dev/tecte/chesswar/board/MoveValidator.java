@@ -5,37 +5,37 @@ import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.team.Team;
 
 public class MoveValidator {
-    public boolean canMove(final PieceState state, final Coordinate from, final Coordinate to, final boolean leapActive) {
-        if (!from.isValid() || !to.isValid() || from.equals(to)) {
+    public boolean canMove(final PieceState state, final Coordinate from, final Coordinate to) {
+        if (from.equals(to)) {
             return false;
         }
 
-        final Piece piece = state.boardPieces().get(from);
+        final Piece piece = state.piece(from);
         if (piece == null) {
             return false;
         }
 
-        final Piece targetPiece = state.boardPieces().get(to);
+        final Piece targetPiece = state.piece(to);
         if (targetPiece != null) {
             if (targetPiece.team() == piece.team()) {
                 return false;
             }
         }
 
-        return canReach(state, from, to, leapActive);
+        return canReach(state, from, to);
     }
 
-    public boolean canReach(final PieceState state, final Coordinate from, final Coordinate to, final boolean leapActive) {
-        if (!from.isValid() || !to.isValid() || from.equals(to)) {
+    public boolean canReach(final PieceState state, final Coordinate from, final Coordinate to) {
+        if (from.equals(to)) {
             return false;
         }
 
-        final Piece piece = state.boardPieces().get(from);
+        final Piece piece = state.piece(from);
         if (piece == null) {
             return false;
         }
 
-        final Piece targetPiece = state.boardPieces().get(to);
+        final Piece targetPiece = state.piece(to);
         final int dx = to.x() - from.x();
         final int dy = to.y() - from.y();
         final int absDx = Math.abs(dx);
@@ -43,9 +43,9 @@ public class MoveValidator {
 
         return switch (piece.type()) {
             case KING -> absDx <= 1 && absDy <= 1;
-            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(state, from, to, piece.team(), leapActive);
-            case ROOK -> (dx == 0 || dy == 0) && isPathClear(state, from, to, piece.team(), leapActive);
-            case BISHOP -> (absDx == absDy) && isPathClear(state, from, to, piece.team(), leapActive);
+            case QUEEN -> (absDx == absDy || dx == 0 || dy == 0) && isPathClear(state, from, to, piece);
+            case ROOK -> (dx == 0 || dy == 0) && isPathClear(state, from, to, piece);
+            case BISHOP -> (absDx == absDy) && isPathClear(state, from, to, piece);
             case KNIGHT -> (absDx == 1 && absDy == 2) || (absDx == 2 && absDy == 1);
             case PAWN -> {
                 final int direction = (piece.team() == Team.WHITE ? 1 : -1);
@@ -58,7 +58,7 @@ public class MoveValidator {
                 }
 
                 if (isFirstMove) {
-                    yield targetPiece == null && isPathClear(state, from, to, piece.team(), leapActive);
+                    yield targetPiece == null && isPathClear(state, from, to, piece);
                 }
 
                 if (isCapture) {
@@ -70,7 +70,7 @@ public class MoveValidator {
         };
     }
 
-    private boolean isPathClear(final PieceState state, final Coordinate from, final Coordinate to, final Team team, final boolean leapActive) {
+    private boolean isPathClear(final PieceState state, final Coordinate from, final Coordinate to, final Piece piece) {
         final int xDirection = Integer.compare(to.x(), from.x());
         final int yDirection = Integer.compare(to.y(), from.y());
         final int steps = Math.max(Math.abs(to.x() - from.x()), Math.abs(to.y() - from.y()));
@@ -81,10 +81,10 @@ public class MoveValidator {
             final int currentX = from.x() + (xDirection * i);
             final int currentY = from.y() + (yDirection * i);
             final Coordinate coord = Coordinate.of(currentX, currentY);
-            final Piece obstacle = state.boardPieces().get(coord);
+            final Piece obstacle = state.piece(coord);
 
             if (obstacle != null) {
-                if (obstacle.team() != team) {
+                if (obstacle.team() != piece.team()) {
                     return false;
                 }
 
@@ -96,6 +96,6 @@ public class MoveValidator {
             return true;
         }
 
-        return leapActive && obstacleCount == 1;
+        return piece.leapActive() && obstacleCount == 1;
     }
 }

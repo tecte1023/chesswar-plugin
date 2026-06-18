@@ -51,6 +51,30 @@ public class PlayerInventoryAdapter {
         }
     }
 
+    public int consumeTurnOrder(final Player player) {
+        if (player == null) {
+            return -1;
+        }
+
+        int firstFoundOrder = -1;
+        final PlayerInventory inv = player.getInventory();
+        final int size = inv.getSize();
+
+        for (int i = 0; i < size; i++) {
+            final int order = getTurnOrder(inv.getItem(i));
+
+            if (order != -1) {
+                if (firstFoundOrder == -1) {
+                    firstFoundOrder = order;
+                }
+
+                inv.setItem(i, null);
+            }
+        }
+
+        return firstFoundOrder;
+    }
+
     private int getTurnOrder(final ItemStack item) {
         if (item == null || !item.hasItemMeta()) {
             return -1;

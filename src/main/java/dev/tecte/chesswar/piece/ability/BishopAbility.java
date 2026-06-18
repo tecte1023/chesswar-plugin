@@ -36,7 +36,7 @@ public class BishopAbility implements PieceAbility {
             final Piece victimPiece,
             final Participant participant
     ) {
-        if (!attackerCoord.equals(victimCoord) && !moveValidator.canReach(pieceState, attackerCoord, victimCoord, false)) {
+        if (!attackerCoord.equals(victimCoord) && !moveValidator.canReach(pieceState, attackerCoord, victimCoord)) {
             announcer.announceCombatError(attacker, Component.text("그곳에 있는 아군은 회복시킬 수 없는 범위에 있습니다!", NamedTextColor.RED));
             return InteractionResult.FAIL_HANDLED;
         }

@@ -24,7 +24,7 @@ public class Barracks {
         this.team = team;
         
         int cellSize = mainBoard.cellSize();
-        int offsetDistance = 5 + (8 * cellSize);
+        int offsetDistance = 5 + (ChessFormation.BOARD_SIZE * cellSize);
         
         // 1. 배럭 보드 생성
         Location barracksOrigin;
@@ -56,11 +56,21 @@ public class Barracks {
 
         this.chestLocation1 = board.origin().clone()
                 .add(board.right().getDirection().multiply(dFileRight))
-                .add(board.forward().getDirection().multiply(rankCenter));
+                .add(board.forward().getDirection().multiply(rankCenter))
+                .toBlockLocation();
         this.chestLocation2 = board.origin().clone()
                 .add(board.right().getDirection().multiply(eFileLeft))
-                .add(board.forward().getDirection().multiply(rankCenter));
+                .add(board.forward().getDirection().multiply(rankCenter))
+                .toBlockLocation();
         
         this.chestFacing = (team == Team.WHITE) ? board.forward().getOppositeFace() : board.forward();
+    }
+
+    public boolean hasChest(final Location location) {
+        if (location == null) {
+            return false;
+        }
+        final Location blockLoc = location.toBlockLocation();
+        return chestLocation1.equals(blockLoc) || chestLocation2.equals(blockLoc);
     }
 }

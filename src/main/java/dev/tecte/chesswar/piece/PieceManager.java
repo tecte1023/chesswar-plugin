@@ -6,7 +6,6 @@ import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.CombatPolicy;
-import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.ability.BishopAbility;
@@ -15,10 +14,6 @@ import dev.tecte.chesswar.piece.ability.KnightAbility;
 import dev.tecte.chesswar.piece.ability.PawnAbility;
 import dev.tecte.chesswar.piece.ability.RookAbility;
 import dev.tecte.chesswar.team.Team;
-import kr.toxicity.model.api.BetterModel;
-import kr.toxicity.model.api.tracker.EntityTracker;
-import kr.toxicity.model.api.tracker.EntityTrackerRegistry;
-import kr.toxicity.model.api.tracker.TrackerUpdateAction;
 import io.lumine.mythic.api.mobs.MobManager;
 import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.BukkitAdapter;
@@ -31,15 +26,14 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.util.Vector;
 
-import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.jetbrains.annotations.Nullable;
 
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j(topic = "ChessWar")
 public class PieceManager {
     private static final double PLAYER_TELEPORT_OFFSET_Y = 1.0;
     private static final int INITIAL_MOB_LEVEL = 1;
@@ -55,31 +49,24 @@ public class PieceManager {
     private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
     private final GameAnnouncer announcer;
-    private final Map<Coordinate, LivingEntity> bunkerEntities = new HashMap<>();
+    private final PieceVisualManager visualManager;
 
     public void spawnBunker(final ChessBoard board) {
-        clearBunker();
+        clearSpawnedEntities(false);
         pieceState.reset();
-        final Location bunkerLoc = board.origin().clone();
+        final Location bunkerLoc = board.newLocationBuffer();
         bunkerLoc.setY(BUNKER_Y);
-
-        final Vector forward = board.forwardVector();
-        final Vector backward = new Vector(-forward.getX(), -forward.getY(), -forward.getZ());
 
         for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
             final Coordinate coord = entry.getKey();
             final PieceType type = entry.getValue();
             final Team team = ChessFormation.getTeamAt(coord);
-            final Vector direction = (team == Team.WHITE) ? forward : backward;
 
             final Location loc = bunkerLoc.clone().add(coord.x() * BUNKER_GRID_SIZE, 0, coord.y() * BUNKER_GRID_SIZE);
-            loc.setDirection(direction);
+            loc.setDirection(board.calculateDirection(team));
 
             final LivingEntity entity = spawnBunkerPiece(type, team, coord, loc);
             if (entity != null) {
-                bunkerEntities.put(coord, entity);
-
-                // 관리자 명령어 및 시스템 추적을 위해 즉시 등록
                 final Piece piece = Piece.of(null, team, type);
                 placePiece(coord, piece);
                 registerPieceEntity(coord, entity);
@@ -94,13 +81,13 @@ public class PieceManager {
             final Location location
     ) {
         final String mobId = convertToPascalCase(team.name()) + convertToPascalCase(type.name());
-        final Optional<MythicMob> mythicMob = mobManager.getMythicMob(mobId);
+        final MythicMob mythicMob = mobManager.getMythicMob(mobId).orElse(null);
 
-        if (mythicMob.isEmpty()) {
+        if (mythicMob == null) {
             return null;
         }
 
-        final ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
+        final ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
         if (activeMob == null) {
             return null;
         }
@@ -109,123 +96,86 @@ public class PieceManager {
         pdcMapper.writeData(entity, type, team, coordinate, false);
         addSpawnedEntity(entity);
 
-        if (!(entity instanceof LivingEntity living)) {
+        if (!(entity instanceof final LivingEntity living)) {
             return null;
         }
 
         living.setAI(false);
         living.setGravity(false);
 
-        // BetterModel 연동: 원본 엔티티 은닉
-        BetterModel.registry(living.getUniqueId()).ifPresent(registry -> {
-            for (final EntityTracker tracker : registry.trackers()) {
-                tracker.hideOption(new kr.toxicity.model.api.tracker.EntityHideOption(true, true, true, true));
-            }
-        });
+        visualManager.setupModel(living);
 
-        // Java(PieceType)의 스탯을 물리 엔티티에 강제 주입 (SSOT 동기화)
         final org.bukkit.attribute.AttributeInstance maxHealthAttr = living.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
         if (maxHealthAttr != null) {
             maxHealthAttr.setBaseValue(type.baseHealth());
         }
         living.setHealth(type.baseHealth());
 
-        // 바닐라 투명화는 모델링에 영향을 줄 수 있으므로 일단 보류 (MythicMobs 옵션에서 처리 권장)
-
         Bukkit.getPluginManager().callEvent(new PieceSpawnEvent(living, type, team));
         return living;
     }
 
     public void deployBunkerToBarracks() {
-        for (final Map.Entry<Coordinate, LivingEntity> entry : bunkerEntities.entrySet()) {
-            final Coordinate coord = entry.getKey();
-            final LivingEntity entity = entry.getValue();
-            final Team team = ChessFormation.getTeamAt(coord);
+        final Piece[][] pieces = pieceState.boardPieces();
 
-            final ChessBoard barracksBoard = boardManager.getBarracksBoard(team);
-            if (barracksBoard == null) continue;
+        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+                final Piece piece = pieces[x][y];
 
-            final Location targetLoc = barracksBoard.toCenterLocation(coord);
-            final Vector direction = (team == Team.WHITE) ? barracksBoard.forwardVector() : new Vector(-barracksBoard.forwardVector().getX(), -barracksBoard.forwardVector().getY(), -barracksBoard.forwardVector().getZ());
-            targetLoc.setDirection(direction);
-
-            entity.teleport(targetLoc);
-        }
-    }
-
-    public void deployBunkerToBattlefield(
-            final ChessBoard board,
-            final Collection<Participant> participants
-    ) {
-        final Map<Coordinate, Participant> participantMap = indexParticipants(participants);
-        final Location reusableLoc = board.origin().clone();
-
-        for (final Map.Entry<Coordinate, LivingEntity> entry : bunkerEntities.entrySet()) {
-            final Coordinate coordinate = entry.getKey();
-            final LivingEntity entity = entry.getValue();
-            final Team team = ChessFormation.getTeamAt(coordinate);
-            final Participant participant = participantMap.get(coordinate);
-
-            if (participant != null) {
-                entity.remove();
-                final Player player = Bukkit.getPlayer(participant.playerId());
-                if (player != null) {
-                    registerPieceEntity(coordinate, player);
+                if (piece == null) {
+                    continue;
                 }
-                continue;
-            }
 
-            final PieceType type = pdcMapper.readType(entity).orElse(PieceType.PAWN);
-            final Piece piece = Piece.of(null, team, type);
-            placePiece(coordinate, piece);
+                final LivingEntity entity = piece.getLivingEntity();
 
-            board.updateToCenterLocation(coordinate, reusableLoc);
-            final Vector direction = (team == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
-            reusableLoc.setDirection(direction);
+                if (entity == null) {
+                    continue;
+                }
 
-            entity.teleport(reusableLoc);
-            snapModelTracker(entity, reusableLoc, true);
-            registerPieceEntity(coordinate, entity);
-        }
-        bunkerEntities.clear();
-    }
+                final Team team = piece.team();
+                final ChessBoard barracksBoard = boardManager.getBarracksBoard(team);
 
-    private void clearBunker() {
-        for (final LivingEntity entity : bunkerEntities.values()) {
-            if (entity != null && entity.isValid()) {
-                entity.remove();
+                if (barracksBoard == null) {
+                    continue;
+                }
+
+                final Coordinate coord = Coordinate.of(x, y);
+                final Location targetLoc = barracksBoard.toCenterLocation(coord);
+                targetLoc.setDirection(barracksBoard.calculateDirection(team));
+
+                entity.teleport(targetLoc);
             }
         }
-        bunkerEntities.clear();
     }
 
-    public void spawnInitialLayout(
-            final ChessBoard board,
-            final Collection<Participant> participants
-    ) {
-        final Vector forward = board.forwardVector();
-        final Vector backward = new Vector(-forward.getX(), -forward.getY(), -forward.getZ());
-        final Map<Coordinate, Participant> participantMap = indexParticipants(participants);
-        final Location reusableLoc = board.origin().clone();
+    public void deployBunkerToBattlefield(final ChessBoard board) {
+        final Location targetLoc = board.newLocationBuffer();
+        final Piece[][] pieces = pieceState.boardPieces();
 
-        for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
-            final Coordinate coordinate = entry.getKey();
-            final PieceType type = entry.getValue();
-            final Team team = ChessFormation.getTeamAt(coordinate);
-            final Vector direction = (team == Team.WHITE) ? forward : backward;
-            final Participant participant = participantMap.get(coordinate);
-            final Piece piece = (participant != null)
-                    ? Piece.of(participant.playerId(), team, type)
-                    : Piece.of(null, team, type);
+        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+                final Piece existingPiece = pieces[x][y];
 
-            if (participant != null) {
-                attachAbilities(piece);
-            }
-            placePiece(coordinate, piece);
+                if (existingPiece == null) {
+                    continue;
+                }
 
-            if (participant == null) {
-                board.updateToCenterLocation(coordinate, reusableLoc);
-                spawnPiece(type, team, coordinate, reusableLoc, direction, false);
+                final LivingEntity entity = existingPiece.getLivingEntity();
+
+                if (entity == null) {
+                    continue;
+                }
+
+                if (existingPiece.asPlayer() != null) {
+                    entity.remove();
+                    continue;
+                }
+
+                final Coordinate coordinate = Coordinate.of(x, y);
+                board.updateToCenterLocation(coordinate, targetLoc);
+                targetLoc.setDirection(board.calculateDirection(existingPiece.team()));
+                entity.teleport(targetLoc);
+                visualManager.snapModel(entity);
             }
         }
     }
@@ -239,15 +189,15 @@ public class PieceManager {
             final boolean isDisplay
     ) {
         final String mobId = convertToPascalCase(team.name()) + convertToPascalCase(type.name());
-        final Optional<MythicMob> mythicMob = mobManager.getMythicMob(mobId);
+        final MythicMob mythicMob = mobManager.getMythicMob(mobId).orElse(null);
 
-        if (mythicMob.isEmpty()) {
+        if (mythicMob == null) {
             return;
         }
 
         location.setDirection(direction);
 
-        final ActiveMob activeMob = mythicMob.get().spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
+        final ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
 
         if (activeMob == null) {
             return;
@@ -262,7 +212,7 @@ public class PieceManager {
             return;
         }
 
-        if (!(entity instanceof LivingEntity living)) {
+        if (!(entity instanceof final LivingEntity living)) {
             return;
         }
 
@@ -272,16 +222,16 @@ public class PieceManager {
     }
 
     public void movePiece(final ChessBoard board, final Coordinate from, final Coordinate to) {
-        final Map<Coordinate, Piece> boardPieces = pieceState.boardPieces();
-        final Piece piece = boardPieces.get(from);
+        final Piece piece = pieceState.piece(from);
 
         if (piece == null) {
             return;
         }
 
         relocateEntity(board, from, to);
-        boardPieces.remove(from);
-        boardPieces.put(to, piece);
+        if (!pieceState.movePiece(from, to)) {
+            log.error("Failed to move piece from {} to {}! Destination might be occupied.", from, to);
+        }
     }
 
     public void capturePiece(
@@ -289,12 +239,10 @@ public class PieceManager {
             final Coordinate attacker,
             final Coordinate victim
     ) {
-        final Map<Coordinate, Piece> boardPieces = pieceState.boardPieces();
-        final Piece victimPiece = boardPieces.get(victim);
+        final Piece victimPiece = pieceState.piece(victim);
 
         if (victimPiece != null) {
-            // 피해자 엔티티 추적 명시적 해제 (이후 movePiece가 해당 좌표를 차지함)
-            final LivingEntity victimEntity = pieceState.pieceEntities().get(victim);
+            final LivingEntity victimEntity = victimPiece.getLivingEntity();
             if (victimEntity != null) {
                 purgeEntity(victimEntity);
             }
@@ -323,23 +271,19 @@ public class PieceManager {
             return false;
         }
 
-        // 데스 이벤트가 아닌 단순 언로드/순간이동일 경우 보드에서 기물을 제거하지 않음
         if (!entity.isDead()) {
             return false;
         }
 
-        final Optional<Coordinate> coordinateOpt = pdcMapper.readCoordinate(entity);
+        final Coordinate coordinate = pdcMapper.readCoordinate(entity);
 
-        if (coordinateOpt.isPresent()) {
-            final Coordinate coordinate = coordinateOpt.get();
-            final LivingEntity registeredEntity = pieceState.pieceEntities().get(coordinate);
+        if (coordinate != null) {
+            final Piece coordPiece = pieceState.piece(coordinate);
+            final LivingEntity registeredEntity = coordPiece != null ? coordPiece.getLivingEntity() : null;
 
-            // 현재 사라진 엔티티가 실제로 보드에 등록된 해당 좌표의 엔티티가 맞는지 검증
-            // (벙커 기물을 지울 때 플레이어 기물까지 지워지는 현상 방지)
             if (registeredEntity != null && registeredEntity.getUniqueId().equals(entity.getUniqueId())) {
                 removePiece(coordinate);
-            } else if (registeredEntity == null && pieceState.boardPieces().containsKey(coordinate) && !pieceState.boardPieces().get(coordinate).isPlayerPiece()) {
-                // 플레이어 기물이 아닌데 등록된 엔티티가 없다면 벙커 초기화 등으로 인한 예외 케이스이므로 삭제
+            } else if (registeredEntity == null && pieceState.hasPiece(coordinate) && !pieceState.piece(coordinate).isPlayer()) {
                 removePiece(coordinate);
             }
         }
@@ -386,23 +330,24 @@ public class PieceManager {
     }
 
     public void placePiece(final Coordinate coordinate, final Piece piece) {
-        pieceState.boardPieces().put(coordinate, piece);
-
-        if (piece.ownerId() == null) {
-            return;
+        if (!pieceState.addPiece(coordinate, piece)) {
+            log.error("Failed to place piece at {}! Coordinate might be occupied.", coordinate);
         }
-
-        pieceState.entityToCoordinate().put(piece.ownerId(), coordinate);
     }
 
     public void registerPieceEntity(final Coordinate coordinate, final LivingEntity entity) {
-        pieceState.pieceEntities().put(coordinate, entity);
-        pieceState.entityToCoordinate().put(entity.getUniqueId(), coordinate);
+        pieceState.registerEntity(entity.getUniqueId(), coordinate);
     }
 
     public void removePiece(final Coordinate coordinate) {
-        removeBoardPieceMapping(coordinate);
-        removePieceEntityMapping(coordinate);
+        final Piece piece = pieceState.piece(coordinate);
+        if (piece != null) {
+            final LivingEntity entity = piece.getLivingEntity();
+            if (entity != null) {
+                piece.currentHealth(entity.getHealth());
+            }
+        }
+        pieceState.removePiece(coordinate);
     }
 
     public void addSpawnedEntity(final Entity entity) {
@@ -418,36 +363,7 @@ public class PieceManager {
             return;
         }
 
-        final UUID entityId = entity.getUniqueId();
-
-        pieceState.entityToCoordinate().remove(entityId);
-        pieceState.spawnedEntities().remove(entityId);
-    }
-
-    private void removeBoardPieceMapping(final Coordinate coordinate) {
-        final Piece piece = pieceState.boardPieces().remove(coordinate);
-
-        if (piece == null || piece.ownerId() == null) {
-            return;
-        }
-
-        pieceState.entityToCoordinate().remove(piece.ownerId());
-    }
-
-    private void removePieceEntityMapping(final Coordinate coordinate) {
-        final LivingEntity entity = pieceState.pieceEntities().remove(coordinate);
-
-        if (entity == null) {
-            return;
-        }
-
-        // Snapshot: 엔티티 제거 전 마지막 체력 상태를 Piece 객체에 보존 (Snapshot & Restore)
-        final Piece piece = pieceState.boardPieces().get(coordinate);
-        if (piece != null) {
-            piece.currentHealth(entity.getHealth());
-        }
-
-        pieceState.entityToCoordinate().remove(entity.getUniqueId());
+        pieceState.purgeEntity(entity.getUniqueId());
     }
 
     private void relocateEntity(final ChessBoard board, final Coordinate from, final Coordinate to) {
@@ -455,27 +371,24 @@ public class PieceManager {
             return;
         }
 
-        final Piece piece = pieceState.boardPieces().get(from);
+        final Piece piece = pieceState.piece(from);
         if (piece == null) {
             return;
         }
 
-        final Location mobTarget = board.updateToCenterLocation(to, board.origin().clone());
-        final Vector direction = (piece.team() == Team.WHITE) ? board.forwardVector() : new Vector(-board.forwardVector().getX(), -board.forwardVector().getY(), -board.forwardVector().getZ());
-        mobTarget.setDirection(direction);
+        final Location mobTarget = board.updateToCenterLocation(to, board.newLocationBuffer());
+        mobTarget.setDirection(board.calculateDirection(piece.team()));
 
-        final LivingEntity mobEntity = pieceState.pieceEntities().get(from);
+        final LivingEntity mobEntity = piece.getLivingEntity();
         if (mobEntity != null) {
             mobEntity.teleport(mobTarget);
-            snapModelTracker(mobEntity, mobTarget, true);
-            updateMobMapping(mobEntity, from, to);
+            visualManager.snapModel(mobEntity);
+            pdcMapper.updateCoordinate(mobEntity, to);
         }
 
-        if (piece.isPlayerPiece()) {
-            final Player player = Bukkit.getPlayer(piece.ownerId());
+        if (piece.isPlayer()) {
+            final Player player = Bukkit.getPlayer(piece.id());
             if (player != null) {
-                updatePlayerMapping(player, to);
-
                 final Location playerStart = player.getLocation();
                 final Location playerEnd = mobTarget.clone().add(0, PLAYER_TELEPORT_OFFSET_Y, 0);
 
@@ -484,50 +397,23 @@ public class PieceManager {
                 }
             }
         }
-
-        pieceState.boardPieces().remove(from);
-        pieceState.boardPieces().put(to, piece);
     }
 
-    private void snapModelTracker(final LivingEntity entity, final Location location, final boolean forceRender) {
-        BetterModel.registry(entity.getUniqueId()).ifPresent(registry -> {
-            for (final EntityTracker tracker : registry.trackers()) {
-                tracker.update(TrackerUpdateAction.moveDuration(0));
-                tracker.forceUpdate(true);
-            }
-        });
-    }
-
-    private void updateMobMapping(final LivingEntity entity, final Coordinate from, final Coordinate to) {
-        pdcMapper.updateCoordinate(entity, to);
-        pieceState.pieceEntities().remove(from);
-        pieceState.pieceEntities().put(to, entity);
-        pieceState.entityToCoordinate().put(entity.getUniqueId(), to);
-    }
-
-    private void updatePlayerMapping(final Player player, final Coordinate to) {
-        pieceState.entityToCoordinate().put(player.getUniqueId(), to);
-    }
-
-    public Optional<Coordinate> findCoordinate(final org.bukkit.entity.Entity entity) {
+    @Nullable
+    public Coordinate findCoordinate(final org.bukkit.entity.Entity entity) {
         if (entity == null) {
-            return Optional.empty();
+            return null;
         }
 
-        // 1. 메모리 매핑 우선 확인
-        final Coordinate memoryCoord = pieceState.entityToCoordinate().get(entity.getUniqueId());
+        final Coordinate memoryCoord = pieceState.coordinate(entity.getUniqueId());
         if (memoryCoord != null) {
-            return Optional.of(memoryCoord);
+            return memoryCoord;
         }
 
-        // 2. 메모리에 없을 경우(청크 언로드 후 재로드 등) PDC에서 확인 및 메모리 갱신
-        final Optional<Coordinate> pdcCoord = pdcMapper.readCoordinate(entity);
-        pdcCoord.ifPresent(coordinate -> {
-            pieceState.entityToCoordinate().put(entity.getUniqueId(), coordinate);
-            if (entity instanceof LivingEntity living) {
-                pieceState.pieceEntities().put(coordinate, living);
-            }
-        });
+        final Coordinate pdcCoord = pdcMapper.readCoordinate(entity);
+        if (pdcCoord != null) {
+            pieceState.registerEntity(entity.getUniqueId(), pdcCoord);
+        }
 
         return pdcCoord;
     }
@@ -552,22 +438,6 @@ public class PieceManager {
             }
             case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy, announcer));
         }
-    }
-
-    private Map<Coordinate, Participant> indexParticipants(
-            final Collection<Participant> participants
-    ) {
-        final Map<Coordinate, Participant> map = new HashMap<>();
-
-        for (final Participant participant : participants) {
-            if (participant.initialCoordinate() == null) {
-                continue;
-            }
-
-            map.put(participant.initialCoordinate(), participant);
-        }
-
-        return map;
     }
 
     private static String convertToPascalCase(final String source) {

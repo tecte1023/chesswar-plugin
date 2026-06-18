@@ -1,11 +1,13 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.board.ChessFormation;
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
-import org.bukkit.entity.LivingEntity;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -18,29 +20,122 @@ import java.util.UUID;
 @Accessors(fluent = true)
 @NoArgsConstructor(staticName = "create")
 public class PieceState {
-    private final Map<Coordinate, Piece> boardPieces = new HashMap<>();
-    private final Map<Coordinate, LivingEntity> pieceEntities = new HashMap<>();
+    @NotNull
+    private final Piece[][] boardPieces = new Piece[ChessFormation.BOARD_SIZE][ChessFormation.BOARD_SIZE];
+    @NotNull
     private final Map<UUID, Coordinate> entityToCoordinate = new HashMap<>();
+    @NotNull
     private final Set<UUID> spawnedEntities = new HashSet<>();
+    @NotNull
     private final Map<Team, Map<PieceType, StatBuff>> teamBuffs = new EnumMap<>(Team.class);
 
-    public StatBuff getBuff(Team team, PieceType type) {
+    @NotNull
+    public StatBuff getBuff(@NotNull Team team, @NotNull PieceType type) {
         return teamBuffs.computeIfAbsent(team, k -> new EnumMap<>(PieceType.class))
                 .computeIfAbsent(type, k -> StatBuff.create());
     }
 
-    public void reset() {
-        boardPieces.values().removeIf(piece -> piece.ownerId() == null);
+    public boolean addPiece(@NotNull final Coordinate coord, @NotNull final Piece piece) {
+        if (hasPiece(coord)) {
+            return false;
+        }
 
-        final Set<UUID> playerIds = new HashSet<>();
-        for (final Piece piece : boardPieces.values()) {
-            if (piece.ownerId() != null) {
-                playerIds.add(piece.ownerId());
+        boardPieces[coord.x()][coord.y()] = piece;
+
+        if (piece.id() != null) {
+            entityToCoordinate.put(piece.id(), coord);
+        }
+
+        return true;
+    }
+
+    public boolean movePiece(@NotNull final Coordinate from, @NotNull final Coordinate to) {
+        if (!hasPiece(from) || hasPiece(to)) {
+            return false;
+        }
+
+        final Piece piece = boardPieces[from.x()][from.y()];
+        boardPieces[from.x()][from.y()] = null;
+        boardPieces[to.x()][to.y()] = piece;
+
+        if (piece != null && piece.id() != null) {
+            entityToCoordinate.put(piece.id(), to);
+        }
+
+        return true;
+    }
+
+    public boolean removePiece(@NotNull final Coordinate coord) {
+        final Piece piece = boardPieces[coord.x()][coord.y()];
+
+        if (piece == null) {
+            return false;
+        }
+
+        boardPieces[coord.x()][coord.y()] = null;
+
+        if (piece.id() != null) {
+            entityToCoordinate.remove(piece.id());
+        }
+
+        return true;
+    }
+
+    public boolean registerEntity(@NotNull final UUID id, @NotNull final Coordinate coord) {
+        final Piece piece = boardPieces[coord.x()][coord.y()];
+
+        if (piece != null) {
+            if (piece.id() != null) {
+                entityToCoordinate.remove(piece.id());
+            }
+
+            piece.id(id);
+            entityToCoordinate.put(id, coord);
+            return true;
+        }
+
+        return false;
+    }
+
+    public void purgeEntity(@NotNull final UUID id) {
+        final Coordinate coord = entityToCoordinate.remove(id);
+
+        if (coord != null) {
+            final Piece piece = boardPieces[coord.x()][coord.y()];
+
+            if (piece != null && id.equals(piece.id())) {
+                boardPieces[coord.x()][coord.y()] = null;
             }
         }
 
-        pieceEntities.entrySet().removeIf(entry -> !playerIds.contains(entry.getValue().getUniqueId()));
-        entityToCoordinate.keySet().removeIf(uuid -> !playerIds.contains(uuid));
+        spawnedEntities.remove(id);
+    }
+
+    @Nullable
+    public Coordinate coordinate(@NotNull final UUID id) {
+        return entityToCoordinate.get(id);
+    }
+
+    @Nullable
+    public Piece piece(@NotNull final Coordinate coordinate) {
+        return boardPieces[coordinate.x()][coordinate.y()];
+    }
+
+    public boolean hasPiece(@NotNull final Coordinate coordinate) {
+        return boardPieces[coordinate.x()][coordinate.y()] != null;
+    }
+
+    public void reset() {
+        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+                final Piece piece = boardPieces[x][y];
+
+                if (piece != null && !piece.isPlayer()) {
+                    removePiece(Coordinate.of(x, y));
+                }
+            }
+        }
+
         spawnedEntities.clear();
         teamBuffs.clear();
     }

@@ -71,9 +71,11 @@ public class GameAnnouncer {
     private static final float SOUND_PITCH_DEFAULT = 1.0f;
 
     private final GameContext context;
+    private final dev.tecte.chesswar.piece.PieceState pieceState;
 
-    public GameAnnouncer(final GameContext context) {
+    public GameAnnouncer(final GameContext context, final dev.tecte.chesswar.piece.PieceState pieceState) {
         this.context = context;
+        this.pieceState = pieceState;
     }
 
     public void sendSelectionConfirmation(final Player player, final PieceType type, final Coordinate coord, final boolean isTaken) {
@@ -143,8 +145,9 @@ public class GameAnnouncer {
         for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player != null) {
+                final boolean hasPiece = participant.getPiece(pieceState) != null;
                 final Component guide = allSelected ? MSG_SELECTION_COMPLETED :
-                        (participant.hasPiece() ? MSG_SELECTION_WAITING : MSG_SELECTION_GUIDE);
+                        (hasPiece ? MSG_SELECTION_WAITING : MSG_SELECTION_GUIDE);
                 player.sendActionBar(guide);
             }
         }

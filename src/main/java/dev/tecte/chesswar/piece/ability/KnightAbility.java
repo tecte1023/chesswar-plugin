@@ -28,7 +28,7 @@ public class KnightAbility implements PieceAbility {
             final Piece victimPiece,
             final double damage
     ) {
-        if (!moveValidator.canMove(pieceState, victimCoord, attackerCoord, false)) {
+        if (!moveValidator.canMove(pieceState, victimCoord, attackerCoord)) {
             announcer.announceKnightPreemptiveStrike(attacker);
             return damage + 15.0;
         }

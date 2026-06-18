@@ -113,4 +113,8 @@ public class PieceItemUtils {
             }
         }
     }
+
+    public static void removeSelectionItems(final Player player) {
+        player.getInventory().remove(Material.NETHER_STAR);
+    }
 }

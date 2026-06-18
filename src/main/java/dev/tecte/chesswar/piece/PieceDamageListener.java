@@ -24,7 +24,7 @@ public class PieceDamageListener implements Listener {
             return;
         }
 
-        final boolean isPiece = pieceManager.findCoordinate(event.getEntity()).isPresent();
+        final boolean isPiece = pieceManager.findCoordinate(event.getEntity()) != null;
 
         if (isPiece) {
             if (!combatManager.isProcessingAttack()) {
@@ -67,7 +67,7 @@ public class PieceDamageListener implements Listener {
             return;
         }
 
-        if (pieceManager.findCoordinate(victim).isEmpty()) {
+        if (pieceManager.findCoordinate(victim) == null) {
             return;
         }
 

@@ -154,20 +154,6 @@ public class GameContext {
         return true;
     }
 
-    public boolean areAllPiecesSelected() {
-        if (participants.isEmpty()) {
-            return false;
-        }
-
-        for (final Participant participant : participants.values()) {
-            if (!participant.hasPiece()) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     public void startTimer(final int seconds) {
         remainingSeconds = seconds;
         initialSeconds = seconds;
@@ -253,10 +239,7 @@ public class GameContext {
         whiteOvertime = blackOvertime = false;
 
         for (final Participant participant : participants.values()) {
-            participant.initialCoordinate(null);
             participant.ready(false);
-            participant.commanderTarget(null);
-            participant.statusEffects().clear();
         }
     }
 }

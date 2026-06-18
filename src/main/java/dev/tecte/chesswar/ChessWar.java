@@ -33,6 +33,7 @@ import dev.tecte.chesswar.piece.PieceInteractListener;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PiecePdcMapper;
 import dev.tecte.chesswar.piece.PieceState;
+import dev.tecte.chesswar.piece.PieceVisualManager;
 import io.lumine.mythic.api.MythicProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.NamespacedKey;
@@ -55,6 +56,7 @@ public final class ChessWar extends JavaPlugin {
     private MoveValidator moveValidator;
     private CombatPolicy combatPolicy;
     private BoardVisualManager boardVisualManager;
+    private PieceVisualManager pieceVisualManager;
     private PiecePdcMapper piecePdcMapper;
 
     @Override
@@ -94,20 +96,21 @@ public final class ChessWar extends JavaPlugin {
         );
         moveValidator = new MoveValidator();
         combatPolicy = new CombatPolicy();
-        gameAnnouncer = new GameAnnouncer(context);
-        
-        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy, gameAnnouncer);
+        gameAnnouncer = new GameAnnouncer(context, pieceState);
+        pieceVisualManager = new PieceVisualManager();
+
+        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy, gameAnnouncer, pieceVisualManager);
         environmentManager = new EnvironmentManager();
 
         boardVisualManager = new BoardVisualManager(this, boardManager, gameAnnouncer);
         final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
 
         timerManager = new TimerManager(context);
-        scoreboardManager = new ScoreboardManager(context, inventoryAdapter, economyState);
+        scoreboardManager = new ScoreboardManager(context, inventoryAdapter, economyState, pieceState);
 
         economyManager = new EconomyManager(context, economyState, gameAnnouncer, scoreboardManager);
         combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
-        shopController = new ShopController(context, economyManager, combatManager, gameAnnouncer);
+        shopController = new ShopController(context, economyManager, combatManager, pieceState, gameAnnouncer);
 
         gameManager = new GameManager(
                 this,

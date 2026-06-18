@@ -30,15 +30,17 @@ public class AdminCommand extends BaseCommand {
 
     @Subcommand("damagehere")
     public void damageHere(final Player player, final double amount) {
-        gameManager.pieceManager().findCoordinate(player).ifPresentOrElse(
-                coord -> applyDamage(player, coord, amount),
-                () -> announcer.announceAdminMessage(player, Component.text("§6[Admin] §c당신은 현재 기물 위에 서 있지 않습니다."))
-        );
+        final Coordinate coord = gameManager.pieceManager().findCoordinate(player);
+        if (coord != null) {
+            applyDamage(player, coord, amount);
+        } else {
+            announcer.announceAdminMessage(player, Component.text("§6[Admin] §c당신은 현재 기물 위에 서 있지 않습니다."));
+        }
     }
 
     private void applyDamage(final Player player, final Coordinate coord, final double amount) {
-        final Piece piece = gameManager.pieceState().boardPieces().get(coord);
-        final LivingEntity entity = gameManager.pieceState().pieceEntities().get(coord);
+        final dev.tecte.chesswar.piece.Piece piece = gameManager.pieceState().piece(coord);
+        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
 
         if (piece == null || entity == null) {
             announcer.announceAdminMessage(player, Component.text("§6[Admin] §c" + coord.x() + ", " + coord.y() + " 좌표에 기물이 존재하지 않습니다."));

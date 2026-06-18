@@ -3,6 +3,8 @@ package dev.tecte.chesswar.game.manager;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
+import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.team.Team;
 import fr.mrmicky.fastboard.adventure.FastBoard;
 import lombok.extern.slf4j.Slf4j;
@@ -82,14 +84,21 @@ public class ScoreboardManager {
     private final GameContext context;
     private final PlayerInventoryAdapter inventoryAdapter;
     private final dev.tecte.chesswar.economy.EconomyState economyState;
+    private final PieceState pieceState;
     private final Map<UUID, FastBoard> boards = new HashMap<>();
 
     private Component turnLineCache;
 
-    public ScoreboardManager(final GameContext context, final PlayerInventoryAdapter inventoryAdapter, final dev.tecte.chesswar.economy.EconomyState economyState) {
+    public ScoreboardManager(
+            final GameContext context,
+            final PlayerInventoryAdapter inventoryAdapter,
+            final dev.tecte.chesswar.economy.EconomyState economyState,
+            final PieceState pieceState
+    ) {
         this.context = context;
         this.inventoryAdapter = inventoryAdapter;
         this.economyState = economyState;
+        this.pieceState = pieceState;
     }
 
     public void updateAll() {
@@ -311,8 +320,10 @@ public class ScoreboardManager {
             final boolean isMe = status.participant.playerId().equals(playerId);
             final boolean hasOrder = status.order != -1;
             final String orderText = hasOrder ? status.order + "번" : "-";
-            final String pieceText = status.participant.selectedType() != null
-                    ? status.participant.selectedType().symbol() + " " + status.participant.selectedType().displayName()
+
+            final Piece piece = status.participant.getPiece(pieceState);
+            final String pieceText = piece != null
+                    ? piece.type().symbol() + " " + piece.type().displayName()
                     : "?";
 
             final NamedTextColor color = isMe ? NamedTextColor.GOLD : (hasOrder ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY);
@@ -339,8 +350,9 @@ public class ScoreboardManager {
                 .blank()
                 .line(Component.text(" [ 내 기물 ]", myTeam.color()));
 
-        final String myPieceText = me.hasPiece() && me.selectedType() != null
-                ? me.selectedType().symbol() + " " + me.selectedType().displayName()
+        final Piece myPiece = me.getPiece(pieceState);
+        final String myPieceText = myPiece != null
+                ? myPiece.type().symbol() + " " + myPiece.type().displayName()
                 : "-";
 
         builder.line(Component.text(" ▶ " + myPieceText, NamedTextColor.GOLD))
@@ -356,12 +368,12 @@ public class ScoreboardManager {
             builder.line(Component.text(" ▶ -", NamedTextColor.DARK_GRAY));
         } else {
             for (final Participant p : allies) {
-                final boolean hasPiece = p.hasPiece() && p.selectedType() != null;
-                final String pieceText = hasPiece
-                        ? p.selectedType().symbol() + " " + p.selectedType().displayName()
+                final Piece allyPiece = p.getPiece(pieceState);
+                final String pieceText = allyPiece != null
+                        ? allyPiece.type().symbol() + " " + allyPiece.type().displayName()
                         : "-";
 
-                builder.line(Component.text(" ▶ " + p.playerName() + ": " + pieceText, hasPiece ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
+                builder.line(Component.text(" ▶ " + p.playerName() + ": " + pieceText, allyPiece != null ? NamedTextColor.WHITE : NamedTextColor.DARK_GRAY));
             }
         }
 
@@ -394,9 +406,12 @@ public class ScoreboardManager {
     }
 
     private Component getPersonalStatusLine(final Participant me) {
-        final Component statusComponent = me.statusEffects().isEmpty()
+        final Piece piece = me.getPiece(pieceState);
+        final List<String> effects = piece != null ? piece.statusEffects() : new java.util.ArrayList<>();
+
+        final Component statusComponent = effects.isEmpty()
                 ? Component.text("정상", NamedTextColor.WHITE)
-                : Component.text(String.join(", ", me.statusEffects()), NamedTextColor.RED);
+                : Component.text(String.join(", ", effects), NamedTextColor.RED);
 
         final int gold = economyState.getPlayerGold(me.playerId()).currentGold();
 

@@ -35,14 +35,14 @@ public class KingAbility implements PieceAbility {
             return false;
         }
 
-        final Coordinate currentTarget = participant.commanderTarget();
+        final Coordinate currentTarget = playerPiece.commanderTarget();
 
         if (targetCoord.equals(currentTarget)) {
-            deselect(player, participant, targetCoord, targetPiece);
+            deselect(player, playerPiece, targetCoord, targetPiece);
             return true;
         }
 
-        select(player, participant, targetCoord, targetPiece, currentTarget);
+        select(player, playerPiece, targetCoord, targetPiece, currentTarget);
         return true;
     }
 
@@ -53,26 +53,26 @@ public class KingAbility implements PieceAbility {
 
     private void select(
             final Player player,
-            final Participant participant,
+            final Piece playerPiece,
             final Coordinate targetCoord,
             final Piece targetPiece,
             final Coordinate previousTarget
     ) {
         applyGlowing(previousTarget, false);
         applyGlowing(targetCoord, true);
-        participant.commanderTarget(targetCoord);
+        playerPiece.commanderTarget(targetCoord);
 
         announcer.announceKingCommanderSelect(player, targetPiece);
     }
 
     private void deselect(
             final Player player,
-            final Participant participant,
+            final Piece playerPiece,
             final Coordinate targetCoord,
             final Piece targetPiece
     ) {
         applyGlowing(targetCoord, false);
-        participant.commanderTarget(null);
+        playerPiece.commanderTarget(null);
 
         announcer.announceKingCommanderDeselect(player, targetPiece);
     }
@@ -82,7 +82,8 @@ public class KingAbility implements PieceAbility {
             return;
         }
 
-        final LivingEntity entity = pieceState.pieceEntities().get(coord);
+        final Piece piece = pieceState.piece(coord);
+        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
         if (entity == null) {
             return;
         }

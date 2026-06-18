@@ -8,8 +8,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
-
-import java.util.Optional;
+import org.jetbrains.annotations.Nullable;
 
 @RequiredArgsConstructor
 public class PiecePdcMapper {
@@ -56,39 +55,42 @@ public class PiecePdcMapper {
         pdc.set(coordYKey, PersistentDataType.INTEGER, coordinate.y());
     }
 
-    public Optional<Coordinate> readCoordinate(final Entity entity) {
+    @Nullable
+    public Coordinate readCoordinate(final Entity entity) {
         final PersistentDataContainer pdc = entity.getPersistentDataContainer();
         final Integer x = pdc.get(coordXKey, PersistentDataType.INTEGER);
         final Integer y = pdc.get(coordYKey, PersistentDataType.INTEGER);
 
         if (x == null || y == null) {
-            return Optional.empty();
+            return null;
         }
 
-        return Optional.of(Coordinate.of(x, y));
+        return Coordinate.of(x, y);
     }
 
-    public Optional<PieceType> readType(final Entity entity) {
+    @Nullable
+    public PieceType readType(final Entity entity) {
         final String typeStr = entity.getPersistentDataContainer().get(pieceTypeKey, PersistentDataType.STRING);
         if (typeStr == null) {
-            return Optional.empty();
+            return null;
         }
         try {
-            return Optional.of(PieceType.valueOf(typeStr));
+            return PieceType.valueOf(typeStr);
         } catch (IllegalArgumentException e) {
-            return Optional.empty();
+            return null;
         }
     }
 
-    public Optional<Team> readTeam(final Entity entity) {
+    @Nullable
+    public Team readTeam(final Entity entity) {
         final String teamStr = entity.getPersistentDataContainer().get(pieceTeamKey, PersistentDataType.STRING);
         if (teamStr == null) {
-            return Optional.empty();
+            return null;
         }
         try {
-            return Optional.of(Team.valueOf(teamStr));
+            return Team.valueOf(teamStr);
         } catch (IllegalArgumentException e) {
-            return Optional.empty();
+            return null;
         }
     }
 

@@ -31,6 +31,7 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -92,9 +93,9 @@ public class CombatManager implements Listener {
         double personalHealth = 0.0;
         double personalDamage = 0.0;
 
-        final Coordinate coord = pieceManager.findCoordinate(entity).orElse(null);
+        final Coordinate coord = pieceManager.findCoordinate(entity);
         if (coord != null) {
-            final Piece piece = pieceState.boardPieces().get(coord);
+            final Piece piece = pieceState.piece(coord);
             if (piece != null) {
                 personalHealth = piece.personalBuff().health();
                 personalDamage = piece.personalBuff().damage();
@@ -120,34 +121,41 @@ public class CombatManager implements Listener {
         buff.addHealth(healthInc);
         buff.addDamage(damageInc);
 
-        for (final Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
-            final Piece piece = entry.getValue();
-            if (piece.team() != team || piece.type() != type) {
-                continue;
-            }
+        final Piece[][] pieces = pieceState.boardPieces();
 
-            final LivingEntity mob = pieceState.pieceEntities().get(entry.getKey());
-            if (mob != null && mob.isValid()) {
-                applyStats(mob, type, team);
-            }
+        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+                final Piece piece = pieces[x][y];
 
-            if (piece.isPlayerPiece()) {
-                final Player player = Bukkit.getPlayer(piece.ownerId());
-                if (player != null && player.isOnline()) {
-                    applyStats(player, type, team);
+                if (piece == null || piece.team() != team || piece.type() != type) {
+                    continue;
+                }
+
+                final LivingEntity mob = piece.getLivingEntity();
+
+                if (mob != null && mob.isValid()) {
+                    applyStats(mob, type, team);
+                }
+
+                if (piece.isPlayer()) {
+                    final Player player = Bukkit.getPlayer(piece.ownerId());
+
+                    if (player != null && player.isOnline()) {
+                        applyStats(player, type, team);
+                    }
                 }
             }
         }
     }
 
     public boolean upgradeIndividualPiece(final Player player, final double healthInc, final double damageInc) {
-        final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        final Coordinate coord = pieceManager.findCoordinate(player);
         if (coord == null) {
             announcer.announceCombatError(player, Component.text("§c[DEBUG] 기물의 위치를 찾을 수 없어 강화에 실패했습니다."));
             return false;
         }
 
-        final Piece piece = pieceState.boardPieces().get(coord);
+        final Piece piece = pieceState.piece(coord);
         if (piece == null) {
             announcer.announceCombatError(player, Component.text("§c[DEBUG] 해당 위치에 등록된 기물이 없습니다."));
             return false;
@@ -161,17 +169,25 @@ public class CombatManager implements Listener {
     }
 
     public void repairRooks(final Team team) {
-        for (final Map.Entry<Coordinate, Piece> entry : pieceState.boardPieces().entrySet()) {
-            final Piece piece = entry.getValue();
-            if (piece.team() == team && piece.type() == PieceType.ROOK) {
-                final LivingEntity entity = pieceState.pieceEntities().get(entry.getKey());
-                if (entity != null && entity.isValid()) {
-                    final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
-                    if (maxAbsorption != null) {
-                        maxAbsorption.setBaseValue(40.0);
+        final Piece[][] pieces = pieceState.boardPieces();
+
+        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+                final Piece piece = pieces[x][y];
+
+                if (piece != null && piece.team() == team && piece.type() == PieceType.ROOK) {
+                    final LivingEntity entity = piece.getLivingEntity();
+
+                    if (entity != null && entity.isValid()) {
+                        final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
+
+                        if (maxAbsorption != null) {
+                            maxAbsorption.setBaseValue(40.0);
+                        }
+
+                        entity.setAbsorptionAmount(40.0);
+                        entity.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, entity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
                     }
-                    entity.setAbsorptionAmount(40.0);
-                    entity.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, entity.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
                 }
             }
         }
@@ -240,23 +256,29 @@ public class CombatManager implements Listener {
             return AttackResult.INVALID;
         }
 
-        final Coordinate attackingCoordinate = pieceManager.findCoordinate(attacker).orElse(null);
+        final Coordinate attackingCoordinate = pieceManager.findCoordinate(attacker);
 
         if (attackingCoordinate == null) {
             return AttackResult.INVALID;
         }
 
         final Participant participant = context.participant(attacker.getUniqueId());
-        final Coordinate commandTarget = participant.commanderTarget();
+        final Piece attackingPlayerPiece = participant != null ? participant.getPiece(pieceState) : null;
+
+        if (attackingPlayerPiece == null) {
+            return AttackResult.INVALID;
+        }
+
+        final Coordinate commandTarget = attackingPlayerPiece.commanderTarget();
         final Coordinate finalAttackingCoordinate = (commandTarget != null) ? commandTarget : attackingCoordinate;
-        final Coordinate targetCoordinate = pieceManager.findCoordinate(victim).orElse(null);
+        final Coordinate targetCoordinate = pieceManager.findCoordinate(victim);
 
         if (targetCoordinate == null) {
             return AttackResult.INVALID;
         }
 
-        final Piece attackingPiece = pieceState.boardPieces().get(finalAttackingCoordinate);
-        final Piece targetPiece = pieceState.boardPieces().get(targetCoordinate);
+        final Piece attackingPiece = pieceState.piece(finalAttackingCoordinate);
+        final Piece targetPiece = pieceState.piece(targetCoordinate);
 
         if (attackingPiece == null || targetPiece == null) {
             return AttackResult.INVALID;
@@ -268,9 +290,9 @@ public class CombatManager implements Listener {
                 for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
                     final dev.tecte.chesswar.piece.ability.InteractionResult result = ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant);
                     if (result == dev.tecte.chesswar.piece.ability.InteractionResult.SUCCESS) {
-                        if (participant.commanderTarget() != null) {
-                            applyGlowing(participant.commanderTarget(), false);
-                            participant.commanderTarget(null);
+                        if (attackingPlayerPiece.commanderTarget() != null) {
+                            applyGlowing(attackingPlayerPiece.commanderTarget(), false);
+                            attackingPlayerPiece.commanderTarget(null);
                         }
                         return AttackResult.ACTION_DONE;
                     } else if (result == dev.tecte.chesswar.piece.ability.InteractionResult.FAIL_HANDLED) {
@@ -291,7 +313,7 @@ public class CombatManager implements Listener {
             );
         }
 
-        if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate, participant.leapActive())) {
+        if (!moveValidator.canMove(pieceState, finalAttackingCoordinate, targetCoordinate)) {
             announcer.announceCombatError(attacker, ERROR_ATTACK_OUT_OF_RANGE);
             return AttackResult.INVALID;
         }
@@ -304,20 +326,15 @@ public class CombatManager implements Listener {
     }
 
     public void onTurnStart(final Player player) {
-        Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+        final Coordinate coord = pieceManager.findCoordinate(player);
         final Participant participant = context.participant(player.getUniqueId());
 
-        if (coord == null && participant != null && participant.initialCoordinate() != null) {
-            coord = participant.initialCoordinate();
-            pieceManager.registerPlayerPiece(player, participant.team(), participant.selectedType(), coord);
-        }
-
-        if (coord == null) {
+        if (coord == null || participant == null) {
             return;
         }
 
-        final Piece piece = pieceState.boardPieces().get(coord);
-        if (piece == null || participant == null) {
+        final Piece piece = pieceState.piece(coord);
+        if (piece == null) {
             return;
         }
 
@@ -328,8 +345,11 @@ public class CombatManager implements Listener {
 
     public void clearCommanderVisuals(final Player player) {
         final Participant participant = context.participant(player.getUniqueId());
-        if (participant != null && participant.commanderTarget() != null) {
-            applyGlowing(participant.commanderTarget(), false);
+        if (participant != null) {
+            final Piece piece = participant.getPiece(pieceState);
+            if (piece != null && piece.commanderTarget() != null) {
+                applyGlowing(piece.commanderTarget(), false);
+            }
         }
     }
 
@@ -337,7 +357,8 @@ public class CombatManager implements Listener {
         if (coord == null) {
             return;
         }
-        final LivingEntity entity = pieceState.pieceEntities().get(coord);
+        final Piece piece = pieceState.piece(coord);
+        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
         if (entity == null) {
             return;
         }
@@ -361,12 +382,12 @@ public class CombatManager implements Listener {
 
         final Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
 
-        if (!to.isValid()) {
+        if (to == null) {
             announcer.announceCombatError(player, ERROR_OUT_OF_BOARD);
             return false;
         }
 
-        final Coordinate from = pieceManager.findCoordinate(player).orElse(null);
+        final Coordinate from = pieceManager.findCoordinate(player);
 
         if (from == null) {
             announcer.announceCombatError(player, ERROR_NO_PIECE_ON_BOARD);
@@ -374,7 +395,13 @@ public class CombatManager implements Listener {
         }
 
         final Participant participant = context.participant(player.getUniqueId());
-        final Coordinate commandTarget = participant.commanderTarget();
+        final Piece playerPiece = participant != null ? participant.getPiece(pieceState) : null;
+
+        if (playerPiece == null) {
+            return false;
+        }
+
+        final Coordinate commandTarget = playerPiece.commanderTarget();
         final Coordinate finalFrom = (commandTarget != null) ? commandTarget : from;
 
         if (finalFrom.equals(to)) {
@@ -382,25 +409,25 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        if (!moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
+        if (!moveValidator.canMove(pieceState, finalFrom, to)) {
             announcer.announceCombatError(player, ERROR_INVALID_MOVE_RANGE);
             return false;
         }
 
-        final Piece movingPiece = pieceState.boardPieces().get(finalFrom);
+        final Piece movingPiece = pieceState.piece(finalFrom);
 
         if (movingPiece == null) {
             return false;
         }
 
-        if (pieceState.boardPieces().containsKey(to)) {
+        if (pieceState.hasPiece(to)) {
             announcer.announceCombatError(player, ERROR_OCCUPIED_BY_PIECE);
             return false;
         }
 
         if (commandTarget != null) {
             applyGlowing(commandTarget, false);
-            participant.commanderTarget(null);
+            playerPiece.commanderTarget(null);
         }
 
         for (final PieceAbility ability : movingPiece.abilities()) {
@@ -460,9 +487,13 @@ public class CombatManager implements Listener {
         processingAttack = true;
         try {
             final Participant participant = context.participant(attacker.getUniqueId());
-            if (participant.commanderTarget() != null) {
-                applyGlowing(participant.commanderTarget(), false);
-                participant.commanderTarget(null);
+            if (participant == null) return false;
+
+            final Piece attackingPlayerPiece = participant.getPiece(pieceState);
+
+            if (attackingPlayerPiece != null && attackingPlayerPiece.commanderTarget() != null) {
+                applyGlowing(attackingPlayerPiece.commanderTarget(), false);
+                attackingPlayerPiece.commanderTarget(null);
             }
 
             final double baseDamage = attackingPiece.type().baseDamage();
@@ -507,6 +538,8 @@ public class CombatManager implements Listener {
             final Piece targetPiece
     ) {
         final Participant participant = context.participant(attacker.getUniqueId());
+        if (participant == null) return;
+        
         participant.statistics().addKill();
 
         // 처치 보상 지급 (200G)
@@ -538,13 +571,20 @@ public class CombatManager implements Listener {
 
         for (final Participant p : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(p.playerId());
-            final int itemOrder = inventoryAdapter.extractTurnOrder(player);
 
-            if (itemOrder >= 1 && itemOrder <= count) {
-                result[itemOrder - 1] = p;
-            } else {
+            if (player == null) {
                 nonHolders.add(p);
+                continue;
             }
+
+            final int index = inventoryAdapter.consumeTurnOrder(player) - 1;
+
+            if (index < 0 || index >= count || result[index] != null) {
+                nonHolders.add(p);
+                continue;
+            }
+
+            result[index] = p;
         }
 
         Collections.shuffle(nonHolders);
@@ -552,9 +592,11 @@ public class CombatManager implements Listener {
         int nonHolderIndex = 0;
 
         for (int i = 0; i < count; i++) {
-            if (result[i] == null) {
-                result[i] = nonHolders.get(nonHolderIndex++);
+            if (result[i] != null) {
+                continue;
             }
+
+            result[i] = nonHolders.get(nonHolderIndex++);
         }
 
         context.turnOrder(result);

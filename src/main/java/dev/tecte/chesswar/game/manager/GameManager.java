@@ -11,7 +11,6 @@ import dev.tecte.chesswar.economy.ShopController;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
-import dev.tecte.chesswar.game.component.PhaseTimerSettings;
 import dev.tecte.chesswar.game.component.Statistics;
 import dev.tecte.chesswar.game.component.TimerPolicy;
 import dev.tecte.chesswar.game.event.KingDeathEvent;
@@ -54,29 +53,27 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BookMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.Vector;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Getter
 @Accessors(fluent = true)
 @lombok.extern.slf4j.Slf4j(topic = "ChessWar")
 public class GameManager implements Listener {
-    private static final Component ERROR_NOT_YOUR_TURN = Component.text("당신의 턴이 아닙니다!", NamedTextColor.RED);
     private static final Component ERROR_INSPECT_OWN_TEAM_ONLY = Component.text("자신의 진영 기물만 살펴볼 수 있습니다!", NamedTextColor.RED);
     private static final Component ERROR_PIECE_ALREADY_TAKEN = Component.text("해당 위치의 기물은 이미 팀원이 선택했습니다!", NamedTextColor.RED);
 
     private static final Component ERROR_NOT_READY_PHASE = Component.text("지금은 준비를 완료할 수 있는 시간이 아닙니다!", NamedTextColor.RED);
     private static final Component ERROR_NOT_SELECTION_PHASE = Component.text("지금은 기물을 선택할 수 있는 시간이 아닙니다!", NamedTextColor.RED);
-    private static final Component ERROR_ALREADY_READY = Component.text("이미 준비 완료 상태입니다.", NamedTextColor.YELLOW);
-    private static final Component ERROR_NOT_TEAM_CHEST = Component.text("자신의 팀 막사에 있는 상자에서만 준비를 완료할 수 있습니다!", NamedTextColor.RED);
 
     private static final Component ERROR_NO_BOARD = Component.text("체스판이 존재하지 않습니다. 체스판을 먼저 생성해 주세요.", NamedTextColor.RED);
     private static final Component ERROR_NO_PARTICIPANTS = Component.text("참가자가 없습니다.", NamedTextColor.RED);
@@ -194,7 +191,8 @@ public class GameManager implements Listener {
 
         // BATTLE 단계인 경우 현재 턴 플레이어의 무기 소지 상태를 1틱마다 폴링 (상태 캐싱 적용)
         if (context.currentPhase() == GamePhase.BATTLE) {
-            currentTurnPlayer().ifPresent(playerId -> {
+            final UUID playerId = currentTurnPlayer();
+            if (playerId != null) {
                 final Player player = Bukkit.getPlayer(playerId);
                 if (player != null) {
                     final boolean isHolding = PieceItemUtils.isPieceItem(player.getInventory().getItemInMainHand());
@@ -207,7 +205,7 @@ public class GameManager implements Listener {
                         lastWeaponHeldState = isHolding;
                     }
                 }
-            });
+            }
         }
 
         timerManager.tick();
@@ -222,16 +220,9 @@ public class GameManager implements Listener {
         return context.currentPhase();
     }
 
-    public Map<UUID, Participant> participants() {
-        return context.participants();
-    }
-
-    public PhaseTimerSettings timerSettings() {
-        return context.timerSettings();
-    }
-
-    public Optional<Participant> findParticipant(final UUID playerId) {
-        return Optional.ofNullable(context.participant(playerId));
+    @Nullable
+    public Participant findParticipant(final UUID playerId) {
+        return context.participant(playerId);
     }
 
     public boolean isParticipant(final Player player) {
@@ -246,38 +237,38 @@ public class GameManager implements Listener {
         return context.countTeam(team);
     }
 
-    public Statistics stats(final UUID playerId) {
-        final Participant participant = context.participant(playerId);
-
-        return participant != null ? participant.statistics() : new Statistics();
-    }
-
-    public boolean isReady(final UUID playerId) {
-        final Participant participant = context.participant(playerId);
-
-        return participant != null && participant.ready();
-    }
-
     public boolean areAllParticipantsReady() {
         return context.areAllParticipantsReady();
     }
 
-    public int countReady(final Team team) {
-        return context.countReady(team);
-    }
-
     public boolean areAllPiecesSelected() {
-        return context.areAllPiecesSelected();
+        if (context.isParticipantsEmpty()) {
+            return false;
+        }
+
+        for (final Participant p : context.participantsValues()) {
+            if (p.getPiece(pieceState) == null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
-    public Optional<UUID> currentTurnPlayer() {
-        return Optional.ofNullable(context.currentTurnPlayerId());
+    @Nullable
+    public UUID currentTurnPlayer() {
+        return context.currentTurnPlayerId();
     }
 
-    public Optional<Coordinate> findCommandTarget(final UUID commanderId) {
+    @Nullable
+    public Coordinate findCommandTarget(final UUID commanderId) {
         final Participant participant = context.participant(commanderId);
+        if (participant == null) {
+            return null;
+        }
 
-        return participant == null ? Optional.empty() : Optional.ofNullable(participant.commanderTarget());
+        final Piece piece = participant.getPiece(pieceState);
+        return piece != null ? piece.commanderTarget() : null;
     }
 
     public void startGame(final Player player) {
@@ -383,6 +374,8 @@ public class GameManager implements Listener {
     }
 
     public void advancePhase() {
+        handleExitPhase(context.currentPhase());
+
         switch (context.advancePhase()) {
             case PIECE_SELECTION -> handleTransitionToPieceSelection();
             case TURN_ORDER -> handleTransitionToTurnOrder();
@@ -392,6 +385,31 @@ public class GameManager implements Listener {
         }
 
         scoreboardManager.updateAll();
+    }
+
+    private void handleExitPhase(final GamePhase phase) {
+        switch (phase) {
+            case PIECE_SELECTION -> handleExitPieceSelection();
+            case TURN_ORDER -> handleExitTurnOrder();
+        }
+    }
+
+    private void handleExitPieceSelection() {
+        if (context.isSelectionStarted()) {
+            finalizePieceSelection();
+        }
+
+        for (final Participant participant : context.participantsValues()) {
+            final Player player = Bukkit.getPlayer(participant.playerId());
+            if (player != null) {
+                PieceItemUtils.removeSelectionItems(player);
+            }
+        }
+    }
+
+    private void handleExitTurnOrder() {
+        combatManager.calculateTurnOrder(inventoryAdapter);
+        boardManager.clearBarracksChests();
     }
 
     private void handleTransitionToPieceSelection() {
@@ -412,33 +430,30 @@ public class GameManager implements Listener {
     }
 
     private void handleTransitionToBattle() {
-        combatManager.calculateTurnOrder(inventoryAdapter);
-        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard(), context.participantsValues());
-        boardManager.clearBarracksChests();
+        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard());
 
         for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
-            if (player == null) continue;
 
-            preparePlayerForBattle(player, participant);
+            if (player == null) {
+                continue;
+            }
+
+            final Piece piece = participant.getPiece(pieceState);
+            if (piece != null && piece.type().isLongRange()) {
+                player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
+            }
+
+            final Coordinate initialCoord = pieceState.coordinate(participant.playerId());
+
+            if (initialCoord == null) {
+                continue;
+            }
+
+            boardManager.deployToBattlefield(participant.team(), initialCoord, player);
         }
 
         nextTurn();
-    }
-
-    private void preparePlayerForBattle(final Player player, final Participant participant) {
-        inventoryAdapter.clearOrderItems(player);
-
-        final PieceType type = participant.selectedType();
-        if (type != null && type.isLongRange()) {
-            player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
-        }
-
-        player.getInventory().remove(Material.NETHER_STAR);
-
-        if (participant.initialCoordinate() != null) {
-            boardManager.deployToBattlefield(participant.team(), participant.initialCoordinate(), player);
-        }
     }
 
     private void handleTransitionToEnded() {
@@ -475,22 +490,21 @@ public class GameManager implements Listener {
 
         pieceManager.removePiece(coordinate);
 
-        final Piece upgradedPiece = (piece.isPlayerPiece())
+        final Piece upgradedPiece = (piece.isPlayer())
                 ? Piece.of(piece.ownerId(), piece.team(), upgradeType)
                 : Piece.of(null, piece.team(), upgradeType);
 
         pieceManager.attachAbilities(upgradedPiece);
         pieceManager.placePiece(coordinate, upgradedPiece);
 
-        final LivingEntity entity = pieceState.pieceEntities().get(coordinate);
+        final dev.tecte.chesswar.piece.Piece coordPiece = pieceState.piece(coordinate);
+        final LivingEntity entity = coordPiece != null ? coordPiece.getLivingEntity() : null;
         if (entity != null) {
             entity.remove();
         }
 
         final Location loc = boardManager.currentBoard().toCenterLocation(coordinate);
-        final Vector direction = (piece.team() == Team.WHITE)
-                ? boardManager.currentBoard().forwardVector()
-                : new Vector(-boardManager.currentBoard().forwardVector().getX(), -boardManager.currentBoard().forwardVector().getY(), -boardManager.currentBoard().forwardVector().getZ());
+        final Vector direction = boardManager.currentBoard().calculateDirection(piece.team());
 
         pieceManager.spawnPiece(upgradeType, piece.team(), coordinate, loc, direction, false);
 
@@ -659,14 +673,19 @@ public class GameManager implements Listener {
             return;
         }
 
+        final Piece piece = participant.getPiece(pieceState);
+        if (piece == null) {
+            return;
+        }
+
         if (ConsumableItemUtils.ID_LEAP.equals(consumableId)) {
-            if (participant.leapActive()) {
+            if (piece.leapActive()) {
                 announcer.announceAlreadyLeaping(player);
                 return;
             }
 
             item.setAmount(item.getAmount() - 1);
-            participant.leapActive(true);
+            piece.leapActive(true);
 
             announcer.announceLeapUsage(player);
 
@@ -717,17 +736,13 @@ public class GameManager implements Listener {
             return false;
         }
 
-        final Optional<PieceType> typeOpt = pdcMapper.readType(entity);
-        final Optional<Team> teamOpt = pdcMapper.readTeam(entity);
-        final Optional<Coordinate> coordOpt = pdcMapper.readCoordinate(entity);
+        final PieceType type = pdcMapper.readType(entity);
+        final Team team = pdcMapper.readTeam(entity);
+        final Coordinate coord = pdcMapper.readCoordinate(entity);
 
-        if (typeOpt.isEmpty() || teamOpt.isEmpty() || coordOpt.isEmpty()) {
+        if (type == null || team == null || coord == null) {
             return false;
         }
-
-        final PieceType type = typeOpt.get();
-        final Team team = teamOpt.get();
-        final Coordinate coord = coordOpt.get();
 
         final Participant participant = context.participant(player.getUniqueId());
         if (participant == null || participant.team() != team) {
@@ -784,13 +799,15 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Optional<Participant> participantOpt = findParticipant(player.getUniqueId());
-        if (participantOpt.isEmpty()) {
+        final Participant participant = findParticipant(player.getUniqueId());
+        if (participant == null) {
             return;
         }
 
-        final Participant participant = participantOpt.get();
-        participant.leapActive(false);
+        final Piece piece = participant.getPiece(pieceState);
+        if (piece != null) {
+            piece.leapActive(false);
+        }
         final Team team = participant.team();
 
         // 턴 시작 시 월급 지급 (팀 전원)
@@ -869,7 +886,6 @@ public class GameManager implements Listener {
                     context.isSelectionStarted(true);
                     startBarracksSelection();
                 } else {
-                    finalizePieceSelection();
                     advancePhase();
                 }
             }
@@ -902,11 +918,21 @@ public class GameManager implements Listener {
     }
 
     public void registerReady(final Team team) {
-        final List<Participant> teamMembers = context.participantsValues().stream()
-                .filter(p -> p.team() == team)
-                .toList();
+        final List<Participant> teamMembers = new ArrayList<>();
+        for (final Participant p : context.participantsValues()) {
+            if (p.team() == team) {
+                teamMembers.add(p);
+            }
+        }
 
-        final boolean isAnyReady = teamMembers.stream().anyMatch(Participant::ready);
+        boolean isAnyReady = false;
+        for (final Participant p : teamMembers) {
+            if (p.ready()) {
+                isAnyReady = true;
+                break;
+            }
+        }
+
         if (isAnyReady) {
             return;
         }
@@ -964,9 +990,9 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Coordinate from = pieceManager.findCoordinate(player).orElse(null);
-        final Optional<Coordinate> commandTarget = findCommandTarget(player.getUniqueId());
-        final Coordinate finalFrom = commandTarget.orElse(from);
+        final Coordinate from = pieceManager.findCoordinate(player);
+        final Coordinate commandTarget = findCommandTarget(player.getUniqueId());
+        final Coordinate finalFrom = commandTarget != null ? commandTarget : from;
 
         if (finalFrom == null) {
             return;
@@ -977,19 +1003,23 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Map<Coordinate, dev.tecte.chesswar.board.GuideType> validMoves = new HashMap<>();
-        final dev.tecte.chesswar.piece.Piece myPiece = pieceState.boardPieces().get(finalFrom);
+        final Piece myPiece = pieceState.piece(finalFrom);
+        if (myPiece == null) {
+            return;
+        }
 
-        for (int x = 0; x < 8; x++) {
-            for (int y = 0; y < 8; y++) {
+        final Map<Coordinate, dev.tecte.chesswar.board.GuideType> validMoves = new HashMap<>();
+
+        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
                 final Coordinate to = Coordinate.of(x, y);
 
-                if (moveValidator.canMove(pieceState, finalFrom, to, participant.leapActive())) {
-                    validMoves.put(to, pieceState.boardPieces().containsKey(to) ? dev.tecte.chesswar.board.GuideType.CAPTURE : dev.tecte.chesswar.board.GuideType.MOVE);
-                } else if (moveValidator.canReach(pieceState, finalFrom, to, participant.leapActive()) || finalFrom.equals(to)) {
-                    final dev.tecte.chesswar.piece.Piece targetPiece = pieceState.boardPieces().get(to);
-                    if (targetPiece != null && targetPiece.team() == participant.team() && myPiece != null) {
-                        final LivingEntity targetEntity = pieceState.pieceEntities().get(to);
+                if (moveValidator.canMove(pieceState, finalFrom, to)) {
+                    validMoves.put(to, pieceState.hasPiece(to) ? dev.tecte.chesswar.board.GuideType.CAPTURE : dev.tecte.chesswar.board.GuideType.MOVE);
+                } else if (moveValidator.canReach(pieceState, finalFrom, to) || finalFrom.equals(to)) {
+                    final Piece targetPiece = pieceState.piece(to);
+                    if (targetPiece != null && targetPiece.team() == participant.team()) {
+                        final LivingEntity targetEntity = targetPiece.getLivingEntity();
                         boolean interactable = false;
                         for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : myPiece.abilities()) {
                             if (ability.canInteract(player, myPiece, targetPiece, targetEntity)) {
@@ -1006,22 +1036,6 @@ public class GameManager implements Listener {
         }
 
         boardVisualManager.showGuide(player, validMoves);
-    }
-
-    public void registerCommandTarget(final UUID playerId, final Coordinate target) {
-        final Participant participant = context.participant(playerId);
-
-        if (participant != null) {
-            participant.commanderTarget(target);
-        }
-    }
-
-    public void clearCommandTarget(final UUID playerId) {
-        final Participant participant = context.participant(playerId);
-
-        if (participant != null) {
-            participant.commanderTarget(null);
-        }
     }
 
     public void setStartButtonBindingMode(final Player admin) {
@@ -1111,41 +1125,57 @@ public class GameManager implements Listener {
             return;
         }
 
-        currentTurnPlayer().ifPresent(playerId -> {
-            final Player player = Bukkit.getPlayer(playerId);
+        final UUID prevId = currentTurnPlayer();
+        if (prevId != null) {
+            final Player player = Bukkit.getPlayer(prevId);
             if (player != null) {
                 combatManager.clearCommanderVisuals(player);
             }
-        });
+        }
 
         context.advanceTurnIndex();
 
-        currentTurnPlayer().ifPresent(playerId -> {
-            final Player player = Bukkit.getPlayer(playerId);
+        final UUID nextId = currentTurnPlayer();
+        if (nextId != null) {
+            final Player player = Bukkit.getPlayer(nextId);
 
             if (player != null) {
                 onTurnStart(player);
             }
-        });
+        }
 
         scoreboardManager.updateAll();
     }
 
     private void finalizePieceSelection() {
         for (final Team team : Team.values()) {
-            final List<Participant> teamMembers = context.participantsValues().stream()
-                    .filter(p -> p.team() == team)
-                    .toList();
+            final List<Participant> teamMembers = new ArrayList<>();
+            for (final Participant p : context.participantsValues()) {
+                if (p.team() == team) {
+                    teamMembers.add(p);
+                }
+            }
 
-            if (teamMembers.isEmpty()) continue;
+            if (teamMembers.isEmpty()) {
+                continue;
+            }
 
-            final boolean hasKing = teamMembers.stream()
-                    .anyMatch(p -> p.selectedType() == PieceType.KING);
+            boolean hasKing = false;
+            for (final Participant p : teamMembers) {
+                final Piece piece = p.getPiece(pieceState);
+                if (piece != null && piece.type() == PieceType.KING) {
+                    hasKing = true;
+                    break;
+                }
+            }
 
             if (context.kingRequired() && !hasKing) {
-                final List<Participant> unselected = teamMembers.stream()
-                        .filter(p -> p.selectedType() == null)
-                        .toList();
+                final List<Participant> unselected = new ArrayList<>();
+                for (final Participant p : teamMembers) {
+                    if (p.getPiece(pieceState) == null) {
+                        unselected.add(p);
+                    }
+                }
 
                 final Participant target = unselected.isEmpty()
                         ? teamMembers.get((int) (Math.random() * teamMembers.size()))
@@ -1156,7 +1186,7 @@ public class GameManager implements Listener {
         }
 
         for (final Participant p : context.participantsValues()) {
-            if (p.selectedType() == null) {
+            if (p.getPiece(pieceState) == null) {
                 final PieceType randomType = PieceType.values()[(int) (Math.random() * (PieceType.values().length - 1)) + 1];
                 forceAssignPiece(p, randomType);
             }
@@ -1165,13 +1195,21 @@ public class GameManager implements Listener {
 
     private void forceAssignPiece(final Participant participant, final PieceType type) {
         final Player player = Bukkit.getPlayer(participant.playerId());
-        if (player == null) return;
+        if (player == null) {
+            return;
+        }
 
-        final Coordinate targetCoord = ChessFormation.getFullInitialLayout().entrySet().stream()
-                .filter(entry -> entry.getValue() == type && ChessFormation.getTeamAt(entry.getKey()) == participant.team())
-                .map(Map.Entry::getKey)
-                .findFirst()
-                .orElse(Coordinate.of(3, teamPieceRow(participant.team())));
+        Coordinate targetCoord = null;
+        for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
+            if (entry.getValue() == type && ChessFormation.getTeamAt(entry.getKey()) == participant.team()) {
+                targetCoord = entry.getKey();
+                break;
+            }
+        }
+
+        if (targetCoord == null) {
+            targetCoord = Coordinate.of(3, teamPieceRow(participant.team()));
+        }
 
         applyPieceAssignment(participant, player, targetCoord, type);
     }
@@ -1185,9 +1223,12 @@ public class GameManager implements Listener {
             return;
         }
 
-        final Set<Team> aliveTeams = java.util.Arrays.stream(Team.values())
-                .filter(this::hasKing)
-                .collect(Collectors.toSet());
+        final Set<Team> aliveTeams = new HashSet<>();
+        for (final Team team : Team.values()) {
+            if (hasKing(team)) {
+                aliveTeams.add(team);
+            }
+        }
 
         if (aliveTeams.size() == 1) {
             win(aliveTeams.iterator().next());
@@ -1199,7 +1240,7 @@ public class GameManager implements Listener {
     public void processPieceDeath(final Entity entity) {
         if (entity instanceof Player player) {
             if (isParticipant(player)) {
-                final Coordinate coord = pieceManager.findCoordinate(player).orElse(null);
+                final Coordinate coord = pieceManager.findCoordinate(player);
                 if (coord != null) {
                     pieceManager.removePiece(coord);
                 }
@@ -1223,25 +1264,27 @@ public class GameManager implements Listener {
     }
 
     private boolean hasKing(final Team team) {
-        return pieceState.boardPieces().values().stream()
-                .anyMatch(p -> {
-                    return p.team() == team && p.type() == PieceType.KING;
-                });
+        final Piece[][] pieces = pieceState.boardPieces();
+
+        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
+            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+                final Piece p = pieces[x][y];
+
+                if (p != null && p.team() == team && p.type() == PieceType.KING) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private boolean isCoordinateOccupiedByTeammate(final UUID playerId, final Team team, final Coordinate coord) {
-        return context.participantsValues().stream()
-                .filter(p -> {
-                    return p.team() == team && !p.playerId().equals(playerId);
-                })
-                .anyMatch(p -> {
-                    return coord.equals(p.initialCoordinate());
-                });
+        final Piece piece = pieceState.piece(coord);
+        return piece != null && piece.isPlayer() && piece.team() == team && !piece.id().equals(playerId);
     }
 
     private void applyPieceAssignment(final Participant participant, final Player player, final Coordinate coord, final PieceType type) {
-        participant.initialCoordinate(coord);
-        participant.selectedType(type);
         pieceManager.registerPlayerPiece(player, participant.team(), type, coord);
         combatManager.applyStats(player, type, participant.team());
         PieceItemUtils.replacePlayerPieceItem(player, type);

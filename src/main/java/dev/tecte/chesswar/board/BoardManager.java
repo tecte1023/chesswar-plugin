@@ -23,6 +23,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 @Slf4j
@@ -75,7 +76,7 @@ public class BoardManager implements Listener {
             final Barracks barracks = boardState.barracksMap().get(team);
             final int y = (team == Team.WHITE) ? 0 : 7;
 
-            for (int x = 0; x < 8; x++) {
+            for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
                 pieceManager.spawnPiece(
                         backRow[x],
                         team,
@@ -125,9 +126,6 @@ public class BoardManager implements Listener {
 
         state1.update(true, false);
         state2.update(true, false);
-
-        addBarracksChest(b1, barracks.team());
-        addBarracksChest(b2, barracks.team());
 
         final boolean b1IsTop = b1.getBlockX() < b2.getBlockX() || (b1.getBlockX() == b2.getBlockX() && b1.getBlockZ() < b2.getBlockZ());
         final Inventory chestInv = ((InventoryHolder) (b1IsTop ? b1 : b2).getBlock().getState()).getInventory();
@@ -199,12 +197,6 @@ public class BoardManager implements Listener {
         }
     }
 
-    public void addBarracksChest(final Location location, final Team team) {
-        final Location blockLoc = location.getBlock().getLocation();
-        boardState.barracksChests().add(blockLoc);
-        boardState.chestTeamOwnership().put(blockLoc, team);
-    }
-
     public void deployToBattlefield(final Team team, final Coordinate startCoordinate, final Player player) {
         if (!hasBoard()) return;
 
@@ -219,27 +211,36 @@ public class BoardManager implements Listener {
     }
 
     public boolean isBarracksChest(final Location location) {
-        return boardState.barracksChests().contains(location.getBlock().getLocation());
+        for (final Barracks barracks : boardState.barracksMap().values()) {
+            if (barracks.hasChest(location)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean isTeamChest(final Location location, final Team team) {
-        return boardState.chestTeamOwnership().get(location.getBlock().getLocation()) == team;
+        final Barracks barracks = boardState.barracksMap().get(team);
+        return barracks != null && barracks.hasChest(location);
     }
 
     public void clearBarracksChests() {
-        for (final Location loc : boardState.barracksChests()) {
-            final org.bukkit.block.Block block = loc.getBlock();
-            if (block.getState() instanceof InventoryHolder holder) {
-                final Inventory inv = holder.getInventory();
-                final List<HumanEntity> viewers = new ArrayList<>(inv.getViewers());
-                for (final HumanEntity viewer : viewers) {
-                    viewer.closeInventory();
-                }
-                inv.clear();
-            }
-            block.setType(Material.AIR);
+        for (final Barracks barracks : boardState.barracksMap().values()) {
+            clearChestAt(barracks.chestLocation1());
+            clearChestAt(barracks.chestLocation2());
         }
-        boardState.barracksChests().clear();
-        boardState.chestTeamOwnership().clear();
+    }
+
+    private void clearChestAt(final Location loc) {
+        final org.bukkit.block.Block block = loc.getBlock();
+        if (block.getState() instanceof InventoryHolder holder) {
+            final Inventory inv = holder.getInventory();
+            final List<HumanEntity> viewers = new ArrayList<>(inv.getViewers());
+            for (final HumanEntity viewer : viewers) {
+                viewer.closeInventory();
+            }
+            inv.clear();
+        }
+        block.setType(Material.AIR);
     }
 }

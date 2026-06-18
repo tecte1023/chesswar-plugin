@@ -24,14 +24,14 @@ public class CombatPolicy {
             return false;
         }
 
-        return commander.type() == PieceType.KING && !target.isPlayerPiece();
+        return commander.type() == PieceType.KING && !target.isPlayer();
     }
 
     public Piece getPrimaryAttacker(final Participant participant, final PieceState state) {
-        final Coordinate kingCoord = state.entityToCoordinate().get(participant.playerId());
+        final Coordinate kingCoord = state.coordinate(participant.playerId());
 
         if (kingCoord != null) {
-            final Piece king = state.boardPieces().get(kingCoord);
+            final Piece king = state.piece(kingCoord);
             if (king != null && king.type() == PieceType.KING) {
                 return king;
             }
