@@ -121,7 +121,7 @@ public class BoardVisualManager {
         final double dxR = rightDir.getX();
         final double dzR = rightDir.getZ();
 
-        final int physicalSize = 8 * board.cellSize();
+        final int physicalSize = ChessFormation.BOARD_SIZE * board.cellSize();
         final int maxOffset = physicalSize - 1;
 
         final double offsetFX = dxF * maxOffset;
