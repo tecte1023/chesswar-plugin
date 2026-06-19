@@ -309,7 +309,7 @@ public class GameManager implements Listener {
         }
 
         final BlockFace forward = getCardinalDirection(admin.getLocation());
-        final ChessBoard board = new ChessBoard(admin.getLocation(), forward, DEFAULT_CELL_SIZE);
+        final ChessBoard board = ChessBoard.of(admin.getLocation(), forward, DEFAULT_CELL_SIZE);
 
         boardManager.updateBoard(board);
         environmentManager.configure(board.origin().getWorld());

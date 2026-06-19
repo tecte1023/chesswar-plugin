@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ChessFormation {
-    public static final int BOARD_SIZE = 8;
+    public static final int BOARD_SIZE = ChessBoard.BOARD_SIZE;
     public static final int KING_X = 4;
     public static final int QUEEN_X = 3;
 

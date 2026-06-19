@@ -1,19 +1,19 @@
 package dev.tecte.chesswar.board;
 
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Value;
 import lombok.experimental.Accessors;
 import org.jetbrains.annotations.NotNull;
 
-@Value
+@Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
-public class Coordinate {
+public final class Coordinate {
     private static final Coordinate[] CACHE = new Coordinate[ChessFormation.BOARD_SIZE * ChessFormation.BOARD_SIZE];
 
-    int x;
-    int y;
+    private final int x;
+    private final int y;
 
     static {
         for (int i = 0; i < ChessFormation.BOARD_SIZE; i++) {

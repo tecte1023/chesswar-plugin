@@ -6,10 +6,6 @@ import lombok.experimental.Accessors;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
 
-/**
- * 팀별 대기 공간(배럭)을 담당하는 도메인 객체.
- * 좌표 계산 및 물리적 위치 캐싱을 담당함.
- */
 @Getter
 @Accessors(fluent = true)
 public class Barracks {
@@ -35,7 +31,7 @@ public class Barracks {
             barracksOrigin = mainBoard.origin().clone()
                     .add(mainBoard.forward().getDirection().multiply(offsetDistance));
         }
-        this.board = new ChessBoard(barracksOrigin, mainBoard.forward(), cellSize);
+        this.board = ChessBoard.of(barracksOrigin, mainBoard.forward(), cellSize);
 
         // 2. 스폰 위치 캐싱
         Coordinate spawnCoord = (team == Team.WHITE) ? Coordinate.of(3, 6) : Coordinate.of(3, 1);
