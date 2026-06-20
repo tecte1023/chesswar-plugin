@@ -4,6 +4,7 @@ import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceEffect;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.team.Team;
 import fr.mrmicky.fastboard.adventure.FastBoard;
@@ -22,6 +23,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j(topic = "ChessWar")
 public class ScoreboardManager {
@@ -407,11 +409,11 @@ public class ScoreboardManager {
 
     private Component getPersonalStatusLine(final Participant me) {
         final Piece piece = me.getPiece(pieceState);
-        final List<String> effects = piece != null ? piece.statusEffects() : new java.util.ArrayList<>();
+        final List<PieceEffect> effects = piece != null ? piece.statusEffects() : new ArrayList<>();
 
         final Component statusComponent = effects.isEmpty()
                 ? Component.text("정상", NamedTextColor.WHITE)
-                : Component.text(String.join(", ", effects), NamedTextColor.RED);
+                : Component.text(effects.stream().map(PieceEffect::name).collect(Collectors.joining(", ")), NamedTextColor.RED);
 
         final int gold = economyState.getPlayerGold(me.playerId()).currentGold();
 

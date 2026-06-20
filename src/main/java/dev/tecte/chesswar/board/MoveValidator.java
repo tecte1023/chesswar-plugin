@@ -96,6 +96,6 @@ public class MoveValidator {
             return true;
         }
 
-        return piece.leapActive() && obstacleCount == 1;
+        return piece.hasEffect("도약") && obstacleCount == 1;
     }
 }
