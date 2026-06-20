@@ -54,7 +54,7 @@ public class PieceManager {
     public void spawnBunker(final ChessBoard board) {
         clearSpawnedEntities(false);
         pieceState.reset();
-        final Location bunkerLoc = board.newLocationBuffer();
+        final Location bunkerLoc = board.origin();
         bunkerLoc.setY(BUNKER_Y);
 
         for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
@@ -67,9 +67,8 @@ public class PieceManager {
 
             final LivingEntity entity = spawnBunkerPiece(type, team, coord, loc);
             if (entity != null) {
-                final Piece piece = Piece.of(null, team, type);
+                final Piece piece = Piece.of(entity.getUniqueId(), team, type);
                 placePiece(coord, piece);
-                registerPieceEntity(coord, entity);
             }
         }
     }
@@ -126,7 +125,7 @@ public class PieceManager {
                     continue;
                 }
 
-                final LivingEntity entity = piece.getLivingEntity();
+                final LivingEntity entity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
 
                 if (entity == null) {
                     continue;
@@ -149,7 +148,7 @@ public class PieceManager {
     }
 
     public void deployBunkerToBattlefield(final ChessBoard board) {
-        final Location targetLoc = board.newLocationBuffer();
+        final Location targetLoc = board.origin();
         final Piece[][] pieces = pieceState.boardPieces();
 
         for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
@@ -160,13 +159,13 @@ public class PieceManager {
                     continue;
                 }
 
-                final LivingEntity entity = existingPiece.getLivingEntity();
+                final LivingEntity entity = existingPiece.isPlayer() ? Bukkit.getPlayer(existingPiece.id()) : (Bukkit.getEntity(existingPiece.id()) instanceof LivingEntity e ? e : null);
 
                 if (entity == null) {
                     continue;
                 }
 
-                if (existingPiece.asPlayer() != null) {
+                if (existingPiece.isPlayer()) {
                     entity.remove();
                     continue;
                 }
@@ -180,7 +179,8 @@ public class PieceManager {
         }
     }
 
-    public void spawnPiece(
+    @Nullable
+    public LivingEntity spawnPiece(
             final PieceType type,
             final Team team,
             final Coordinate coordinate,
@@ -192,7 +192,7 @@ public class PieceManager {
         final MythicMob mythicMob = mobManager.getMythicMob(mobId).orElse(null);
 
         if (mythicMob == null) {
-            return;
+            return null;
         }
 
         location.setDirection(direction);
@@ -200,7 +200,7 @@ public class PieceManager {
         final ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(location), INITIAL_MOB_LEVEL);
 
         if (activeMob == null) {
-            return;
+            return null;
         }
 
         final Entity entity = activeMob.getEntity().getBukkitEntity();
@@ -209,16 +209,16 @@ public class PieceManager {
         addSpawnedEntity(entity);
 
         if (isDisplay) {
-            return;
+            return null;
         }
 
         if (!(entity instanceof final LivingEntity living)) {
-            return;
+            return null;
         }
 
         Bukkit.getPluginManager().callEvent(new PieceSpawnEvent(living, type, team));
 
-        registerPieceEntity(coordinate, living);
+        return living;
     }
 
     public void movePiece(final ChessBoard board, final Coordinate from, final Coordinate to) {
@@ -242,7 +242,7 @@ public class PieceManager {
         final Piece victimPiece = pieceState.piece(victim);
 
         if (victimPiece != null) {
-            final LivingEntity victimEntity = victimPiece.getLivingEntity();
+            final LivingEntity victimEntity = victimPiece.isPlayer() ? Bukkit.getPlayer(victimPiece.id()) : (Bukkit.getEntity(victimPiece.id()) instanceof LivingEntity e ? e : null);
             if (victimEntity != null) {
                 purgeEntity(victimEntity);
             }
@@ -279,7 +279,7 @@ public class PieceManager {
 
         if (coordinate != null) {
             final Piece coordPiece = pieceState.piece(coordinate);
-            final LivingEntity registeredEntity = coordPiece != null ? coordPiece.getLivingEntity() : null;
+            final LivingEntity registeredEntity = coordPiece != null ? (coordPiece.isPlayer() ? Bukkit.getPlayer(coordPiece.id()) : (Bukkit.getEntity(coordPiece.id()) instanceof LivingEntity e ? e : null)) : null;
 
             if (registeredEntity != null && registeredEntity.getUniqueId().equals(entity.getUniqueId())) {
                 removePiece(coordinate);
@@ -335,14 +335,11 @@ public class PieceManager {
         }
     }
 
-    public void registerPieceEntity(final Coordinate coordinate, final LivingEntity entity) {
-        pieceState.registerEntity(entity.getUniqueId(), coordinate);
-    }
 
     public void removePiece(final Coordinate coordinate) {
         final Piece piece = pieceState.piece(coordinate);
         if (piece != null) {
-            final LivingEntity entity = piece.getLivingEntity();
+            final LivingEntity entity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
             if (entity != null) {
                 piece.currentHealth(entity.getHealth());
             }
@@ -376,10 +373,10 @@ public class PieceManager {
             return;
         }
 
-        final Location mobTarget = board.updateToCenterLocation(to, board.newLocationBuffer());
+        final Location mobTarget = board.updateToCenterLocation(to, board.origin());
         mobTarget.setDirection(board.calculateDirection(piece.team()));
 
-        final LivingEntity mobEntity = piece.getLivingEntity();
+        final LivingEntity mobEntity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
         if (mobEntity != null) {
             mobEntity.teleport(mobTarget);
             visualManager.snapModel(mobEntity);
@@ -410,33 +407,27 @@ public class PieceManager {
             return memoryCoord;
         }
 
-        final Coordinate pdcCoord = pdcMapper.readCoordinate(entity);
-        if (pdcCoord != null) {
-            pieceState.registerEntity(entity.getUniqueId(), pdcCoord);
-        }
-
-        return pdcCoord;
+        return pdcMapper.readCoordinate(entity);
     }
 
     public void registerPlayerPiece(final Player player, final Team team, final PieceType type, final Coordinate coordinate) {
-        final Piece piece = Piece.of(player.getUniqueId(), team, type);
+        final Piece piece = Piece.ofPlayer(player.getUniqueId(), team, type);
         attachAbilities(piece);
         pdcMapper.writeData(player, type, team, coordinate, false);
         placePiece(coordinate, piece);
-        registerPieceEntity(coordinate, player);
     }
 
     public void attachAbilities(final Piece piece) {
         switch (piece.type()) {
-            case ROOK -> piece.addAbility(new RookAbility(announcer, 1.0));
-            case KNIGHT -> piece.addAbility(new KnightAbility(pieceState, announcer));
-            case BISHOP -> piece.addAbility(new BishopAbility(pieceState, announcer, 1.0));
-            case PAWN -> piece.addAbility(new PawnAbility());
+            case ROOK -> piece.abilities().add(new RookAbility(announcer, 1.0));
+            case KNIGHT -> piece.abilities().add(new KnightAbility(pieceState, announcer));
+            case BISHOP -> piece.abilities().add(new BishopAbility(pieceState, announcer, 1.0));
+            case PAWN -> piece.abilities().add(new PawnAbility());
             case QUEEN -> {
-                piece.addAbility(new RookAbility(announcer, 0.5));
-                piece.addAbility(new BishopAbility(pieceState, announcer, 0.5));
+                piece.abilities().add(new RookAbility(announcer, 0.5));
+                piece.abilities().add(new BishopAbility(pieceState, announcer, 0.5));
             }
-            case KING -> piece.addAbility(new KingAbility(pieceState, combatPolicy, announcer));
+            case KING -> piece.abilities().add(new KingAbility(pieceState, combatPolicy, announcer));
         }
     }
 

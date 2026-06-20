@@ -131,14 +131,14 @@ public class CombatManager implements Listener {
                     continue;
                 }
 
-                final LivingEntity mob = piece.getLivingEntity();
+                final LivingEntity mob = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
 
                 if (mob != null && mob.isValid()) {
                     applyStats(mob, type, team);
                 }
 
                 if (piece.isPlayer()) {
-                    final Player player = Bukkit.getPlayer(piece.ownerId());
+                    final Player player = Bukkit.getPlayer(piece.id());
 
                     if (player != null && player.isOnline()) {
                         applyStats(player, type, team);
@@ -176,7 +176,7 @@ public class CombatManager implements Listener {
                 final Piece piece = pieces[x][y];
 
                 if (piece != null && piece.team() == team && piece.type() == PieceType.ROOK) {
-                    final LivingEntity entity = piece.getLivingEntity();
+                    final LivingEntity entity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
 
                     if (entity != null && entity.isValid()) {
                         final AttributeInstance maxAbsorption = entity.getAttribute(Attribute.MAX_ABSORPTION);
@@ -269,7 +269,7 @@ public class CombatManager implements Listener {
             return AttackResult.INVALID;
         }
 
-        final Coordinate commandTarget = attackingPlayerPiece.commanderTarget();
+        final Coordinate commandTarget = participant != null ? participant.commanderTarget() : null;
         final Coordinate finalAttackingCoordinate = (commandTarget != null) ? commandTarget : attackingCoordinate;
         final Coordinate targetCoordinate = pieceManager.findCoordinate(victim);
 
@@ -290,9 +290,9 @@ public class CombatManager implements Listener {
                 for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
                     final dev.tecte.chesswar.piece.ability.InteractionResult result = ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant);
                     if (result == dev.tecte.chesswar.piece.ability.InteractionResult.SUCCESS) {
-                        if (attackingPlayerPiece.commanderTarget() != null) {
-                            applyGlowing(attackingPlayerPiece.commanderTarget(), false);
-                            attackingPlayerPiece.commanderTarget(null);
+                        if (participant != null && participant.commanderTarget() != null) {
+                            applyGlowing(participant.commanderTarget(), false);
+                            participant.commanderTarget(null);
                         }
                         return AttackResult.ACTION_DONE;
                     } else if (result == dev.tecte.chesswar.piece.ability.InteractionResult.FAIL_HANDLED) {
@@ -345,11 +345,8 @@ public class CombatManager implements Listener {
 
     public void clearCommanderVisuals(final Player player) {
         final Participant participant = context.participant(player.getUniqueId());
-        if (participant != null) {
-            final Piece piece = participant.getPiece(pieceState);
-            if (piece != null && piece.commanderTarget() != null) {
-                applyGlowing(piece.commanderTarget(), false);
-            }
+        if (participant != null && participant.commanderTarget() != null) {
+            applyGlowing(participant.commanderTarget(), false);
         }
     }
 
@@ -358,7 +355,7 @@ public class CombatManager implements Listener {
             return;
         }
         final Piece piece = pieceState.piece(coord);
-        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
+        final LivingEntity entity = piece != null ? (piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null)) : null;
         if (entity == null) {
             return;
         }
@@ -401,7 +398,7 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        final Coordinate commandTarget = playerPiece.commanderTarget();
+        final Coordinate commandTarget = participant != null ? participant.commanderTarget() : null;
         final Coordinate finalFrom = (commandTarget != null) ? commandTarget : from;
 
         if (finalFrom.equals(to)) {
@@ -427,7 +424,7 @@ public class CombatManager implements Listener {
 
         if (commandTarget != null) {
             applyGlowing(commandTarget, false);
-            playerPiece.commanderTarget(null);
+            participant.commanderTarget(null);
         }
 
         for (final PieceAbility ability : movingPiece.abilities()) {
@@ -491,9 +488,9 @@ public class CombatManager implements Listener {
 
             final Piece attackingPlayerPiece = participant.getPiece(pieceState);
 
-            if (attackingPlayerPiece != null && attackingPlayerPiece.commanderTarget() != null) {
-                applyGlowing(attackingPlayerPiece.commanderTarget(), false);
-                attackingPlayerPiece.commanderTarget(null);
+            if (participant != null && participant.commanderTarget() != null) {
+                applyGlowing(participant.commanderTarget(), false);
+                participant.commanderTarget(null);
             }
 
             final double baseDamage = attackingPiece.type().baseDamage();

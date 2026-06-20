@@ -6,6 +6,8 @@ import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
@@ -35,14 +37,14 @@ public class KingAbility implements PieceAbility {
             return false;
         }
 
-        final Coordinate currentTarget = playerPiece.commanderTarget();
+        final Coordinate currentTarget = participant.commanderTarget();
 
         if (targetCoord.equals(currentTarget)) {
-            deselect(player, playerPiece, targetCoord, targetPiece);
+            deselect(player, participant, targetCoord, targetPiece);
             return true;
         }
 
-        select(player, playerPiece, targetCoord, targetPiece, currentTarget);
+        select(player, participant, targetCoord, targetPiece, currentTarget);
         return true;
     }
 
@@ -53,26 +55,26 @@ public class KingAbility implements PieceAbility {
 
     private void select(
             final Player player,
-            final Piece playerPiece,
+            final Participant participant,
             final Coordinate targetCoord,
             final Piece targetPiece,
             final Coordinate previousTarget
     ) {
         applyGlowing(previousTarget, false);
         applyGlowing(targetCoord, true);
-        playerPiece.commanderTarget(targetCoord);
+        participant.commanderTarget(targetCoord);
 
         announcer.announceKingCommanderSelect(player, targetPiece);
     }
 
     private void deselect(
             final Player player,
-            final Piece playerPiece,
+            final Participant participant,
             final Coordinate targetCoord,
             final Piece targetPiece
     ) {
         applyGlowing(targetCoord, false);
-        playerPiece.commanderTarget(null);
+        participant.commanderTarget(null);
 
         announcer.announceKingCommanderDeselect(player, targetPiece);
     }
@@ -83,7 +85,7 @@ public class KingAbility implements PieceAbility {
         }
 
         final Piece piece = pieceState.piece(coord);
-        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
+        final LivingEntity entity = piece != null ? (piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null)) : null;
         if (entity == null) {
             return;
         }

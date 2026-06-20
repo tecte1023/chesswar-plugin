@@ -16,7 +16,9 @@ import dev.tecte.chesswar.game.component.TimerPolicy;
 import dev.tecte.chesswar.game.event.KingDeathEvent;
 import dev.tecte.chesswar.game.event.PiecePromotionEvent;
 import dev.tecte.chesswar.piece.ConsumableItemUtils;
+import dev.tecte.chesswar.piece.EffectType;
 import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceEffect;
 import dev.tecte.chesswar.piece.PieceItemUtils;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PiecePdcMapper;
@@ -263,12 +265,7 @@ public class GameManager implements Listener {
     @Nullable
     public Coordinate findCommandTarget(final UUID commanderId) {
         final Participant participant = context.participant(commanderId);
-        if (participant == null) {
-            return null;
-        }
-
-        final Piece piece = participant.getPiece(pieceState);
-        return piece != null ? piece.commanderTarget() : null;
+        return participant != null ? participant.commanderTarget() : null;
     }
 
     public void startGame(final Player player) {
@@ -440,6 +437,7 @@ public class GameManager implements Listener {
             }
 
             final Piece piece = participant.getPiece(pieceState);
+
             if (piece != null && piece.type().isLongRange()) {
                 player.getInventory().addItem(ConsumableItemUtils.createLeapItem());
             }
@@ -488,25 +486,30 @@ public class GameManager implements Listener {
     private void promotePiece(final Player player, final Piece piece, final Coordinate coordinate) {
         final PieceType upgradeType = PieceType.QUEEN;
 
-        pieceManager.removePiece(coordinate);
-
-        final Piece upgradedPiece = (piece.isPlayer())
-                ? Piece.of(piece.ownerId(), piece.team(), upgradeType)
-                : Piece.of(null, piece.team(), upgradeType);
-
-        pieceManager.attachAbilities(upgradedPiece);
-        pieceManager.placePiece(coordinate, upgradedPiece);
-
-        final dev.tecte.chesswar.piece.Piece coordPiece = pieceState.piece(coordinate);
-        final LivingEntity entity = coordPiece != null ? coordPiece.getLivingEntity() : null;
-        if (entity != null) {
-            entity.remove();
+        final LivingEntity oldEntity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
+        if (oldEntity != null && !piece.isPlayer()) {
+            oldEntity.remove();
         }
 
-        final Location loc = boardManager.currentBoard().toCenterLocation(coordinate);
-        final Vector direction = boardManager.currentBoard().calculateDirection(piece.team());
+        pieceManager.removePiece(coordinate);
 
-        pieceManager.spawnPiece(upgradeType, piece.team(), coordinate, loc, direction, false);
+        UUID newPieceId = piece.isPlayer() ? piece.id() : null;
+        if (!piece.isPlayer()) {
+            final Location loc = boardManager.currentBoard().toCenterLocation(coordinate);
+            final Vector direction = boardManager.currentBoard().calculateDirection(piece.team());
+            final LivingEntity newEntity = pieceManager.spawnPiece(upgradeType, piece.team(), coordinate, loc, direction, false);
+            if (newEntity != null) {
+                newPieceId = newEntity.getUniqueId();
+            }
+        }
+
+        if (newPieceId != null) {
+            final Piece upgradedPiece = piece.isPlayer()
+                    ? Piece.ofPlayer(newPieceId, piece.team(), upgradeType)
+                    : Piece.of(newPieceId, piece.team(), upgradeType);
+            pieceManager.attachAbilities(upgradedPiece);
+            pieceManager.placePiece(coordinate, upgradedPiece);
+        }
 
         Bukkit.broadcast(Component.text()
                 .append(Component.text(player.getName(), piece.team().color()))
@@ -679,13 +682,13 @@ public class GameManager implements Listener {
         }
 
         if (ConsumableItemUtils.ID_LEAP.equals(consumableId)) {
-            if (piece.leapActive()) {
+            if (piece.hasEffect("도약")) {
                 announcer.announceAlreadyLeaping(player);
                 return;
             }
 
             item.setAmount(item.getAmount() - 1);
-            piece.leapActive(true);
+            piece.addEffect(PieceEffect.of("도약", EffectType.BUFF, 1));
 
             announcer.announceLeapUsage(player);
 
@@ -806,7 +809,7 @@ public class GameManager implements Listener {
 
         final Piece piece = participant.getPiece(pieceState);
         if (piece != null) {
-            piece.leapActive(false);
+            piece.tickEffects();
         }
         final Team team = participant.team();
 
@@ -1019,7 +1022,7 @@ public class GameManager implements Listener {
                 } else if (moveValidator.canReach(pieceState, finalFrom, to) || finalFrom.equals(to)) {
                     final Piece targetPiece = pieceState.piece(to);
                     if (targetPiece != null && targetPiece.team() == participant.team()) {
-                        final LivingEntity targetEntity = targetPiece.getLivingEntity();
+                        final LivingEntity targetEntity = targetPiece.isPlayer() ? Bukkit.getPlayer(targetPiece.id()) : (Bukkit.getEntity(targetPiece.id()) instanceof LivingEntity e ? e : null);
                         boolean interactable = false;
                         for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : myPiece.abilities()) {
                             if (ability.canInteract(player, myPiece, targetPiece, targetEntity)) {

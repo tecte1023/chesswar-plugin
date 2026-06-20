@@ -41,10 +41,7 @@ public class PieceState {
         }
 
         boardPieces[coord.x()][coord.y()] = piece;
-
-        if (piece.id() != null) {
-            entityToCoordinate.put(piece.id(), coord);
-        }
+        entityToCoordinate.put(piece.id(), coord);
 
         return true;
     }
@@ -58,7 +55,7 @@ public class PieceState {
         boardPieces[from.x()][from.y()] = null;
         boardPieces[to.x()][to.y()] = piece;
 
-        if (piece != null && piece.id() != null) {
+        if (piece != null) {
             entityToCoordinate.put(piece.id(), to);
         }
 
@@ -73,28 +70,9 @@ public class PieceState {
         }
 
         boardPieces[coord.x()][coord.y()] = null;
-
-        if (piece.id() != null) {
-            entityToCoordinate.remove(piece.id());
-        }
+        entityToCoordinate.remove(piece.id());
 
         return true;
-    }
-
-    public boolean registerEntity(@NotNull final UUID id, @NotNull final Coordinate coord) {
-        final Piece piece = boardPieces[coord.x()][coord.y()];
-
-        if (piece != null) {
-            if (piece.id() != null) {
-                entityToCoordinate.remove(piece.id());
-            }
-
-            piece.id(id);
-            entityToCoordinate.put(id, coord);
-            return true;
-        }
-
-        return false;
     }
 
     public void purgeEntity(@NotNull final UUID id) {

@@ -4,7 +4,6 @@ import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.experimental.Accessors;
 import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.block.BlockFace;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -19,9 +18,6 @@ public final class ChessBoard {
 
     @NotNull
     private final Location origin;
-
-    @NotNull
-    private final World world;
 
     @NotNull
     @Getter
@@ -50,7 +46,6 @@ public final class ChessBoard {
 
     private ChessBoard(@NotNull final Location origin, @NotNull final BlockFace forward, final int cellSize) {
         this.origin = origin.toBlockLocation().add(BLOCK_CENTER_OFFSET, 0.0, BLOCK_CENTER_OFFSET);
-        world = origin.getWorld();
         this.forward = forward;
         right = getRightFace(forward);
         forwardVector = forward.getDirection();
@@ -80,13 +75,8 @@ public final class ChessBoard {
     }
 
     @NotNull
-    public Location newLocationBuffer() {
-        return origin.clone();
-    }
-
-    @NotNull
     public Location toCenterLocation(@NotNull final Coordinate coordinate) {
-        return updateToCenterLocation(coordinate, newLocationBuffer());
+        return updateToCenterLocation(coordinate, origin.clone());
     }
 
     @NotNull
@@ -106,12 +96,6 @@ public final class ChessBoard {
 
     @Nullable
     public Coordinate toCoordinate(@NotNull final Location location) {
-        final World locationWorld = location.getWorld();
-
-        if (locationWorld == null || !locationWorld.equals(world)) {
-            return null;
-        }
-
         final int blockOffsetX = location.getBlockX() - origin.getBlockX();
         final int blockOffsetZ = location.getBlockZ() - origin.getBlockZ();
         final int forwardDot = (blockOffsetX * forward.getModX()) + (blockOffsetZ * forward.getModZ());

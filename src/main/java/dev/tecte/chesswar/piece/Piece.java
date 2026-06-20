@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.piece;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.piece.ability.PieceAbility;
 import dev.tecte.chesswar.team.Team;
 import lombok.AccessLevel;
@@ -8,12 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.bukkit.Bukkit;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,61 +18,88 @@ import java.util.UUID;
 @Accessors(fluent = true)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 public class Piece {
-    @Nullable
-    private UUID id;
+    @NotNull
+    private final UUID id;
+
     private final boolean isPlayer;
+
     @NotNull
     private final Team team;
+
     @NotNull
     private final PieceType type;
+
     @NotNull
-    private final List<PieceAbility> abilities = new ArrayList<>();
+    private final List<PieceAbility> abilities;
+
     @NotNull
-    private final StatBuff personalBuff = StatBuff.create();
+    private final StatBuff personalBuff;
+
     @NotNull
-    private final List<String> statusEffects = new ArrayList<>();
+    private final List<PieceEffect> statusEffects;
 
     private double currentHealth;
-    private boolean leapActive;
-    @Nullable
-    private Coordinate commanderTarget;
 
     @NotNull
-    public static Piece of(@NotNull final Team team, @NotNull final PieceType type) {
-        return new Piece(null, false, team, type, type.baseHealth(), false, null);
+    public static Piece of(@NotNull final UUID id, @NotNull final Team team, @NotNull final PieceType type) {
+        return new Piece(
+                id,
+                false,
+                team,
+                type,
+                new ArrayList<>(),
+                StatBuff.create(),
+                new ArrayList<>(),
+                type.baseHealth()
+        );
     }
 
     @NotNull
-    public static Piece of(@NotNull final UUID ownerId, @NotNull final Team team, @NotNull final PieceType type) {
-        return new Piece(ownerId, true, team, type, type.baseHealth(), false, null);
+    public static Piece ofPlayer(@NotNull final UUID ownerId, @NotNull final Team team, @NotNull final PieceType type) {
+        return new Piece(
+                ownerId,
+                true,
+                team, type,
+                new ArrayList<>(),
+                StatBuff.create(),
+                new ArrayList<>(),
+                type.baseHealth()
+        );
     }
 
-    public void addAbility(@NotNull final PieceAbility ability) {
-        abilities.add(ability);
-    }
-
-    @Nullable
-    public LivingEntity getLivingEntity() {
-        if (id == null) {
-            return null;
+    public boolean hasEffect(@NotNull final String name) {
+        for (final PieceEffect effect : statusEffects) {
+            if (effect.name().equals(name)) {
+                return true;
+            }
         }
-        if (isPlayer) {
-            return Bukkit.getPlayer(id);
-        }
-        final Entity entity = Bukkit.getEntity(id);
-        return entity instanceof final LivingEntity living ? living : null;
+
+        return false;
     }
 
-    @Nullable
-    public UUID ownerId() {
-        return isPlayer ? id : null;
+    public void addEffect(@NotNull final PieceEffect effect) {
+        removeEffect(effect.name());
+        statusEffects.add(effect);
     }
 
-    @Nullable
-    public Player asPlayer() {
-        if (id == null || !isPlayer) {
-            return null;
+    public void removeEffect(@NotNull final String name) {
+        for (int i = 0; i < statusEffects.size(); i++) {
+            if (statusEffects.get(i).name().equals(name)) {
+                statusEffects.remove(i);
+                return;
+            }
         }
-        return Bukkit.getPlayer(id);
+    }
+
+    public void tickEffects() {
+        for (int i = statusEffects.size() - 1; i >= 0; i--) {
+            final PieceEffect effect = statusEffects.get(i);
+
+            effect.decrementDuration();
+
+            if (effect.isExpired()) {
+                statusEffects.remove(i);
+            }
+        }
     }
 }

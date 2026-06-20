@@ -12,6 +12,8 @@ import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
@@ -40,7 +42,7 @@ public class AdminCommand extends BaseCommand {
 
     private void applyDamage(final Player player, final Coordinate coord, final double amount) {
         final dev.tecte.chesswar.piece.Piece piece = gameManager.pieceState().piece(coord);
-        final LivingEntity entity = piece != null ? piece.getLivingEntity() : null;
+        final LivingEntity entity = piece != null ? (piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null)) : null;
 
         if (piece == null || entity == null) {
             announcer.announceAdminMessage(player, Component.text("§6[Admin] §c" + coord.x() + ", " + coord.y() + " 좌표에 기물이 존재하지 않습니다."));

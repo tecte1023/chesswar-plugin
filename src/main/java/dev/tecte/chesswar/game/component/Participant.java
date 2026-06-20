@@ -21,19 +21,29 @@ import java.util.UUID;
 public class Participant {
     @NotNull
     private final UUID playerId;
+
     @NotNull
     private final String playerName;
+
     @NotNull
     private final Team team;
+
     @NotNull
     private final Statistics statistics;
+
     private boolean ready;
+
     @NotNull
     private GameMode originalGameMode;
+
     @Nullable
     private Double originalHealth;
+
     @Nullable
     private Double originalAttackDamage;
+
+    @Nullable
+    private Coordinate commanderTarget;
 
     @NotNull
     public static Participant of(
@@ -50,6 +60,7 @@ public class Participant {
                 false,
                 originalGameMode,
                 null,
+                null,
                 null
         );
     }
@@ -57,6 +68,7 @@ public class Participant {
     @Nullable
     public Piece getPiece(@NotNull final PieceState state) {
         final Coordinate coord = state.coordinate(playerId);
+
         return coord != null ? state.piece(coord) : null;
     }
 }
