@@ -9,9 +9,10 @@ import net.kyori.adventure.text.format.NamedTextColor;
 @Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum Team {
-    WHITE("백팀", NamedTextColor.WHITE),
-    BLACK("흑팀", NamedTextColor.DARK_GRAY);
+    WHITE("백팀", NamedTextColor.WHITE, 1),
+    BLACK("흑팀", NamedTextColor.DARK_GRAY, -1);
 
     private final String teamName;
     private final NamedTextColor color;
+    private final int direction;
 }

@@ -1,72 +1,80 @@
 package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.team.Team;
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
+import org.jetbrains.annotations.NotNull;
 
-@Getter
 @Accessors(fluent = true)
-public class Barracks {
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
+public final class Barracks {
+    private static final int CENTER_LEFT_X = 3;
+    private static final int CENTER_RIGHT_X = 4;
+
+    private static final int WHITE_SPAWN_Y = 6;
+    private static final int BLACK_SPAWN_Y = 1;
+
+    private static final int WHITE_CHEST_Y = 4;
+    private static final int BLACK_CHEST_Y = 3;
+
+    private static final int CHEST_BLOCK_OFFSET = Grid.CELL_SIZE / 2;
+
+    @NotNull
+    @Getter
     private final Team team;
-    private final ChessBoard board;
-    private final Location spawnLocation;
-    private final Location chestLocation1;
-    private final Location chestLocation2;
-    private final BlockFace chestFacing;
 
-    public Barracks(Team team, ChessBoard mainBoard) {
-        this.team = team;
-        
-        int cellSize = mainBoard.cellSize();
-        int offsetDistance = 5 + (ChessFormation.BOARD_SIZE * cellSize);
-        
-        // 1. 배럭 보드 생성
-        Location barracksOrigin;
-        if (team == Team.WHITE) {
-            barracksOrigin = mainBoard.origin().clone()
-                    .subtract(mainBoard.forward().getDirection().multiply(offsetDistance));
-        } else {
-            barracksOrigin = mainBoard.origin().clone()
-                    .add(mainBoard.forward().getDirection().multiply(offsetDistance));
-        }
-        this.board = ChessBoard.of(barracksOrigin, mainBoard.forward(), cellSize);
+    @NotNull
+    private final Grid grid;
 
-        // 2. 스폰 위치 캐싱
-        Coordinate spawnCoord = (team == Team.WHITE) ? Coordinate.of(3, 6) : Coordinate.of(3, 1);
-        this.spawnLocation = board.toCenterLocation(spawnCoord)
-                .add(board.right().getDirection().multiply(cellSize / 2.0));
-        
-        if (team == Team.WHITE) {
-            this.spawnLocation.setDirection(mainBoard.forward().getDirection().multiply(-1));
-        } else {
-            this.spawnLocation.setDirection(mainBoard.forward().getDirection());
-        }
-
-        // 3. 상자 위치 및 방향 캐싱
-        int row = (team == Team.WHITE) ? 4 : 3;
-        int dFileRight = 11;
-        int eFileLeft = 12;
-        int rankCenter = row * cellSize + 1;
-
-        this.chestLocation1 = board.origin().clone()
-                .add(board.right().getDirection().multiply(dFileRight))
-                .add(board.forward().getDirection().multiply(rankCenter))
-                .toBlockLocation();
-        this.chestLocation2 = board.origin().clone()
-                .add(board.right().getDirection().multiply(eFileLeft))
-                .add(board.forward().getDirection().multiply(rankCenter))
-                .toBlockLocation();
-        
-        this.chestFacing = (team == Team.WHITE) ? board.forward().getOppositeFace() : board.forward();
+    @NotNull
+    public static Barracks create(@NotNull final Team team, @NotNull final Location anchor) {
+        return new Barracks(team, Grid.create(anchor));
     }
 
-    public boolean hasChest(final Location location) {
-        if (location == null) {
-            return false;
-        }
-        final Location blockLoc = location.toBlockLocation();
-        return chestLocation1.equals(blockLoc) || chestLocation2.equals(blockLoc);
+    @NotNull
+    public Location spawnLocation() {
+        final BlockFace right = grid.right();
+
+        return grid.getCenterAt(CENTER_LEFT_X, isWhite() ? WHITE_SPAWN_Y : BLACK_SPAWN_Y)
+                .add(right.getModX() * Grid.CELL_OFFSET, 0, right.getModZ() * Grid.CELL_OFFSET);
+    }
+
+    @NotNull
+    public Location leftChestLocation() {
+        return getOffsetLocation(
+                isWhite() ? CENTER_LEFT_X : CENTER_RIGHT_X,
+                isWhite() ? WHITE_CHEST_Y : BLACK_CHEST_Y,
+                CHEST_BLOCK_OFFSET * team.direction()
+        );
+    }
+
+    @NotNull
+    public Location rightChestLocation() {
+        return getOffsetLocation(
+                isWhite() ? CENTER_RIGHT_X : CENTER_LEFT_X,
+                isWhite() ? WHITE_CHEST_Y : BLACK_CHEST_Y,
+                -CHEST_BLOCK_OFFSET * team.direction()
+        );
+    }
+
+    @NotNull
+    public BlockFace chestFacing() {
+        return isWhite() ? grid.forward().getOppositeFace() : grid.forward();
+    }
+
+    @NotNull
+    private Location getOffsetLocation(final int gridX, final int gridY, final int rightOffset) {
+        final BlockFace right = grid.right();
+
+        return grid.getCenterAt(gridX, gridY)
+                .add(right.getModX() * rightOffset, 0, right.getModZ() * rightOffset);
+    }
+
+    private boolean isWhite() {
+        return team == Team.WHITE;
     }
 }
