@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.game.event;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.piece.Piece;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

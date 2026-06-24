@@ -1,7 +1,7 @@
 package dev.tecte.chesswar.game.manager;
 
+import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
 import dev.tecte.chesswar.economy.GoldSource;
@@ -31,12 +31,10 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -69,6 +67,7 @@ public class CombatManager implements Listener {
     private static final Component ERROR_FRIENDLY_FIRE_PROHIBITED = Component.text("아군을 공격할 수 없습니다!", NamedTextColor.RED);
 
     private final GameContext context;
+    private final BoardComponent boardComponent;
     private final BoardManager boardManager;
     private final PieceManager pieceManager;
     private final PieceState pieceState;
@@ -123,8 +122,8 @@ public class CombatManager implements Listener {
 
         final Piece[][] pieces = pieceState.boardPieces();
 
-        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece piece = pieces[x][y];
 
                 if (piece == null || piece.team() != team || piece.type() != type) {
@@ -171,8 +170,8 @@ public class CombatManager implements Listener {
     public void repairRooks(final Team team) {
         final Piece[][] pieces = pieceState.boardPieces();
 
-        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece piece = pieces[x][y];
 
                 if (piece != null && piece.team() == team && piece.type() == PieceType.ROOK) {
@@ -252,7 +251,7 @@ public class CombatManager implements Listener {
             return AttackResult.INVALID;
         }
 
-        if (!boardManager.hasBoard()) {
+        if (!boardComponent.hasBoard()) {
             return AttackResult.INVALID;
         }
 
@@ -372,12 +371,12 @@ public class CombatManager implements Listener {
             return false;
         }
 
-        if (!boardManager.hasBoard()) {
+        if (!boardComponent.hasBoard()) {
             announcer.announceCombatError(player, ERROR_NO_BOARD);
             return false;
         }
 
-        final Coordinate to = boardManager.currentBoard().toCoordinate(player.getLocation());
+        final Coordinate to = boardComponent.board().toCoordinate(player.getLocation());
 
         if (to == null) {
             announcer.announceCombatError(player, ERROR_OUT_OF_BOARD);
@@ -433,7 +432,7 @@ public class CombatManager implements Listener {
             }
         }
 
-        pieceManager.movePiece(boardManager.currentBoard(), finalFrom, to);
+        pieceManager.movePiece(boardComponent.board(), finalFrom, to);
 
         announcer.announceMoveSuccess(player, movingPiece, to, commandTarget != null);
 
@@ -544,7 +543,7 @@ public class CombatManager implements Listener {
 
         announcer.announceKill(victim);
 
-        pieceManager.capturePiece(boardManager.currentBoard(), attackCoord, targetCoord);
+        pieceManager.capturePiece(boardComponent.board(), attackCoord, targetCoord);
 
         if (targetPiece.type() == PieceType.KING) {
             Bukkit.getPluginManager().callEvent(new KingDeathEvent(participant.team()));

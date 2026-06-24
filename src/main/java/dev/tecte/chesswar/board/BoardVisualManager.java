@@ -3,7 +3,6 @@ package dev.tecte.chesswar.board;
 import dev.tecte.chesswar.ChessWar;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import lombok.RequiredArgsConstructor;
-import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,7 +14,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Transformation;
 import org.bukkit.util.Vector;
-import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,17 +31,18 @@ public class BoardVisualManager {
 
     private final Map<UUID, List<BlockDisplay>> activeGuideEntities = new HashMap<>();
     private final ChessWar plugin;
+    private final BoardComponent boardComponent;
     private final BoardManager boardManager;
     private final GameAnnouncer announcer;
 
     public void showGuide(final Player player, final Map<Coordinate, GuideType> moves) {
         clearGuide(player);
 
-        if (!boardManager.hasBoard() || moves.isEmpty()) {
+        if (!boardComponent.hasBoard() || moves.isEmpty()) {
             return;
         }
 
-        final ChessBoard board = boardManager.currentBoard();
+        final ChessBoard board = boardComponent.board();
         final List<BlockDisplay> entities = new ArrayList<>(moves.size());
         final Location centerLoc = board.origin().clone();
         final float size = (float) board.cellSize();
@@ -121,7 +120,7 @@ public class BoardVisualManager {
         final double dxR = rightDir.getX();
         final double dzR = rightDir.getZ();
 
-        final int physicalSize = ChessFormation.BOARD_SIZE * board.cellSize();
+        final int physicalSize = Coordinate.BOARD_SIZE * board.cellSize();
         final int maxOffset = physicalSize - 1;
 
         final double offsetFX = dxF * maxOffset;

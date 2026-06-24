@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.piece.ability;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
@@ -9,8 +8,6 @@ import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.StatBuff;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.attribute.Attribute;
-import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 

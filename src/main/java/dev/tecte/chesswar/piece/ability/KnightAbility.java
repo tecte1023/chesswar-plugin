@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.piece.ability;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.Piece;

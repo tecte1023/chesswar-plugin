@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.game;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;

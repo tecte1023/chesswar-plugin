@@ -1,7 +1,5 @@
 package dev.tecte.chesswar.piece;
 
-import dev.tecte.chesswar.board.ChessFormation;
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,7 +19,7 @@ import java.util.UUID;
 @NoArgsConstructor(staticName = "create")
 public class PieceState {
     @NotNull
-    private final Piece[][] boardPieces = new Piece[ChessFormation.BOARD_SIZE][ChessFormation.BOARD_SIZE];
+    private final Piece[][] boardPieces = new Piece[Coordinate.BOARD_SIZE][Coordinate.BOARD_SIZE];
     @NotNull
     private final Map<UUID, Coordinate> entityToCoordinate = new HashMap<>();
     @NotNull
@@ -104,8 +102,8 @@ public class PieceState {
     }
 
     public void reset() {
-        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece piece = boardPieces[x][y];
 
                 if (piece != null && !piece.isPlayer()) {

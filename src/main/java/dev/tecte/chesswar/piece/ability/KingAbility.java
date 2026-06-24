@@ -1,13 +1,11 @@
 package dev.tecte.chesswar.piece.ability;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceState;
 import org.bukkit.Bukkit;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;

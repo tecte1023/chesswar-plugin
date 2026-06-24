@@ -1,10 +1,10 @@
 package dev.tecte.chesswar.game.manager;
 
+import dev.tecte.chesswar.board.BoardComponent;
+import dev.tecte.chesswar.board.BoardEnvironmentPresenter;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.BoardVisualManager;
-import dev.tecte.chesswar.board.ChessBoard;
-import dev.tecte.chesswar.board.ChessFormation;
-import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.piece.PieceLayout;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
 import dev.tecte.chesswar.economy.ShopController;
@@ -87,6 +87,8 @@ public class GameManager implements Listener {
 
     private final JavaPlugin plugin;
     private final GameContext context;
+    private final BoardComponent boardComponent;
+    private final BoardEnvironmentPresenter boardEnvPresenter;
     private final BoardManager boardManager;
     private final PieceManager pieceManager;
     private final PieceState pieceState;
@@ -111,6 +113,8 @@ public class GameManager implements Listener {
     public GameManager(
             final JavaPlugin plugin,
             final GameContext context,
+            final BoardComponent boardComponent,
+            final BoardEnvironmentPresenter boardEnvPresenter,
             final BoardManager boardManager,
             final PieceManager pieceManager,
             final PieceState pieceState,
@@ -128,6 +132,8 @@ public class GameManager implements Listener {
     ) {
         this.plugin = plugin;
         this.context = context;
+        this.boardComponent = boardComponent;
+        this.boardEnvPresenter = boardEnvPresenter;
         this.boardManager = boardManager;
         this.pieceManager = pieceManager;
         this.pieceState = pieceState;
@@ -269,7 +275,7 @@ public class GameManager implements Listener {
     }
 
     public void startGame(final Player player) {
-        if (!boardManager.hasBoard()) {
+        if (!boardComponent.hasBoard()) {
             announcer.announceCombatError(player, ERROR_NO_BOARD);
             return;
         }
@@ -406,13 +412,13 @@ public class GameManager implements Listener {
 
     private void handleExitTurnOrder() {
         combatManager.calculateTurnOrder(inventoryAdapter);
-        boardManager.clearBarracksChests();
+        boardEnvPresenter.clearBarracksChests();
     }
 
     private void handleTransitionToPieceSelection() {
         announcer.broadcast(GameAnnouncer.MSG_COUNTDOWN_SUBTITLE);
         pieceManager.clearSpawnedEntities(false);
-        pieceManager.spawnBunker(boardManager.currentBoard());
+        pieceManager.spawnBunker(boardComponent.board());
 
         lastDisplayedSecond = SELECTION_COUNTDOWN_START;
         announcer.broadcastSelectionCountdown(SELECTION_COUNTDOWN_START);
@@ -421,13 +427,13 @@ public class GameManager implements Listener {
 
     private void handleTransitionToTurnOrder() {
         timerManager.startTimer(context.timerSettings().turnOrderSelectionTime());
-        boardManager.setupTurnOrderChests(countTeam(Team.WHITE), countTeam(Team.BLACK));
+        boardEnvPresenter.setupTurnOrderChests(countTeam(Team.WHITE), countTeam(Team.BLACK));
         announcer.broadcast(GameAnnouncer.MSG_TURN_ORDER_DECISION);
         announcer.sendTurnOrderActionBarGuidance(inventoryAdapter);
     }
 
     private void handleTransitionToBattle() {
-        pieceManager.deployBunkerToBattlefield(boardManager.currentBoard());
+        pieceManager.deployBunkerToBattlefield(boardComponent.board());
 
         for (final Participant participant : context.participantsValues()) {
             final Player player = Bukkit.getPlayer(participant.playerId());
@@ -448,7 +454,7 @@ public class GameManager implements Listener {
                 continue;
             }
 
-            boardManager.deployToBattlefield(participant.team(), initialCoord, player);
+            boardEnvPresenter.deployToBattlefield(participant.team(), initialCoord, player);
         }
 
         nextTurn();
@@ -471,7 +477,7 @@ public class GameManager implements Listener {
             final Player player = Bukkit.getPlayer(participant.playerId());
             if (player != null) {
                 player.clearTitle();
-                boardManager.teleportToBarracks(participant.team(), player);
+                boardEnvPresenter.teleportToBarracks(participant.team(), player);
             }
         }
 
@@ -495,8 +501,8 @@ public class GameManager implements Listener {
 
         UUID newPieceId = piece.isPlayer() ? piece.id() : null;
         if (!piece.isPlayer()) {
-            final Location loc = boardManager.currentBoard().toCenterLocation(coordinate);
-            final Vector direction = boardManager.currentBoard().calculateDirection(piece.team());
+            final Location loc = boardComponent.board().toCenterLocation(coordinate);
+            final Vector direction = boardComponent.board().calculateDirection(piece.team());
             final LivingEntity newEntity = pieceManager.spawnPiece(upgradeType, piece.team(), coordinate, loc, direction, false);
             if (newEntity != null) {
                 newPieceId = newEntity.getUniqueId();
@@ -565,10 +571,10 @@ public class GameManager implements Listener {
 
         pieceManager.processFullGameReset();
         boardVisualManager.clearAllGuides();
-        boardManager.clearBarracksChests();
+        boardEnvPresenter.clearBarracksChests();
 
-        if (boardManager.hasBoard()) {
-            environmentManager.configure(boardManager.currentBoard().origin().getWorld());
+        if (boardComponent.hasBoard()) {
+            environmentManager.configure(boardComponent.board().origin().getWorld());
         }
 
         combatManager.resetAllStats();
@@ -791,7 +797,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        final PieceType pieceType = ChessFormation.getInitialPieceType(coordinate);
+        final PieceType pieceType = PieceLayout.getInitialPieceType(coordinate);
 
         applyPieceAssignment(participant, player, coordinate, pieceType);
         player.sendMessage(Component.text(pieceType.displayName() + " 기물을 선택했습니다!", NamedTextColor.GOLD));
@@ -940,7 +946,7 @@ public class GameManager implements Listener {
             return;
         }
 
-        boardManager.disableReadyButton(team);
+        boardEnvPresenter.disableReadyButton(team);
 
         for (final Participant p : teamMembers) {
             p.ready(true);
@@ -1013,8 +1019,8 @@ public class GameManager implements Listener {
 
         final Map<Coordinate, dev.tecte.chesswar.board.GuideType> validMoves = new HashMap<>();
 
-        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Coordinate to = Coordinate.of(x, y);
 
                 if (moveValidator.canMove(pieceState, finalFrom, to)) {
@@ -1203,8 +1209,8 @@ public class GameManager implements Listener {
         }
 
         Coordinate targetCoord = null;
-        for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
-            if (entry.getValue() == type && ChessFormation.getTeamAt(entry.getKey()) == participant.team()) {
+        for (final Map.Entry<Coordinate, PieceType> entry : PieceLayout.getFullInitialLayout().entrySet()) {
+            if (entry.getValue() == type && PieceLayout.getTeamAt(entry.getKey()) == participant.team()) {
                 targetCoord = entry.getKey();
                 break;
             }
@@ -1269,8 +1275,8 @@ public class GameManager implements Listener {
     private boolean hasKing(final Team team) {
         final Piece[][] pieces = pieceState.boardPieces();
 
-        for (int x = 0; x < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < dev.tecte.chesswar.board.ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece p = pieces[x][y];
 
                 if (p != null && p.team() == team && p.type() == PieceType.KING) {

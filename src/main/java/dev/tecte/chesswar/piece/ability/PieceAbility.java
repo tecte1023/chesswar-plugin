@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.piece.ability;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.piece.Piece;
 import org.bukkit.entity.LivingEntity;

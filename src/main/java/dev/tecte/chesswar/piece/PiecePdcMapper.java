@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.piece;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.team.Team;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.NamespacedKey;

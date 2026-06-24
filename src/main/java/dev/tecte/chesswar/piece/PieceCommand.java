@@ -3,7 +3,6 @@ package dev.tecte.chesswar.piece;
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
 import co.aikar.commands.annotation.Subcommand;
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;

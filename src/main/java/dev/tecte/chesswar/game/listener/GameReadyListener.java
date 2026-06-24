@@ -1,6 +1,6 @@
 package dev.tecte.chesswar.game.listener;
 
-import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.BoardEnvironmentPresenter;
 import dev.tecte.chesswar.game.manager.GameManager;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
@@ -14,7 +14,7 @@ import org.bukkit.plugin.Plugin;
 public class GameReadyListener implements Listener {
     private final Plugin plugin;
     private final GameManager gameManager;
-    private final BoardManager boardManager;
+    private final BoardEnvironmentPresenter boardEnvPresenter;
 
     @EventHandler
     public void onReadyClick(InventoryClickEvent event) {
@@ -25,9 +25,9 @@ public class GameReadyListener implements Listener {
                 ? null
                 : player.getInventory().getItem(event.getHotbarButton());
 
-        if (!boardManager.isReadyButton(item)
-            && !boardManager.isReadyButton(cursor)
-            && !boardManager.isReadyButton(hotbar)
+        if (!boardEnvPresenter.isReadyButton(item)
+            && !boardEnvPresenter.isReadyButton(cursor)
+            && !boardEnvPresenter.isReadyButton(hotbar)
         ) {
             return;
         }
@@ -35,7 +35,7 @@ public class GameReadyListener implements Listener {
         event.setCancelled(true);
         plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
 
-        if (boardManager.isReadyButton(item)) {
+        if (boardEnvPresenter.isReadyButton(item)) {
             gameManager.handleReadyUp(player, event.getInventory().getLocation());
         }
     }

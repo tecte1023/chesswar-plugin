@@ -1,6 +1,5 @@
 package dev.tecte.chesswar.game.manager;
 
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.component.GameContext;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.component.Statistics;
@@ -19,7 +18,6 @@ import org.bukkit.entity.Player;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /**

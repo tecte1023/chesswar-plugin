@@ -1,9 +1,7 @@
 package dev.tecte.chesswar.piece;
 
+import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.ChessBoard;
-import dev.tecte.chesswar.board.ChessFormation;
-import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
@@ -45,6 +43,7 @@ public class PieceManager {
     private final PieceState pieceState;
     private final MobManager mobManager;
     private final PiecePdcMapper pdcMapper;
+    private final BoardComponent boardComponent;
     private final BoardManager boardManager;
     private final MoveValidator moveValidator;
     private final CombatPolicy combatPolicy;
@@ -57,10 +56,10 @@ public class PieceManager {
         final Location bunkerLoc = board.origin();
         bunkerLoc.setY(BUNKER_Y);
 
-        for (final Map.Entry<Coordinate, PieceType> entry : ChessFormation.getFullInitialLayout().entrySet()) {
+        for (final Map.Entry<Coordinate, PieceType> entry : PieceLayout.getFullInitialLayout().entrySet()) {
             final Coordinate coord = entry.getKey();
             final PieceType type = entry.getValue();
-            final Team team = ChessFormation.getTeamAt(coord);
+            final Team team = PieceLayout.getTeamAt(coord);
 
             final Location loc = bunkerLoc.clone().add(coord.x() * BUNKER_GRID_SIZE, 0, coord.y() * BUNKER_GRID_SIZE);
             loc.setDirection(board.calculateDirection(team));
@@ -117,8 +116,8 @@ public class PieceManager {
     public void deployBunkerToBarracks() {
         final Piece[][] pieces = pieceState.boardPieces();
 
-        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece piece = pieces[x][y];
 
                 if (piece == null) {
@@ -132,7 +131,8 @@ public class PieceManager {
                 }
 
                 final Team team = piece.team();
-                final ChessBoard barracksBoard = boardManager.getBarracksBoard(team);
+                // TODO: [Refactoring Phase 2] BoardManager 수정에 따른 후속 작업 필요
+                final ChessBoard barracksBoard = boardComponent.board();
 
                 if (barracksBoard == null) {
                     continue;
@@ -151,8 +151,8 @@ public class PieceManager {
         final Location targetLoc = board.origin();
         final Piece[][] pieces = pieceState.boardPieces();
 
-        for (int x = 0; x < ChessFormation.BOARD_SIZE; x++) {
-            for (int y = 0; y < ChessFormation.BOARD_SIZE; y++) {
+        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
+            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
                 final Piece existingPiece = pieces[x][y];
 
                 if (existingPiece == null) {

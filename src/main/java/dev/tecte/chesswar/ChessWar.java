@@ -2,8 +2,9 @@ package dev.tecte.chesswar;
 
 import dev.tecte.chesswar.admin.AdminCommand;
 import dev.tecte.chesswar.board.BoardBlockListener;
+import dev.tecte.chesswar.board.BoardEnvironmentPresenter;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.BoardState;
+import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardVisualManager;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
@@ -43,6 +44,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 @Slf4j(topic = "ChessWar")
 public final class ChessWar extends JavaPlugin {
 
+    private BoardComponent boardComponent;
+    private BoardEnvironmentPresenter boardEnvPresenter;
     private BoardManager boardManager;
     private PieceManager pieceManager;
     private GameManager gameManager;
@@ -85,36 +88,40 @@ public final class ChessWar extends JavaPlugin {
     private void initializeManagers() {
         final GameContext context = GameContext.create();
         final PieceState pieceState = PieceState.create();
-        final BoardState boardState = BoardState.create();
+        final BoardComponent boardComponent = BoardComponent.create();
         final EconomyState economyState = EconomyState.create();
         piecePdcMapper = PiecePdcMapper.create(this);
 
-        boardManager = new BoardManager(
-                new NamespacedKey(this, BoardManager.READY_BUTTON_KEY),
-                new NamespacedKey(this, BoardManager.TURN_ORDER_KEY),
-                boardState
+        boardComponent = BoardComponent.create();
+        boardEnvPresenter = new BoardEnvironmentPresenter(
+                new NamespacedKey(this, BoardEnvironmentPresenter.READY_BUTTON_KEY),
+                new NamespacedKey(this, BoardEnvironmentPresenter.TURN_ORDER_KEY),
+                boardComponent
         );
+        boardManager = new BoardManager(boardComponent, boardEnvPresenter);
         moveValidator = new MoveValidator();
         combatPolicy = new CombatPolicy();
         gameAnnouncer = new GameAnnouncer(context, pieceState);
         pieceVisualManager = new PieceVisualManager();
 
-        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardManager, moveValidator, combatPolicy, gameAnnouncer, pieceVisualManager);
+        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardComponent, boardManager, moveValidator, combatPolicy, gameAnnouncer, pieceVisualManager);
         environmentManager = new EnvironmentManager();
 
-        boardVisualManager = new BoardVisualManager(this, boardManager, gameAnnouncer);
-        final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardManager.TURN_ORDER_KEY);
+        boardVisualManager = new BoardVisualManager(this, boardComponent, boardManager, gameAnnouncer);
+        final PlayerInventoryAdapter inventoryAdapter = new PlayerInventoryAdapter(this, BoardEnvironmentPresenter.TURN_ORDER_KEY);
 
         timerManager = new TimerManager(context);
         scoreboardManager = new ScoreboardManager(context, inventoryAdapter, economyState, pieceState);
 
         economyManager = new EconomyManager(context, economyState, gameAnnouncer, scoreboardManager);
-        combatManager = new CombatManager(context, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
+        combatManager = new CombatManager(context, boardComponent, boardManager, pieceManager, pieceState, moveValidator, combatPolicy, economyManager, gameAnnouncer);
         shopController = new ShopController(context, economyManager, combatManager, pieceState, gameAnnouncer);
 
         gameManager = new GameManager(
                 this,
                 context,
+                boardComponent,
+                boardEnvPresenter,
                 boardManager,
                 pieceManager,
                 pieceState,
@@ -131,8 +138,8 @@ public final class ChessWar extends JavaPlugin {
                 gameAnnouncer
         );
 
-        if (boardManager.hasBoard()) {
-            environmentManager.configure(boardManager.currentBoard().origin().getWorld());
+        if (boardComponent.hasBoard()) {
+            environmentManager.configure(boardComponent.board().origin().getWorld());
         }
 
         gameManager.loadConfig();
@@ -144,15 +151,14 @@ public final class ChessWar extends JavaPlugin {
 
         pluginManager.registerEvents(gameManager, this);
         pluginManager.registerEvents(combatManager, this);
-        pluginManager.registerEvents(boardManager, this);
         pluginManager.registerEvents(new GamePieceLifecycleListener(gameManager), this);
         pluginManager.registerEvents(new GameSelectionListener(gameManager), this);
-        pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardManager), this);
+        pluginManager.registerEvents(new GameReadyListener(this, gameManager, boardEnvPresenter), this);
         pluginManager.registerEvents(new ScoreboardUpdateListener(scoreboardManager), this);
         pluginManager.registerEvents(new PlayerJoinListener(gameManager), this);
         pluginManager.registerEvents(new GameStartListener(gameManager), this);
         pluginManager.registerEvents(new MythicPieceListener(pieceManager), this);
-        pluginManager.registerEvents(new BoardBlockListener(gameManager, boardManager), this);
+        pluginManager.registerEvents(new BoardBlockListener(gameManager, boardEnvPresenter), this);
         pluginManager.registerEvents(new PieceInteractListener(gameManager, gameAnnouncer), this);
         pluginManager.registerEvents(new PieceDamageListener(gameManager, combatManager, pieceManager, piecePdcMapper), this);
         pluginManager.registerEvents(new EnvironmentListener(gameManager), this);

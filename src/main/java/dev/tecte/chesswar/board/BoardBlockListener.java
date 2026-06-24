@@ -11,11 +11,11 @@ import org.bukkit.event.block.BlockBreakEvent;
 @RequiredArgsConstructor
 public class BoardBlockListener implements Listener {
     private final GameManager gameManager;
-    private final BoardManager boardManager;
+    private final BoardEnvironmentPresenter boardEnvPresenter;
 
     @EventHandler
     public void onBlockBreak(final BlockBreakEvent event) {
-        if (boardManager.isBarracksChest(event.getBlock().getLocation())) {
+        if (boardEnvPresenter.isBarracksChest(event.getBlock().getLocation())) {
             event.setCancelled(true);
             return;
         }
