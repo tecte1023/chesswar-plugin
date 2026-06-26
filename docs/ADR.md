@@ -42,7 +42,7 @@ DDD, DOD, 순수 ECS를 모두 기각하고,
 
 ## ADR-002: State-Manager Decoupling
 
-* **Status**: Superseded by ADR-017
+* **Status**: Superseded by [ADR-013](#adr-013-clarification-of-manager-statelessness-and-constructor-di)
 
 ### Context
 
@@ -84,6 +84,9 @@ DDD, DOD, 순수 ECS를 모두 기각하고,
 ---
 
 ## ADR-004: 2D Array Spatial Grid vs HashMap
+
+* **Status**:
+  Partially superseded by [ADR-015](#adr-015-branchless-optimization-and-1d-flattening-in-hot-path) (1차원 배열 평탄화)
 
 ### Context
 
@@ -159,7 +162,7 @@ Minecraft 단일 스레드 환경에서 20 TPS를 사수하기 위해 이상적�
 
 ## ADR-008: Role-Based Constructor Design
 
-* **Status**: Superseded by ADR-018
+* **Status**: Superseded by [ADR-014](#adr-014-separation-of-initialization-and-restoration-via-static-factories)
 
 ### Context
 
@@ -260,7 +263,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-017: Clarification of Manager Statelessness and Constructor DI
+## ADR-013: Clarification of Manager Statelessness and Constructor DI
 
 ### Context
 
@@ -282,7 +285,11 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-018: Separation of Initialization and Restoration via Static Factories
+## ADR-014: Separation of Initialization and Restoration via Static Factories
+
+* **Status**:
+  Partially superseded by [ADR-022](#adr-022-instantiation-based-on-creation-logic-presence)
+  (로직 개입 여부에 따른 생성 규칙 변경)
 
 ### Context
 
@@ -305,7 +312,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-019: Branchless Optimization and 1D Flattening in Hot Path
+## ADR-015: Branchless Optimization and 1D Flattening in Hot Path
 
 ### Context
 
@@ -327,7 +334,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-020: Strict Immutability of Warm Path Domain State Objects
+## ADR-016: Strict Immutability of Warm Path Domain State Objects
 
 ### Context
 
@@ -347,7 +354,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-021: Top-Down Spatial Composition and Autonomous Layout
+## ADR-017: Top-Down Spatial Composition and Autonomous Layout
 
 ### Context
 
@@ -373,11 +380,11 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-022: Composition Root for Manager Systems
+## ADR-018: Composition Root for Manager Systems
 
 ### Context
 
-도메인 객체는 `ADR-021`에 따라 하향식 자율 조립 방식으로 조립되는데,
+도메인 객체는 `ADR-017`에 따라 하향식 자율 조립 방식으로 조립되는데,
 `Manager` 계층도 스스로 하위 `Manager`를 조립해야 하는가에 대한 기준이 모호했습니다.
 
 ### Decision
@@ -394,7 +401,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-023: Lifecycle-Based State Wrapping and Atomic Swap
+## ADR-019: Lifecycle-Based State Wrapping and Atomic Swap
 
 ### Context
 
@@ -424,92 +431,7 @@ Java 최적의 방어 구조를 내재화했습니다.
 
 ---
 
-## ADR-024: Layer-Specific Ubiquitous Language and Component Naming Convention
-
-### Context
-
-기존 아키텍처에서는 데이터와 로직을 분리하면서 `Component`에도 접미사 생략을 강제했습니다.
-이로 인해 순수 데이터인 `Board`와 이를 게임 시스템에 부착하기 위한 래퍼 객체인 `BoardState` 간의 명칭 구분이 모호해졌고,
-백엔드식 `State` 네이밍 관성이 유입되는 부작용이 발생했습니다.
-또한 도메인 용어를 모든 계층에 강제하려다 보니, 수학 연산이나 외부 엔진 제어 시 직관성이 떨어지는 문제가 있었습니다.
-
-### Decision
-
-네이밍 규약을 `Component-Based OOP` 철학과 계층별 유비쿼터스 언어에 맞게 전면 개정합니다.
-
-1. **Component Naming**:
-   시스템에 부착되는 데이터 슬롯 역할의 객체는 `Component` 접미사를 강제합니다. 순수 데이터 컨테이너임에도 불구하고,
-   도메인의 원본 알맹이와 이를 시스템에 부착하는 래퍼를 구조적으로 구분하기 위한 예외적 조치입니다.
-   대표적인 예로 `Board`와 `BoardComponent`가 있습니다.
-2. **Linguistic Context Switching**: 역할별로 명확히 다른 언어 사전을 사용합니다.
-    * `Manager` 및 핵심 `Entity`: 비즈니스 로직을 통제하므로 기획 의도를 담은 GDD 행동 용어를 사용합니다.
-    * `Value Object` 등 공간 데이터: 공간 기하를 다루므로 오해의 소지가 없는 명시적인 수학/기하학 기술 용어를 사용합니다.
-    * `Input Controller` 및 `Presenter`: 외부 모듈과 상호작용하므로 상호작용하는 엔진 API의 명명 규칙을 따릅니다.
-
-### Rationale
-
-`Component` 접미사를 명시함으로써, 해당 객체 내부에 로직을 배치해서는 안 된다는 아키텍처적 금기를 이름만으로 강력하게 전달합니다.
-역할별로 언어 컨텍스트 스위칭을 수행하면,
-메서드 이름만 보아도 현재 어느 계층의 코드를 다루고 있는지 파악할 수 있어 유지보수성과 가독성이 극대화됩니다.
-
----
-
-## ADR-025: Data-Driven Delegation over Conditional Branching
-
-### Context
-
-기존 게임 로직에서 `Manager` 계층이 기물 종류 등 `Entity`의 상태에 따라 동작을 다르게 하기 위해
-내부적으로 분기문을 사용하는 방식은 유지보수 비용을 증가시킵니다.
-새로운 기물이나 룰이 추가될 때마다 여러 `Manager`의 코드를 수정해야 하는 개방-폐쇄 원칙 위반이 발생하며,
-분기 예측 페널티로 인한 `Tick` 성능 저하 가능성도 존재합니다.
-
-### Decision
-
-`Entity` 종속적인 상태값 검사와 행동 분기는 `Manager` 내부에서 직접 수행하는 것을 원칙적으로 금지합니다.
-이러한 로직은 **데이터 주도 위임** 패턴을 사용하여 처리합니다.
-특정 타입이나 상태에 따른 분기 로직은 `enum` 내부에 상수로 내장하거나, 다형성을 활용하여 데이터 주도 방식으로 위임해야 합니다.
-
-### Rationale
-
-데이터 자체에 고유의 속성이나 계산식을 위임함으로써, `Manager`는 상태를 분기문으로 묻지 않고 오직 데이터를 조회하여 실행하기만 하면 됩니다.
-이는 `Component-Based OOP` 철학에 부합하며, 로직의 확장성을 열어두고 분기 연산을 최소화하여 서버 `Tick`을 방어하는 최적의 설계입니다.
-
----
-
-## ADR-026: Legacy Terminology and Class Migration Glossary
-
-### Context
-
-과거 작성된 의사결정 기록(ADR-001 ~ ADR-025)과 현재의 `ARCHITECTURE.md` 간에 용어 및 클래스 명칭의 불일치가 존재합니다.
-과거의 의사결정 기록은 무단으로 수정할 수 없으므로,
-현재 아키텍처에 더 이상 존재하지 않거나 이름이 변경된 과거의 용어 및 핵심 클래스들을 매핑하는 공식 번역 가이드가 필요해졌습니다.
-
-### Decision
-
-과거 ADR 문서를 열람할 때는 아래의 매핑 규칙을 기준으로 해석합니다.
-
-1. **아키텍처 개념 및 용어 매핑**
-    * **Layer**: 과거의 수직적 계층 구조는 폐기되었습니다. 현재는 `Feature` 중심 패키지 내부의 `Role` 개념으로 완전히 대체되었습니다.
-    * **Domain**: 백엔드식 용어인 도메인은 현재 맥락에 따라 기획 룰인 게임 로직 또는 시스템 묶음인 `Feature`로 번역합니다.
-    * **Domain Event**: 현재 플러그인 내 통신 방식인 `Event`로 대체되었습니다.
-    * **Data Container / State Container**: 내부에 로직을 갖지 않는 데이터 구조체는 현재 `Component` 용어로 통일되었습니다.
-    * **Presentation Delegate**: 현재 아키텍처 네이밍 규칙에 따라 `Presenter`로 대체되었습니다.
-
-2. **클래스 명칭 변경 및 삭제 이력**
-    * **`State` 접미사 클래스 (예: `BoardState`, `PieceState`)**:
-      `Component` 접미사 강제 규약에 따라 현재 `BoardComponent`, `PieceComponent` 등으로 이름이 변경되었습니다.
-    * **`Coordinate`**: 2차원 배열과 마인크래프트 `Location` 객체 중심의 평탄화 작업으로 인해 구조에서 완전히 삭제되었습니다.
-    * **복잡한 래퍼 클래스들**: 원시 타입 우선 원칙에 따라 객체 생성을 최소화하기 위해 다수가 삭제되고 원시 타입 배열로 대체되었습니다.
-
-### Rationale
-
-명확한 매핑 가이드를 통해 과거 의사결정 기록의 가치를 보존하면서도,
-새롭게 합류하는 팀원이 현재의 `ARCHITECTURE.md`와 과거 ADR을 읽을 때 겪는 인지적 부하와 혼동을 최소화합니다.
-또한, 이름이 변경되거나 삭제된 클래스를 함께 명시함으로써 리팩토링의 결과를 문서로 투명하게 추적할 수 있도록 지원합니다.
-
----
-
-## ADR-027: Hidden Allocation Restriction for GC Defense
+## ADR-020: Hidden Allocation Restriction for GC Defense
 
 ### Context
 
@@ -535,12 +457,13 @@ Minecraft 플러그인 환경의 가장 핵심적인 과제는 메인 스레드 
 
 ---
 
-## ADR-028: Terminology Split - Execution Path vs Data Lifecycle
+## ADR-021: Terminology Split - Execution Path vs Data Lifecycle
 
 ### Context
 
-기존 ARCHITECTURE.md 문서와 여러 ADR 기록들(ADR-006, 019, 020 등)에서
+기존 ARCHITECTURE.md 문서와 여러 ADR 기록들(ADR-006, 015, 016 등)에서
 `Path`라는 단일 용어가 두 가지 상이한 축의 최적화를 통칭하는 데 혼용되었습니다.
+
 1. **Execution Flow 최적화 축**: 메인 틱 루프 등 로직이 얼마나 자주 실행되는가.
 2. **Data Lifecycle 최적화 축**: 데이터 객체가 얼마나 자주 갱신되거나 메모리에 새로 할당되는가.
 
@@ -552,16 +475,102 @@ Minecraft 플러그인 환경의 가장 핵심적인 과제는 메인 스레드 
 마인크래프트 서버 20 TPS 방어를 위한 두 개의 최적화 축을 산업 표준에 맞추어 명확히 분리합니다.
 
 1. **실행 흐름 (Execution 차원)**: CS 표준 용어인 `Path`를 사용합니다.
-   - `Hot Path`: 틱 루프 등 초고빈도로 실행되는 로직.
-   - `Warm Path`: 턴 전환, 이벤트 등 간헐적으로 실행되는 로직. (참고: CS 표준을 간헐적 실행 특성에 맞게 확장 정의한 용어임)
-   - `Cold Path`: 부팅/종료 등 1회성으로 실행되는 로직.
+    - `Hot Path`: 틱 루프 등 초고빈도로 실행되는 로직.
+    - `Warm Path`: 턴 전환, 이벤트 등 간헐적으로 실행되는 로직. (참고: CS 표준을 간헐적 실행 특성에 맞게 확장 정의한 용어임)
+    - `Cold Path`: 부팅/종료 등 1회성으로 실행되는 로직.
 2. **데이터 생명주기 (Lifecycle 차원)**: DB/스토리지 산업 표준 용어인 `Data`를 사용합니다.
-   - `Hot Data`: 매 틱마다 내부 필드가 갱신되어야 하므로 불변성을 포기하고 가변 조작을 허용하는 데이터.
-   - `Warm Data`: 매치/턴 단위로 수명이 유지되며, 갱신 시 객체를 통째로 새로 교체하는 데이터.
-   - `Cold Data`: 시스템 부팅 시 고정되어 영구히 불변으로 유지되는 데이터.
+    - `Hot Data`: 매 틱마다 내부 필드가 갱신되어야 하므로 불변성을 포기하고 가변 조작을 허용하는 데이터.
+    - `Warm Data`: 매치/턴 단위로 수명이 유지되며, 갱신 시 객체를 통째로 새로 교체하는 데이터.
+    - `Cold Data`: 시스템 부팅 시 고정되어 영구히 불변으로 유지되는 데이터.
 
 ### Rationale
 
 용어의 Overloading 문제를 해소함으로써, 코드의 실행 빈도와 메모리의 생명주기를 독립적으로 서술할 수 있습니다.
 예를 들어 "Grid 클래스는 `Hot Path`에서 끊임없이 호출되지만,
 데이터 자체는 완벽한 불변이므로 `Cold Data`로 취급한다"와 같이 모순 없이 아키텍처를 정의할 수 있게 됩니다.
+
+---
+
+## ADR-022: Instantiation based on Creation Logic Presence
+
+### Context
+
+기존 `ADR-014`는 스냅샷 복구 시 데이터 오염 방지를 위해 `Entity`, `Component`, `Value Object` 등
+모든 게임 상태 객체의 생성자를 비공개로 닫고 무조건 정적 팩토리 메서드를 사용하도록 강제했습니다.
+그러나 이 일괄적인 규제는 복구할 스냅샷 상태나 초기화 로직이 존재하지 않는
+순수 `Component` 객체를 결합할 때조차 무의미한 정적 팩토리 메서드를 강제하는 부작용을 낳았습니다.
+이는 `Component-Based OOP`의 직관적인 객체 결합 이점을 심각하게 훼손합니다.
+이에 따라 객체 생성 규칙을 역할 기반의 일괄 강제에서 벗어나 로직 개입 여부라는 독립적인 기준으로 재정의합니다.
+
+### Decision
+
+객체의 생성 방식은 **"생성 과정에 어떠한 형태의 로직이 개입하는가?"** 라는 단일 기준의 충족 여부에 따라 결정합니다.
+
+* **로직이 개입하는 경우: 정적 팩토리 메서드 강제**
+    * 게임 로직 결합: `Composite Entity` 생성 시 루프나 좌표 연산 등 초기화 로직이 필요한 경우입니다.
+    * 인프라 최적화: 런타임 틱 루프인 `Hot Path` 성능 방어를 위해 캐시를 조회하고 반환하는 플라이웨이트 로직이 개입하는 경우입니다.
+
+* **로직이 배제된 경우: 생성자 직접 호출 허용**
+    * 연산 로직 없이 전달받은 파라미터를 필드에 대입하기만 하는 순수 데이터 결합의 경우입니다.
+    * 열거형 상수 내부나 `Cold Path`에서 할당되는 순수 `Component` 및 `Value Object`가 이에 해당합니다.
+
+### Rationale
+
+객체 생성 방식의 핵심은 은닉할 로직의 존재 여부입니다.
+
+복잡한 초기화나 런타임 최적화가 필요한 객체는 생성 과정에 로직이 개입되므로 정적 팩토리 메서드로 캡슐화합니다.
+반면 단순 데이터 결합만 수행하는 순수 `Component` 객체는 은닉할 논리가 없으므로,
+생성자를 직접 노출하여 불필요한 팩토리 강제를 막고 객체 결합의 투명성과 가독성을 극대화합니다.
+
+---
+
+## ADR-023: Semantic Immutability and Pre-calculation in Cold Path
+
+### Context
+
+기존 아키텍처는 마인크래프트 서버 방어를 위해 `Hot Path`의 성능 최적화에 집중해 왔습니다.
+그러나 `Barracks`와 같은 물리 건물이나 공간 배치 설정은 `Cold Path`임에도 불구하고 사전 계산의 필요성이 제기되었습니다.
+성능 이슈가 없음에도 굳이 초기화 시점에 연산을 몰아서 고정해야 하는지에 대한 아키텍처적 당위성이 필요합니다.
+
+### Decision
+
+게임의 핵심 기획상 절대 변하지 않는 물리적 실체는 `Cold Data`로 취급하며,
+인스턴스 생성 시점에 모든 물리적 좌표와 옵셋을 완벽하게 계산하여 `final` 필드로 영구히 박제해야 합니다.
+이를 구현할 때, 가비지 컬렉션 부하가 없는 정적 `Value Object` 풀이 존재한다면 원시 타입 강제 원칙의 예외로 두어,
+파편화된 숫자 대신 하나의 도메인 상수 객체로 결합하는 것을 허용 및 권장합니다.
+
+### Rationale
+
+이 결정은 성능 최적화가 아니라 **도메인의 의미론적 불변성을 코드로 증명하기 위함입니다.**
+초기화 시점에 모든 물리적 좌표를 계산해두면, 이후 상태를 참조할 때 분기문이 필요 없어집니다.
+결과적으로 `Manager` 계층에 오염될 수 있는 분기 로직을 원천 차단하여 개방-폐쇄 원칙을 수호하며, **구조적 무결성을 극대화합니다.**
+
+---
+
+## ADR-024: Explicit Optimization over JIT Reliance in Hot Path
+
+### Context
+
+현대 JVM의 JIT 컴파일러는 인라인화나 죽은 코드 제거 등 강력한 런타임 최적화를 제공합니다.
+일반적인 환경에서는 개발자가 가독성 중심의 클린 코드를 작성하고 JIT 컴파일러에게 최적화를 맡기는 것이 정석입니다.
+그러나 마인크래프트 서버의 한계를 방어해야 하는 `Hot Path` 환경에서도 JIT 컴파일러의 최적화 능력을 맹신하고
+가독성을 우선시할 것인가에 대한 기준이 필요합니다.
+
+### Decision
+
+초당 수백, 수천 번 호출되는 `Hot Path`에서는 **JIT 컴파일러에 대한 맹신을 배제하고 명시적인 데이터 지향 코딩을 강제합니다.**
+
+- 1회성 변수는 컴파일러를 믿고 방치하는 대신 명시적으로 인라인화하여 추상 구문 트리의 복잡도를 낮춥니다.
+- 가독성을 위해 로직을 잘게 쪼개거나 래퍼 객체를 생성하는 행위를 금지하며, 원시 타입과 평탄화된 데이터 파이프라인을 유지합니다.
+
+### Rationale
+
+이 결정은 두 가지 치명적인 런타임 위험을 원천 차단하기 위한 생존 전략입니다.
+
+1. **예열 렉 방지**: JIT 컴파일러 최적화는 수만 번의 웜업 호출 이후에야 동작합니다.
+   서버 부팅 직후나 매치 초반 인터프리터 모드로 동작하는 3~5분 동안 발생하는 프레임 드랍과 렉을 유저들은 기다려주지 않습니다.
+2. **최적화 포기 회피**: 메서드의 바이트코드가 길어지거나 스택 변수가 많아지면,
+   JIT 컴파일러는 과부하를 막기 위해 해당 메서드의 **최적화를 아예 포기합니다.**
+
+따라서 컴파일러의 자비에 서버 성능을 맡기는 대신, 처음부터 JIT 컴파일러가 최적화를 100% 수행할 수밖에 없도록,
+그리고 예열 전에도 가볍게 돌아갈 수 있도록 **명시적으로 깎아낸 코드를 작성하는 것이 우리 아키텍처의 근간입니다.**

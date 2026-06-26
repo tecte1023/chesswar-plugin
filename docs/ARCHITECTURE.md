@@ -32,13 +32,17 @@
 
 ### 2.2. Component
 
-특정 상태를 담아 거대한 `Composite Entity`나 `System`에 탈부착하기 위한 `Data Container`입니다.
-내부에 로직을 포함해서는 안 되며, 다른 시스템을 역참조하는 것은 절대 금지됩니다.
+특정 상태를 담아 `Composite Entity`에 탈부착하기 위한 데이터 컨테이너입니다.
+내부에 로직을 포함해서는 안 되며, 다른 객체를 역참조하는 것은 절대 금지됩니다.
+`Tick` 단위로 빈번하게 갱신되는 `Hot Data`를 다룰 때,
+객체 재할당으로 인한 가비지 컬렉션 부하를 방어하기 위해 가변 상태를 예외적으로 허용합니다.
 
 ### 2.3. Value Object
 
-불변 성격을 가지는 공간/수학 데이터 구조체입니다.
+상태 변이 빈도가 낮아 갱신 시 객체 전체를 재할당해도 힙 메모리에 무방한 모든 불변 데이터 구조체입니다.
 모든 필드를 `final`로 선언하여 생성 후 상태 변경을 차단해야 합니다.
+단, `Hot Path`에서 객체가 반복적으로 생성 및 소멸되어 가비지 컬렉션 부하가 발생하는 경우,
+배열 캐싱 및 파라미터 덮어쓰기 패턴을 통해 새로운 객체 할당을 방어해야 합니다.
 
 ### 2.4. Manager
 
@@ -56,7 +60,20 @@
 
 ---
 
-## 3. Engine Coupling & Presentation Rules
+## 3. Instantiation Rules
+
+인스턴스 생성 규칙은 객체의 역할이 아닌 **생성 과정에 어떠한 형태의 로직이 개입하는가를** 단일 기준으로 삼아 결정해야 합니다.
+
+- **로직이 개입하는 경우:** 퍼블릭 생성자를 차단하고 정적 팩토리 메서드 사용을 강제합니다.
+  - 게임 로직 결합: `Composite Entity` 생성 시 루프나 공간 좌표 연산 등 초기화 로직이 필요한 경우.
+  - 인프라 최적화: 런타임 틱 루프인 `Hot Path` 성능 방어를 위해 캐시를 조회하고 반환하는 플라이웨이트 로직이 개입하는 경우.
+- **로직이 배제된 경우:** 정적 팩토리 메서드를 배제하고 퍼블릭 생성자의 직접 호출을 허용합니다.
+  - 연산 로직 없이 전달받은 파라미터를 필드에 대입하기만 하는 순수 데이터 결합의 경우(`Component`).
+  - 열거형 상수 내부나 `Cold Path`에서 할당되는 순수 `Value Object` 및 단순 데이터 구조체.
+
+---
+
+## 4. Engine Coupling & Presentation Rules
 
 Java 환경 최적화를 위해 실용적 결합을 허용하되, 프레젠테이션 코드는 철저히 격리해야 합니다.
 
@@ -85,9 +102,10 @@ public void movePiece(Piece piece, Location target) {
 
 ---
 
-## 4. Performance & GC Defense
+## 5. Performance & GC Defense
 
 Minecraft 20 TPS 방어를 위해, 로직의 **실행 흐름(Path)**과 데이터의 **생명주기(Data)**를 명확히 분리하여 최적화 기준을 세웁니다.
+
 - **실행 흐름 (`Hot/Warm/Cold Path`)**: CPU가 얼마나 자주 이 코드를 실행하는가? (예: `Hot Path` = 틱 루프)
 - **데이터 생명주기 (`Hot/Warm/Cold Data`)**: 메모리에 적재된 객체가 얼마나 자주 갱신되거나 GC 대상이 되는가?
 
@@ -117,7 +135,7 @@ public void tick() {
 
 ---
 
-## 5. Dependency & Communication Strategy
+## 6. Dependency & Communication Strategy
 
 `Manager` 간의 상호작용 및 로직 제어는 결합도와 `Tick` 성능을 고려하여 아래 규칙을 따릅니다.
 
@@ -133,9 +151,9 @@ public void tick() {
 
 ---
 
-## 6. Naming & Packaging Rules
+## 7. Naming & Packaging Rules
 
-### 6.1. Package Structure
+### 7.1. Package Structure
 
 역할 기반 패키징을 배제하고, 기획서의 핵심 시스템 단위를 기준으로 묶는 `Feature` 중심 패키징 사용을 권장합니다.
 
@@ -149,7 +167,7 @@ public void tick() {
   파일이 단일 패키지에 모여 있는 초기 단계라 하더라도,
   `Input Controller`와 `Presenter`가 `package-private` 헬퍼 메서드를 호출하여 상태를 직접 조작하는 것은 엄격히 금지됩니다.
 
-### 6.2. Package Growth Strategy
+### 7.2. Package Growth Strategy
 
 단일 패키지 내부의 클래스 파일 수가 약 15~20개의 임계치를 초과할 경우 하위 패키지 분할을 허용하되,
 캡슐화 보호를 위해 다음 기준이 필수적으로 요구됩니다.
@@ -165,7 +183,7 @@ public void tick() {
    이는 SRP 위반의 경고 신호로 간주됩니다. 이 경우 단순히 I/O 기능만 하위 패키지로 격리하여 표면적인 파일 수만 줄이는 것은 지양하며,
    책임과 역할을 분석하여 완전히 독립된 새로운 부모 패키지로 `Feature` 자체를 분리할 것을 권장합니다.
 
-### 6.3. Naming Conventions
+### 7.3. Naming Conventions
 
 * **Packages**: Java 표준 관례를 따르고 복수형 명명 논쟁을 방지하기 위해 단수형 소문자 사용이 필수입니다.
 * **Classes**:
@@ -181,7 +199,7 @@ public void tick() {
 
 ---
 
-## 7. Feature Development Lifecycle
+## 8. Feature Development Lifecycle
 
 새로운 시스템을 추가할 때는 오버엔지니어링을 방지하기 위해 다음 6단계의 주기를 엄격히 따릅니다.
 
@@ -195,7 +213,7 @@ public void tick() {
 
 ---
 
-## 8. The Priority Pyramid
+## 9. The Priority Pyramid
 
 원칙과 실제 개발 상황이 충돌할 때, 아래 우선순위를 기준으로 의사결정을 내립니다.
 

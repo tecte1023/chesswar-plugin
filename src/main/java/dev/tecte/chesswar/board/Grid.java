@@ -11,10 +11,8 @@ import org.jetbrains.annotations.NotNull;
 @Accessors(fluent = true)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Grid {
-    public static final int GRID_SIZE = 8;
     public static final int CELL_SIZE = 3;
-    public static final int PHYSICAL_LENGTH = Grid.GRID_SIZE * Grid.CELL_SIZE;
-    public static final int CELL_COUNT = GRID_SIZE * GRID_SIZE;
+    public static final int PHYSICAL_LENGTH = Coordinate.BOARD_SIZE * CELL_SIZE;
     public static final double CELL_OFFSET = CELL_SIZE / 2.0;
 
     @NotNull
@@ -37,8 +35,8 @@ public final class Grid {
         final BlockFace forward = yawToFace(anchor.getYaw());
         final BlockFace right = toRightFace(forward);
 
-        final double[] worldXTable = new double[CELL_COUNT];
-        final double[] worldZTable = new double[CELL_COUNT];
+        final double[] worldXTable = new double[Coordinate.SQUARE_COUNT];
+        final double[] worldZTable = new double[Coordinate.SQUARE_COUNT];
 
         final int fModX = forward.getModX();
         final int fModZ = forward.getModZ();
@@ -48,9 +46,9 @@ public final class Grid {
         final double startX = location.x() + CELL_OFFSET;
         final double startZ = location.z() + CELL_OFFSET;
 
-        for (int gridY = 0; gridY < GRID_SIZE; gridY++) {
-            for (int gridX = 0; gridX < GRID_SIZE; gridX++) {
-                final int index = toIndex(gridX, gridY);
+        for (int gridY = 0; gridY < Coordinate.BOARD_SIZE; gridY++) {
+            for (int gridX = 0; gridX < Coordinate.BOARD_SIZE; gridX++) {
+                final int index = Coordinate.flatten(gridX, gridY);
 
                 worldXTable[index] = startX + (gridX * rModX * CELL_SIZE) + (gridY * fModX * CELL_SIZE);
                 worldZTable[index] = startZ + (gridX * rModZ * CELL_SIZE) + (gridY * fModZ * CELL_SIZE);
@@ -61,13 +59,13 @@ public final class Grid {
     }
 
     @NotNull
-    public Location getCenterAt(final int gridX, final int gridY) {
-        return applyCenterTo(anchor.clone(), gridX, gridY);
+    public Location getCenterAt(@NotNull final Coordinate coordinate) {
+        return applyCenterTo(anchor.clone(), coordinate);
     }
 
     @NotNull
-    public Location applyCenterTo(@NotNull final Location target, final int gridX, final int gridY) {
-        int index = toIndex(gridX, gridY);
+    public Location applyCenterTo(@NotNull final Location target, @NotNull final Coordinate coordinate) {
+        final int index = coordinate.flatIndex();
 
         target.setWorld(anchor.getWorld());
         target.set(worldXTable[index], anchor.y(), worldZTable[index]);
@@ -75,26 +73,22 @@ public final class Grid {
         return target;
     }
 
-    public boolean isOutOfBounds(final int gridX, final int gridY) {
-        return gridX < 0 || gridX >= GRID_SIZE || gridY < 0 || gridY >= GRID_SIZE;
-    }
-
     @NotNull
     public Location anchor() {
         return anchor.clone();
     }
 
-    public double getWorldX(final int gridX, final int gridY) {
-        return worldXTable[toIndex(gridX, gridY)];
+    public double getWorldX(@NotNull final Coordinate coordinate) {
+        return worldXTable[coordinate.flatIndex()];
     }
 
-    public double getWorldZ(final int gridX, final int gridY) {
-        return worldZTable[toIndex(gridX, gridY)];
+    public double getWorldZ(@NotNull final Coordinate coordinate) {
+        return worldZTable[coordinate.flatIndex()];
     }
 
     @NotNull
     private static BlockFace yawToFace(final float yaw) {
-        int directionIndex = Math.floorMod(Math.round(yaw / 90f), 4);
+        final int directionIndex = Math.floorMod(Math.round(yaw / 90f), 4);
 
         return switch (directionIndex) {
             case 0 -> BlockFace.SOUTH;
@@ -114,9 +108,5 @@ public final class Grid {
             case WEST -> BlockFace.NORTH;
             default -> throw new IllegalArgumentException("지원하지 않는 방향: " + forward);
         };
-    }
-
-    private static int toIndex(final int gridX, final int gridY) {
-        return gridX + gridY * GRID_SIZE;
     }
 }

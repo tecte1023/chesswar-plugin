@@ -12,14 +12,13 @@ import org.jetbrains.annotations.NotNull;
 @Accessors(fluent = true)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Barracks {
-    private static final int CENTER_LEFT_X = 3;
-    private static final int CENTER_RIGHT_X = 4;
+    private static final Coordinate WHITE_SPAWN = Coordinate.of(3, 6);
+    private static final Coordinate WHITE_LEFT_CHEST = Coordinate.of(3, 4);
+    private static final Coordinate WHITE_RIGHT_CHEST = Coordinate.of(4, 4);
 
-    private static final int WHITE_SPAWN_Y = 6;
-    private static final int BLACK_SPAWN_Y = 1;
-
-    private static final int WHITE_CHEST_Y = 4;
-    private static final int BLACK_CHEST_Y = 3;
+    private static final Coordinate BLACK_SPAWN = Coordinate.of(3, 1);
+    private static final Coordinate BLACK_LEFT_CHEST = Coordinate.of(4, 3);
+    private static final Coordinate BLACK_RIGHT_CHEST = Coordinate.of(3, 3);
 
     private static final int CHEST_BLOCK_OFFSET = Grid.CELL_SIZE / 2;
 
@@ -31,50 +30,49 @@ public final class Barracks {
     private final Grid grid;
 
     @NotNull
+    private final Location spawnLocation;
+
+    @NotNull
+    private final Location leftChestLocation;
+
+    @NotNull
+    private final Location rightChestLocation;
+
+    @NotNull
+    @Getter
+    private final BlockFace chestFacing;
+
+    @NotNull
     public static Barracks create(@NotNull final Team team, @NotNull final Location anchor) {
-        return new Barracks(team, Grid.create(anchor));
+        final Grid grid = Grid.create(anchor);
+        final boolean isWhite = team == Team.WHITE;
+
+        final int chestOffset = CHEST_BLOCK_OFFSET * team.direction();
+        final BlockFace right = grid.right();
+
+        final Location spawnLocation = grid.getCenterAt(isWhite ? WHITE_SPAWN : BLACK_SPAWN)
+                .add(right.getModX() * Grid.CELL_OFFSET, 0, right.getModZ() * Grid.CELL_OFFSET);
+        final Location leftChestLocation = grid.getCenterAt(isWhite ? WHITE_LEFT_CHEST : BLACK_LEFT_CHEST)
+                .add(right.getModX() * chestOffset, 0, right.getModZ() * chestOffset);
+        final Location rightChestLocation = grid.getCenterAt(isWhite ? WHITE_RIGHT_CHEST : BLACK_RIGHT_CHEST)
+                .add(right.getModX() * -chestOffset, 0, right.getModZ() * -chestOffset);
+        final BlockFace chestFacing = isWhite ? grid.forward().getOppositeFace() : grid.forward();
+
+        return new Barracks(team, grid, spawnLocation, leftChestLocation, rightChestLocation, chestFacing);
     }
 
     @NotNull
     public Location spawnLocation() {
-        final BlockFace right = grid.right();
-
-        return grid.getCenterAt(CENTER_LEFT_X, isWhite() ? WHITE_SPAWN_Y : BLACK_SPAWN_Y)
-                .add(right.getModX() * Grid.CELL_OFFSET, 0, right.getModZ() * Grid.CELL_OFFSET);
+        return spawnLocation.clone();
     }
 
     @NotNull
     public Location leftChestLocation() {
-        return getOffsetLocation(
-                isWhite() ? CENTER_LEFT_X : CENTER_RIGHT_X,
-                isWhite() ? WHITE_CHEST_Y : BLACK_CHEST_Y,
-                CHEST_BLOCK_OFFSET * team.direction()
-        );
+        return leftChestLocation.clone();
     }
 
     @NotNull
     public Location rightChestLocation() {
-        return getOffsetLocation(
-                isWhite() ? CENTER_RIGHT_X : CENTER_LEFT_X,
-                isWhite() ? WHITE_CHEST_Y : BLACK_CHEST_Y,
-                -CHEST_BLOCK_OFFSET * team.direction()
-        );
-    }
-
-    @NotNull
-    public BlockFace chestFacing() {
-        return isWhite() ? grid.forward().getOppositeFace() : grid.forward();
-    }
-
-    @NotNull
-    private Location getOffsetLocation(final int gridX, final int gridY, final int rightOffset) {
-        final BlockFace right = grid.right();
-
-        return grid.getCenterAt(gridX, gridY)
-                .add(right.getModX() * rightOffset, 0, right.getModZ() * rightOffset);
-    }
-
-    private boolean isWhite() {
-        return team == Team.WHITE;
+        return rightChestLocation.clone();
     }
 }

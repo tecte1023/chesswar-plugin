@@ -55,16 +55,12 @@ public final class Board {
     }
 
     @NotNull
-    public Location getCenterAt(final int gridX, final int gridY) {
-        return grid.getCenterAt(gridX, gridY);
+    public Location getCenterAt(@NotNull final Coordinate coordinate) {
+        return grid.getCenterAt(coordinate);
     }
 
     @NotNull
-    public Location applyCenterTo(@NotNull final Location target, final int gridX, final int gridY) {
-        return grid.applyCenterTo(target, gridX, gridY);
-    }
-
-    public boolean isOutOfBounds(final int gridX, final int gridY) {
-        return grid.isOutOfBounds(gridX, gridY);
+    public Location applyCenterTo(@NotNull final Location target, @NotNull final Coordinate coordinate) {
+        return grid.applyCenterTo(target, coordinate);
     }
 }

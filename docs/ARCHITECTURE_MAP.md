@@ -64,7 +64,7 @@
 * **[Barracks](../src/main/java/dev/tecte/chesswar/board/Barracks.java)**:
   **`Value Object`**, **`Cold Data`** - 대기 공간의 논리적 레이아웃 데이터.
 * **[Coordinate](../src/main/java/dev/tecte/chesswar/board/Coordinate.java)**:
-  **`Value Object`**, **`Hot Data`** - 체스 그리드 좌표.
+  **`Value Object`**, **`Cold Data`** - 체스 그리드 64개 좌표를 캐싱한 불변 객체.
 * **[GuideType](../src/main/java/dev/tecte/chesswar/board/GuideType.java)**:
   **`Value Object`**, **`Cold Data`** - 가이드 시각화 타입 정의.
 * **[ChessBoard](../src/main/java/dev/tecte/chesswar/board/ChessBoard.java)**:
@@ -73,6 +73,8 @@
   **`Manager`**, **`Warm Path`** - 보드 및 배럭의 논리적 통제 및 생명주기 제어.
 * **[MoveValidator](../src/main/java/dev/tecte/chesswar/board/MoveValidator.java)**:
   **`Manager`**, **`Warm Path`** - 이동 규칙 검증 엔진.
+* **[PathValidator](../src/main/java/dev/tecte/chesswar/board/PathValidator.java)**:
+  **`Manager`**, **`Warm Path`** - 기물 이동 경로상의 장애물 여부 검증 엔진.
 * **[ChessFormation](../src/main/java/dev/tecte/chesswar/board/ChessFormation.java)**:
   **`Manager`**, **`Warm Path`** - 보드 규격 및 초기 배치 법칙.
 
@@ -93,17 +95,21 @@
 기물의 생명주기 및 런타임 상태를 관리하는 패키지입니다.
 
 * **[Piece](../src/main/java/dev/tecte/chesswar/piece/Piece.java)**:
-  **`Composite Entity`**, **`Warm Data`** - 개별 기물의 매치 상태.
+  **`Composite Entity`**, **`Warm Data`** - 식별자와 하위 컴포넌트를 묶는 순수 결합체.
 * **[PieceState](../src/main/java/dev/tecte/chesswar/piece/PieceState.java)**:
-  **`Component`**, **`Warm Data`** - 전장 내 모든 기물 위치 관리 (2D Array).
+  **`Component`**, **`Warm Data`** - 전장 내 기물 위치 및 버프 레지스트리 (데이터 컨테이너).
+* **[HealthComponent](../src/main/java/dev/tecte/chesswar/piece/component/HealthComponent.java)**:
+  **`Component`**, **`Hot Data`** - 기물 체력 수치 보관 컨테이너 (방어적 가변 허용).
+* **[EffectComponent](../src/main/java/dev/tecte/chesswar/piece/component/EffectComponent.java)**:
+  **`Component`**, **`Warm Data`** - 상태 이상 리스트 및 개인 버프 보관 컨테이너.
+* **[AbilityComponent](../src/main/java/dev/tecte/chesswar/piece/component/AbilityComponent.java)**:
+  **`Component`**, **`Cold Data`** - 기물 고유 스킬 리스트 컨테이너.
+* **[PieceComponent](../src/main/java/dev/tecte/chesswar/piece/component/PieceComponent.java)**:
+  **`Component`** - 기물 하위 컴포넌트 마커 인터페이스.
 * **[PieceEffect](../src/main/java/dev/tecte/chesswar/piece/PieceEffect.java)**:
-  **`Component`**, **`Warm Data`** - 기물 상태 이상 데이터.
+  **`Value Object`**, **`Warm Data`** - 만료 턴을 기록하는 기물 상태 이상 불변 데이터 구조체.
 * **[StatBuff](../src/main/java/dev/tecte/chesswar/piece/StatBuff.java)**:
-  **`Component`**, **`Warm Data`** - 스탯 강화 수치 데이터.
-* **[HealthComponent](../src/main/java/dev/tecte/chesswar/piece/HealthComponent.java)**:
-  **`Component`**, **`Warm Data`** - 기물 체력 관리 컴포넌트.
-* **[PieceComponent](../src/main/java/dev/tecte/chesswar/piece/PieceComponent.java)**:
-  **`Component`**, **`Warm Data`** - 기물 커스텀 기본 컴포넌트.
+  **`Value Object`**, **`Warm Data`** - 스탯 강화 불변 데이터 구조체.
 * **[PieceType](../src/main/java/dev/tecte/chesswar/piece/PieceType.java)**:
   **`Value Object`**, **`Cold Data`** - 기물 종류별 불변 정의 정보.
 * **[EffectType](../src/main/java/dev/tecte/chesswar/piece/EffectType.java)**:

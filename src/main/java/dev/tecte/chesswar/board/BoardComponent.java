@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 @Getter
 @Setter(AccessLevel.PACKAGE)
 @Accessors(fluent = true)
-@NoArgsConstructor(staticName = "create")
+@NoArgsConstructor
 public final class BoardComponent {
     @Nullable
     private Board board;
