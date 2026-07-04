@@ -7,56 +7,77 @@
 
 ## 1. Core Pillars
 
-프로젝트의 모든 코드는 Java 생태계와 Minecraft 서버 환경의 특수성을 고려하여 아래 세 가지 축을 원칙으로 삼습니다.
+이 프로젝트의 아키텍처는 상태와 로직을 결합하는 웹 백엔드의 DDD 및 교과서적 불변성이나,
+객체를 해체하고 배열로 다루는 네이티브 게임 엔진의 순수 ECS 및 DOD를 맹목적으로 따르지 않습니다.
+자바 생태계와 마인크래프트 서버의 제약을 극복하기 위해 아래 세 가지 축을 아키텍처의 핵심 원칙으로 삼습니다.
 
-1. **State Modeling 👉 `Component-Based OOP`**:
-   구조적 정합성을 지키기 위해 `Component` 조립 패턴 사용을 권장합니다.
-   깊은 클래스 상속을 배제하고, 식별자를 가진 `Composite Entity`를 `Component`로 감싸 `Manager`와 연결하는 방식으로 모델링해야 합니다.
-2. **Business Control 👉 `State-Manager Decoupling`**:
-   상태와 로직을 분리하여 `Manager`를 `Stateless`로 유지하는 것이 필수적입니다.
-   가변 상태 필드 소유 및 메서드 파라미터 주입 방식은 배제하며, 오직 생성자 주입을 통한 `final` 상태 참조 보관만 허용됩니다.
-3. **Presentation Control 👉 `Presentation-Logic Separation`**:
-   게임 로직이 시각 및 청각 출력 책임을 직접 소유하는 것은 엄격히 금지됩니다.
-   모든 시청각 처리는 전용 위임 객체를 통해서만 간접적으로 처리하는 것이 원칙입니다.
+1. **State Modeling 👉 `Component-Based OOP (CB-OOP)`**:
+   백엔드의 깊은 상속 트리나 순수 ECS의 메모리 배열 구조 대신,
+   객체 지향의 유연성을 유지하면서 상태와 제어를 분리하는 **`CB-OOP`** 패러다임을 채택합니다.
+   상태를 담는 데이터 객체와 이를 제어하는 게임 로직 주체를 철저히 격리하여 조립의 유연성과 정합성을 확보합니다.
+2. **Performance Optimization 👉 `Zero-GC Driven Mutation`**:
+   서버의 20 TPS 유지를 최우선 가치로 삼으며, 이를 위해 백엔드 구조의 모범 답안인 불변성을 의도적으로 폐기합니다.
+   힙 메모리 할당으로 인한 GC 스파이크를 원천 차단하기 위해,
+   객체의 상태를 직접 수정하는 **`In-place Mutation`을** 핵심 최적화 전략으로 강제합니다.
+3. **Boundary Isolation 👉 `Side-Effect Isolation`**:
+   마인크래프트 물리 엔진과의 실용적인 데이터 결합은 수용하되,
+   상태 갱신 과정에서 **시각 및 물리적 부수 효과를 유발하는 연출 API의 직접 호출은 게임 로직 내부에서 엄격히 금지**합니다.
+   모든 사이드 이펙트 처리는 아키텍처 외곽으로 완전히 격리하여 **게임 로직**의 오염을 방어합니다.
 
 ---
 
 ## 2. Object Roles
 
-순수 ECS나 헥사고날 계층 구조에서 벗어나, `Feature` 단위 패키지 내에서 동작하는 각 객체들의 고유한 역할과 제약 사항을 정의합니다.
+`Feature` 단위 패키지 내에서 동작하는 각 객체들의 고유한 역할과 제약 사항을 정의합니다.
 
 ### 2.1. Composite Entity
 
-논리적인 식별자와 하위 데이터를 묶어주는 순수 데이터 루트 객체입니다.
-스스로 로직을 판단하지 않으며, 소속된 데이터의 수명주기 전파만 책임져야 합니다.
+논리적인 식별자와 하위 `Component`를 관리하는 순수 데이터 루트 객체입니다.
+Java 환경의 특성상 단순 정수 식별자가 아닌 클래스로 래핑하여 구현하는 것이 원칙입니다.
+스스로 비즈니스 로직을 수행하지 않으며, 소속된 데이터의 생명주기 전파만 책임져야 합니다.
+`Composite Entity` 내부에 위임 메서드를 작성하는 것은 엄격히 금지됩니다.
+이는 객체가 비대해지는 안티 패턴을 방지하기 위함이며, `Manager`가 내부 `Component`를 직접 조회하고 조작해야 합니다.
 
 ### 2.2. Component
 
-특정 상태를 담아 `Composite Entity`에 탈부착하기 위한 데이터 컨테이너입니다.
-내부에 로직을 포함해서는 안 되며, 다른 객체를 역참조하는 것은 절대 금지됩니다.
-`Tick` 단위로 빈번하게 갱신되는 `Hot Data`를 다룰 때,
-객체 재할당으로 인한 가비지 컬렉션 부하를 방어하기 위해 가변 상태를 예외적으로 허용합니다.
+특정 상태를 담아 `Composite Entity`에 부착 및 해제하기 위한 데이터 구조체입니다.
+내부에 일괄 갱신과 같은 게임 로직을 포함해서는 안 되며,
+다른 `Component`나 `Composite Entity`를 참조하는 것은 금지되고 원시 타입 필드와 `Value Object` 참조만 예외적으로 허용됩니다.
+`Component` 인스턴스는 `Composite Entity`의 고정된 구조적 슬롯이므로 객체 자체를 통째로 교체하는 것은 금지되며,
+내부 상태 갱신을 위한 **`In-place Mutation`만이** 허용됩니다.
 
 ### 2.3. Value Object
 
-상태 변이 빈도가 낮아 갱신 시 객체 전체를 재할당해도 힙 메모리에 무방한 모든 불변 데이터 구조체입니다.
+상태 변이 빈도가 낮아 갱신 시 객체 전체를 재할당해도 가비지 컬렉션 부하가 경미한 모든 불변 데이터 구조체입니다.
 모든 필드를 `final`로 선언하여 생성 후 상태 변경을 차단해야 합니다.
-단, `Hot Path`에서 객체가 반복적으로 생성 및 소멸되어 가비지 컬렉션 부하가 발생하는 경우,
-배열 캐싱 및 파라미터 덮어쓰기 패턴을 통해 새로운 객체 할당을 방어해야 합니다.
+내부 구조가 복잡한 거대 불변 상태 객체의 경우,
+`Composite Entity`와 달리 내부 구조 은닉과 결합도 저하를 위해 위임 메서드 제공이 적극 권장됩니다.
 
 ### 2.4. Manager
 
-의존성 주입으로 전달받은 `Component`를 통해 내부 데이터를 조작하여
-이동, 타격, 턴 전환 등 핵심 게임 룰을 집행하는 `Stateless` 제어 객체입니다.
-오직 생성자 주입을 통한 상태 참조 보관만 허용되며, 스스로 로직 흐름 외의 가변 상태를 가지는 것은 허용되지 않습니다.
+게임 세션의 상태를 생성자를 통해 참조를 전달받아 소유하며,
+`Engine Event`나 `Internal Event` 등의 이벤트에 반응하여 전체 생명주기와 게임 로직을 통제하는 제어 객체입니다.
+해당 `Feature`를 대표하는 `Composite Entity`가 존재하지 않더라도,
+데이터에 대한 논리적 주권을 행사하고 게임 규칙 검증의 실행 흐름을 제어하기 위해 `Manager`는 반드시 존재해야 합니다.
+스스로 제어 흐름 관리를 위한 상태 외에 자체적인 가변 상태를 소유하는 것은 허용되지 않습니다.
+복잡한 수학 공식 연산이나 기하학 탐색을 직접 수행하는 것은 허용되지 않으며,
+이는 `System`에 원시 데이터를 전달하여 결과값만 수신하는 것이 원칙입니다.
 
-### 2.5. Input Controller
+### 2.5. System
 
-엔진의 `Event`와 명령어 입력을 수신하여 파싱한 후 `Manager`에게 제어권을 넘겨야 합니다. 대표적으로 `Listener`, `Command`를 포함합니다.
+절대 상태를 소유하지 않으며 외부 입력이나 어떠한 `Engine Event`
+또는 `Internal Event`에도 능동적으로 반응하지 않는 순수 연산 객체입니다.
+`Manager`로부터 원시 배열 및 좌표 데이터를 파라미터로 전달받아 일괄 처리를 수행합니다. 상태의 소유와 연산을 분리함으로써 성능을 극대화합니다.
+`Component` 상태의 직접 수정이나 시각·청각적 부수 효과 유발은 엄격히 금지되며, 오직 연산 결과값 반환에만 집중해야 합니다.
 
-### 2.6. Presenter
+### 2.6. Input Controller
 
-`Manager`의 명령을 받아 엔진의 시청각 API인 `Particle`, `Sound` 등을 호출하여 게임의 결과를 `Minecraft` 월드에 표현해야 합니다.
+물리 엔진에서 발생하는 `Engine Event`와 `External Input`을 수신하여 파싱한 후 `Manager`에게 제어권을 넘겨야 합니다.
+대표적인 구현체로는 `Listener`와 `Command`가 있습니다.
+
+### 2.7. Presenter
+
+`Manager`의 명령을 받아 엔진의 연출 API를 호출하여 게임의 결과를 월드에 표현해야 합니다.
 
 ---
 
@@ -64,12 +85,14 @@
 
 인스턴스 생성 규칙은 객체의 역할이 아닌 **생성 과정에 어떠한 형태의 로직이 개입하는가를** 단일 기준으로 삼아 결정해야 합니다.
 
-- **로직이 개입하는 경우:** 퍼블릭 생성자를 차단하고 정적 팩토리 메서드 사용을 강제합니다.
-  - 게임 로직 결합: `Composite Entity` 생성 시 루프나 공간 좌표 연산 등 초기화 로직이 필요한 경우.
-  - 인프라 최적화: 런타임 틱 루프인 `Hot Path` 성능 방어를 위해 캐시를 조회하고 반환하는 플라이웨이트 로직이 개입하는 경우.
+- **로직이 개입하는 경우:** 생성자를 `private`으로 제한하고 정적 팩토리 메서드 사용을 강제합니다.
+    - 객체 생성 시 내부 값 계산, 조립, 또는 캐시 조회 등 단순 대입 이상의 생성 제어 로직이 포함되는 모든 경우.
 - **로직이 배제된 경우:** 정적 팩토리 메서드를 배제하고 퍼블릭 생성자의 직접 호출을 허용합니다.
-  - 연산 로직 없이 전달받은 파라미터를 필드에 대입하기만 하는 순수 데이터 결합의 경우(`Component`).
-  - 열거형 상수 내부나 `Cold Path`에서 할당되는 순수 `Value Object` 및 단순 데이터 구조체.
+    - 연산 로직 없이 전달받은 파라미터를 필드에 대입하기만 하는 순수 데이터 구조체의 경우.
+- **상태가 배제된 순수 연산 객체인 `System`의 경우:**
+    - `Zero-GC` 원칙에 따라 순수 연산 기능만 수행할 경우, 열거형이나 정적 싱글톤으로 구현하는 것을 강제합니다.
+    - 단, 연산을 보조하는 매핑 및 공급 객체는 다중 게임 세션 환경의 유연성을 위해 열거형 구현을 배제하고
+      인스턴스화 가능한 일반 클래스로 설계하여 생성자를 통해 참조를 전달받아야 합니다.
 
 ---
 
@@ -79,24 +102,25 @@ Java 환경 최적화를 위해 실용적 결합을 허용하되, 프레젠테�
 
 * **First-Class Object**:
   3D 공간 좌표 연산을 위한 Bukkit 객체인 `Location`, `Vector` 등은 핵심 상태 데이터로 간주하여
-  `Manager` 및 `Component` 내부에서 직접 사용하는 것을 허용합니다.
+  `Component`가 필드로 소유하거나 `Manager`가 직접 연산에 사용하는 것을 허용합니다.
 * **Side-Effect Isolation**:
-  상태를 변경하는 `playSound`, `spawnParticle` 등의 API 호출은 **오직 `Presenter` 내부로만 제한되는 것이 원칙입니다**.
+  시각 및 청각적 연출 효과를 유발하는 `playSound`, `spawnParticle` 등의
+  API 호출은 **오직 `Presenter` 내부로 격리하는 것이 원칙입니다**.
 * **`Visual Offset Prohibition`**:
-  좌표를 반환하는 `Value Object` 및 `Composite Entity`는 순수 기하학적 좌표와 논리적 방향만 반환해야 합니다.
-  Y축 보정이나 `BlockData` 캐스팅 등 물리 엔진 대응용 시각적 보정은 배제하고 `Presenter`로 위임하는 것을 지향합니다.
+  좌표를 연산하여 반환하는 `System` 및 `Value Object`는 순수 기하학적 좌표와 논리적 방향만 반환해야 합니다.
+  Y축 보정이나 `BlockData` 캐스팅 등 시각 연출용 `Visual Offset`은 배제하고 `Presenter`로 위임하는 것을 지향합니다.
 
 ```java
 // ❌ DON'T: Manager에서 직접 엔진 연출 API 호출 (상태 오염 및 테스트 불가)
-public void movePiece(Piece piece, Location target) {
-    piece.setLocation(target);
-    target.getWorld().playSound(target, Sound.ENTITY_GENERIC_EXPLODE, 1, 1);
+public void processAction(CompositeEntity entity, Vector target) {
+    entity.getTransform().setPosition(target);
+    EngineAPI.playSound(target, SoundType.EXPLOSION);
 }
 
 // 🟢 DO: 상태 변경을 완결한 후 Presenter로 연출 위임
-public void movePiece(Piece piece, Location target) {
-    piece.setLocation(target);
-    visualDelegate.onPieceMoved(target);
+public void processAction(CompositeEntity entity, Vector target) {
+    entity.getTransform().setPosition(target);
+    presenter.onActionCompleted(target);
 }
 ```
 
@@ -104,32 +128,49 @@ public void movePiece(Piece piece, Location target) {
 
 ## 5. Performance & GC Defense
 
-Minecraft 20 TPS 방어를 위해, 로직의 **실행 흐름(Path)**과 데이터의 **생명주기(Data)**를 명확히 분리하여 최적화 기준을 세웁니다.
+Minecraft 20 TPS 방어를 위해, 로직의 **실행 흐름과** 데이터의 **생명주기를** 명확히 분리하여 최적화 기준을 세웁니다.
 
-- **실행 흐름 (`Hot/Warm/Cold Path`)**: CPU가 얼마나 자주 이 코드를 실행하는가? (예: `Hot Path` = 틱 루프)
-- **데이터 생명주기 (`Hot/Warm/Cold Data`)**: 메모리에 적재된 객체가 얼마나 자주 갱신되거나 GC 대상이 되는가?
+- **`Hot/Warm/Cold Path`**: 코드가 얼마나 자주 실행되며, 한 번 실행될 때 **얼마나 많은 객체를** 순회하여 CPU 연산 부하를 유발하는가?
+- **`Hot/Warm/Cold Data`**:
+  데이터가 얼마나 자주 갱신되며, 한 번 갱신될 때 **얼마나 많은 객체를** 새로 할당하여 가비지 컬렉션 부하를 유발하는가?
 
-아래는 데이터의 갱신 빈도(생명주기)에 따른 메모리 할당 방어 규칙입니다.
+아래는 데이터의 갱신 빈도 및 규모에 따른 **`Component` 내부 상태의** 메모리 할당 방어 규칙입니다.
 
-* **`Cold Data`**: 부팅 시 한 번 로드되어 매치 내내 사용되는 **저빈도 갱신** 데이터는 완벽한 불변 객체로 캐싱하는 것이 원칙입니다.
+* **`Cold Data`**: 부팅 시 한 번 로드되어 게임 세션 내내 사용되는 **저빈도 갱신** 데이터는 완벽한 불변 객체로 캐싱하는 것이 원칙입니다.
 * **`Warm Data`**:
-  턴 전환 등 간헐적으로 갱신되는 **중빈도 갱신** `Component`는 내부 필드 수정을 지양하고, 새 객체를 생성하여 통째로 교체하는 것을 권장합니다.
-* **`Hot Data`**: 매 `Tick`마다 갱신되는 **고빈도 갱신** 데이터는 객체 생성이 엄격히 금지되며, 방어적 가변 조작을 예외적으로 허용합니다.
+  턴 전환 등 간헐적으로 갱신되는 **중빈도 갱신** 데이터는 사이드 이펙트 방지를 위해 `Value Object`로 유지하고,
+  갱신 시 `setter`를 통해 참조만 교체하는 것을 권장합니다.
+* **`Hot Data`**:
+  매 `Tick`마다 갱신되거나, 특정 시점에 **많은 객체를 대상으로 일괄 갱신**되는 **고빈도 갱신** 데이터는 객체 생성이 엄격히 금지됩니다.
+  순간적인 GC 스파이크를 차단하기 위해, 가변 객체의 내부 필드를 직접 수정하는 `In-place Mutation`을 강제합니다.
 
 ```java
-// ❌ DON'T: Hot Path 실행에서 새로운 객체 반환 (GC 렉 유발)
-public void tick() {
-    this.velocity = new Vector(this.velocity.getX(), this.velocity.getY() - 0.1, this.velocity.getZ());
+// 🚨 Hot Data: 가비지 생성을 엄격히 차단
+// ❌ DON'T: 연산 시 새로운 객체를 생성하여 할당 (GC 스파이크 유발)
+public void applyGravity() {
+    Vector current = this.velocityComp.getVelocity();
+    this.velocityComp.setVelocity(new Vector(current.getX(), current.getY() - 0.1, current.getZ()));
 }
 
-// 🟢 DO: 기존 객체의 내부 필드를 직접 수정하여 가비지 생성 차단
-public void tick() {
-    this.velocity.setY(this.velocity.getY() - 0.1);
+// 🟢 DO: 기존 객체 참조를 유지한 채 내부 필드만 직접 수정하는 `In-place Mutation` 수행
+public void applyGravity() {
+    Vector current = this.velocityComp.getVelocity();
+    current.setY(current.getY() - 0.1);
+}
+
+// ---------------------------------------------------------
+
+// 🔄 Warm/Cold Data: 사이드 이펙트 방지를 위해 불변성 유지
+// 🟢 DO: `System`이 `Value Object`를 연산하여 새로운 인스턴스를 반환하면, 참조만 교체
+public void changeTurn() {
+    MatchState currentState = this.matchStateComp.getMatchState();
+    MatchState nextState = TurnPolicy.calculateNext(currentState);
+    this.matchStateComp.setMatchState(nextState);
 }
 ```
 
 * **Primitive Type Priority**:
-  `Tick` 연산에 사용되는 숫자 데이터는 오토박싱 방지를 위해 래퍼 클래스 대신 원시 타입을 사용하는 것이 원칙입니다.
+  `Hot Path` 연산에 사용되는 숫자 데이터는 오토박싱 방지를 위해 래퍼 클래스 대신 원시 타입을 사용하는 것이 원칙입니다.
 * **Flat Data Structure**:
   해시 연산 부하를 유발하는 객체 대신, 메모리 연속성과 인덱스 기반 조회가 보장되는 평탄화된 자료구조의 채택을 권장합니다.
 
@@ -137,17 +178,22 @@ public void tick() {
 
 ## 6. Dependency & Communication Strategy
 
-`Manager` 간의 상호작용 및 로직 제어는 결합도와 `Tick` 성능을 고려하여 아래 규칙을 따릅니다.
+`Manager` 간의 상호작용 및 로직 제어는 결합도와 `Hot Path` 성능 부하를 고려하여 아래 규칙을 따릅니다.
 
 1. **`Continuous Polling`**
-    * 대상: 지속 데미지 등 매 `Tick`마다 갱신이 필요한 로직
-    * 규칙: `Event` 객체 생성이 허용되지 않으며, `Manager`가 직접 대상 상태 객체를 반복 조회해야 합니다.
+    * 대상: 지속 피해 등 매 `Tick`마다 갱신이 필요한 로직
+    * 규칙: 이벤트 객체 생성이 허용되지 않으며, `Manager`가 직접 대상 상태 객체를 반복 조회해야 합니다.
 2. **`Discrete Event-Driven`**
     * 대상: 기물 파괴, 턴 종료 등 비연속적인 상태 전이
-    * 규칙: 역참조는 배제되며, 가벼운 게임 이벤트를 발행하여 비동기식으로 전달하는 것을 원칙으로 합니다.
+    * 규칙: 역참조는 배제되며,
+      가벼운 `Internal Event`를 발행하여 호출과 실행의 결합을 끊는 `Pub/Sub` 방식으로 전달하는 것을 원칙으로 합니다.
 3. **`Atomic Top-Down Direct Call`**
     * 대상: 게임 부팅 등 엄격한 순서가 보장되어야 하는 제어
     * 규칙: 상위 `Manager`가 하위 `Manager`의 메서드를 직접 순차 호출해야 합니다.
+4. **`Lazy Evaluation`**
+    * 대상: 복잡한 상태 갱신 연산이 동반되는 고비용 `Hot Path` 연산
+    * 규칙: 부분 갱신에 따른 상태 불일치를 방지하기 위해,
+      즉각적인 Push 방식의 연산을 배제하고 조회가 발생하는 시점에만 상태를 갱신하는 지연 평가를 지향합니다.
 
 ---
 
@@ -158,11 +204,12 @@ public void tick() {
 역할 기반 패키징을 배제하고, 기획서의 핵심 시스템 단위를 기준으로 묶는 `Feature` 중심 패키징 사용을 권장합니다.
 
 * **Cohesion**:
-  동일한 `Feature`(예: board, piece)에 속하는 `Composite Entity`, `Value Object`, `Component`, `Manager`, `Presenter`,
-  `Listener`, `Command`는 1차적으로 모두 같은 패키지 내부에 위치시키는 것이 원칙입니다.
+  동일한 `Feature`에 속하는 `Composite Entity`, `Value Object`, `Component`, `System`, `Manager`, `Presenter`,
+  `Input Controller`는 1차적으로 모두 같은 패키지 내부에 위치시키는 것이 원칙입니다.
+  단, 특정 `Feature`에 종속되지 않고 재사용성이 극대화된 범용 `System`은 공통 패키지로 분리하는 것을 예외적으로 허용합니다.
 * **Access Control**:
   상태 객체의 가변 헬퍼 메서드는 `package-private` 접근 제어자를 사용해야 합니다.
-  오직 동일 패키지 레벨에 존재하는 `Manager`만 상태를 조작하도록 강제됩니다.
+  오직 동일 패키지 레벨에 존재하는 `Manager`만 상태를 조작해야 합니다.
 * **Logical Isolation**:
   파일이 단일 패키지에 모여 있는 초기 단계라 하더라도,
   `Input Controller`와 `Presenter`가 `package-private` 헬퍼 메서드를 호출하여 상태를 직접 조작하는 것은 엄격히 금지됩니다.
@@ -173,10 +220,10 @@ public void tick() {
 캡슐화 보호를 위해 다음 기준이 필수적으로 요구됩니다.
 
 1. **Core Isolation**:
-   Java의 `package-private` 가시성 유지를 위해 `Composite Entity`, `Value Object`, `Component`와 해당 `Component`를 제어하는
-   `Manager`를 하위 패키지로 분리하는 것은 허용되지 않습니다. 반드시 최상단 부모 패키지에 함께 배치해야 합니다.
+   Java의 `package-private` 가시성 유지를 위해 `Composite Entity`, `Value Object`, `Component`, `System`과
+   해당 `Feature`를 제어하는 `Manager`를 하위 패키지로 분리하는 것은 허용되지 않습니다. 반드시 최상단 부모 패키지에 함께 배치해야 합니다.
 2. **I/O Isolation**:
-   상태를 직접 조작하지 않고 읽기 및 이벤트 전달만 수행하는 입력 및 연출 위임 객체들은
+   상태를 직접 조작하지 않고 읽기 및 엔진 전달만 수행하는 `Input Controller` 및 `Presenter`는
    `controller` 및 `presenter` 하위 패키지로 물리적으로 분리하여 격리하는 것이 원칙입니다.
 3. **`Feature Split`**:
    `Composite Entity`, `Value Object`, `Component`, `Manager` 등 코어 객체의 개수만으로 임계치를 초과할 경우,
@@ -187,9 +234,14 @@ public void tick() {
 
 * **Packages**: Java 표준 관례를 따르고 복수형 명명 논쟁을 방지하기 위해 단수형 소문자 사용이 필수입니다.
 * **Classes**:
-  클래스 이름은 `Component`, `Manager`, `Presenter` 등의 역할군 접미사 부착을 원칙으로 합니다. 단, 다음 두 가지 예외를 허용합니다.
-    * `Composite Entity`, `Value Object` 계층은 시스템 접미사를 생략하고 순수 명사형을 사용합니다.
-    * `Input Controller` 계층은 엔진 관례에 따라 `Listener` 또는 `Command` 접미사를 허용합니다.
+  클래스 이름은 `Component`, `Manager`, `Presenter` 등의 역할군 접미사 부착을 원칙으로 합니다. 단, 다음 세 가지 예외를 허용합니다.
+    * `Composite Entity`, `Value Object` 역할군은 접미사를 생략하고 순수 명사형을 사용합니다.
+    * `Input Controller` 역할군은 엔진 관례에 따라 `Listener` 또는 `Command` 접미사를 허용합니다.
+    * 순수 연산 및 매핑을 담당하는 `System` 역할군은 상태를 제어하는 객체로 오해받는 것을 방지하기 위해
+      `Manager` 접미사 사용이 엄격히 금지됩니다. 연산 비용과 능동성에 따라 순수 연산기인 `~Pattern`,
+      수동적 매핑인 `~Table`, 게임 규칙을 의미하는 `~Policy` 등 직관적인 명사형 복합어를 사용해야 합니다.
+
+  추가적으로, 다형성 상속 구조 파악의 직관성을 위해 인터페이스와 구현체의 역할군 접미사는 반드시 일치시켜야 합니다.
 * **Methods**: 백엔드 방식의 CRUD 용어를 배제하고, 각 역할의 유비쿼터스 언어에 맞는 동사형 명명을 권장합니다.
 * **Role-Specific Ubiquitous Language**:
   각 역할은 자신이 속한 `Feature`의 언어적 컨텍스트를 엄격히 분리하여 사용해야 합니다.
@@ -206,10 +258,10 @@ public void tick() {
 1. **`MVP`**:
    연출과 예외 처리를 배제하고, `Manager`와 `Component` 간의 순수 논리적 상태 변화만 콘솔로 검증하여 흐름을 1차적으로 확인합니다.
 2. **`UX Alignment`**: `Input Controller`를 연결하여 플레이어의 명령어와 클릭 이벤트를 게임 로직에 연동합니다.
-3. **`Refactoring`**: 기능 동작 확인 후, 매직 넘버를 분리하고 패키지 의존성 규칙에 맞게 코드를 재배치하여 기술 부채를 소거합니다.
-4. **`Feature Expansion`**: 기획서에 명시된 예외 케이스와 수학적 규칙을 `Manager`에 추가하여 규칙을 확장합니다.
-5. **`Polishing`**: `Presenter`를 연결하여 사운드, 파티클 등 엔진 종속적인 시청각 요소를 결합해 연출을 강화합니다.
-6. **`Optimization`**: 프로파일러를 통해 `Tick` 로드를 확인하고, 병목이 발생하는 영역에 한해 아키텍처 타협을 진행하여 성능을 최적화합니다.
+3. **`Refactoring`**: 기능의 정상 동작을 확인한 후, 매직 넘버를 분리하고 패키지 구조 규칙에 맞게 코드를 재배치하여 기술 부채를 소거합니다.
+4. **`Feature Expansion`**: 기획서에 명시된 예외 케이스와 게임 규칙 검증을 `Manager`에 추가하여 게임 로직을 확장합니다.
+5. **`Polishing`**: `Presenter`를 연결하여 사운드, 파티클 등 엔진 종속적인 시각 및 청각적 연출 효과를 결합해 표현력을 강화합니다.
+6. **`Optimization`**: 프로파일러를 통해 `Tick` 부하를 확인하고, 병목이 발생하는 영역에 한해 아키텍처 타협을 진행하여 성능을 최적화합니다.
 
 ---
 
@@ -218,6 +270,6 @@ public void tick() {
 원칙과 실제 개발 상황이 충돌할 때, 아래 우선순위를 기준으로 의사결정을 내립니다.
 
 1. **👑 1순위 MVP 생존** - 동작 가능한 최초 기능 구현 및 기획 검증이 최우선입니다.
-2. **🥈 2순위 Engine 법칙** - 서버 `Tick`을 유지하기 위한 직관적인 최적화는 아키텍처 원칙보다 우선합니다.
+2. **🥈 2순위 엔진 법칙** - 서버 `Tick`을 유지하기 위한 직관적인 최적화는 아키텍처 원칙보다 우선합니다.
 3. **🥉 3순위 기획 기반 가독성** - 복잡한 디자인 패턴보다 기획서의 의도를 명확하게 투영한 코드가 우수합니다.
 4. **🔨 4순위 구현 패턴 준수** - 패턴은 단순 로직에 강제하지 않습니다.

@@ -64,7 +64,7 @@
 * **[Barracks](../src/main/java/dev/tecte/chesswar/board/Barracks.java)**:
   **`Value Object`**, **`Cold Data`** - 대기 공간의 논리적 레이아웃 데이터.
 * **[Coordinate](../src/main/java/dev/tecte/chesswar/board/Coordinate.java)**:
-  **`Value Object`**, **`Cold Data`** - 체스 그리드 64개 좌표를 캐싱한 불변 객체.
+  **`Value Object`**, **`Hot Data`** - 체스 그리드 좌표.
 * **[GuideType](../src/main/java/dev/tecte/chesswar/board/GuideType.java)**:
   **`Value Object`**, **`Cold Data`** - 가이드 시각화 타입 정의.
 * **[ChessBoard](../src/main/java/dev/tecte/chesswar/board/ChessBoard.java)**:
@@ -73,8 +73,6 @@
   **`Manager`**, **`Warm Path`** - 보드 및 배럭의 논리적 통제 및 생명주기 제어.
 * **[MoveValidator](../src/main/java/dev/tecte/chesswar/board/MoveValidator.java)**:
   **`Manager`**, **`Warm Path`** - 이동 규칙 검증 엔진.
-* **[PathValidator](../src/main/java/dev/tecte/chesswar/board/PathValidator.java)**:
-  **`Manager`**, **`Warm Path`** - 기물 이동 경로상의 장애물 여부 검증 엔진.
 * **[ChessFormation](../src/main/java/dev/tecte/chesswar/board/ChessFormation.java)**:
   **`Manager`**, **`Warm Path`** - 보드 규격 및 초기 배치 법칙.
 
@@ -98,6 +96,8 @@
   **`Composite Entity`**, **`Warm Data`** - 식별자와 하위 컴포넌트를 묶는 순수 결합체.
 * **[PieceState](../src/main/java/dev/tecte/chesswar/piece/PieceState.java)**:
   **`Component`**, **`Warm Data`** - 전장 내 기물 위치 및 버프 레지스트리 (데이터 컨테이너).
+* **[ActionMaskComponent](../src/main/java/dev/tecte/chesswar/piece/ActionMaskComponent.java)**:
+  **`Component`**, **`Hot Data`** - 기물의 이동/공격 범위 비트마스크 보관 (In-place 가변 허용).
 * **[HealthComponent](../src/main/java/dev/tecte/chesswar/piece/component/HealthComponent.java)**:
   **`Component`**, **`Hot Data`** - 기물 체력 수치 보관 컨테이너 (방어적 가변 허용).
 * **[EffectComponent](../src/main/java/dev/tecte/chesswar/piece/component/EffectComponent.java)**:
@@ -114,6 +114,10 @@
   **`Value Object`**, **`Cold Data`** - 기물 종류별 불변 정의 정보.
 * **[EffectType](../src/main/java/dev/tecte/chesswar/piece/EffectType.java)**:
   **`Value Object`**, **`Cold Data`** - 버프/디버프 성격 구분 열거형.
+* **[ActionMaskRegistry](../src/main/java/dev/tecte/chesswar/piece/ActionMaskRegistry.java)**:
+  **`Value Object`**, **`Cold Data`** - PieceType과 Generator를 매핑하는 불변 레지스트리.
+* **[ActionMaskGenerator](../src/main/java/dev/tecte/chesswar/piece/ActionMaskGenerator.java)**:
+  **`Manager Delegate`**, **`Warm Path`** - 다형성을 위해 분리된 상태 없는 비트마스크 산출 전략 인터페이스.
 * **[PieceManager](../src/main/java/dev/tecte/chesswar/piece/PieceManager.java)**:
   **`Manager`**, **`Warm Path`** - 기물의 이동, 제거, 상태 무결성 제어.
 
@@ -135,7 +139,7 @@
 
 ## 📦 ability (기물 고유 능력 시스템)
 
-기물의 고유 기능 발동 및 논리 룰을 처리하는 독립 패키지입니다. (ADR-012 Domain Split 반영)
+기물의 고유 기능 발동 및 논리 룰을 처리하는 독립 패키지입니다. (ADR-006 Feature-Driven Packaging 반영)
 
 * **[PieceAbility](../src/main/java/dev/tecte/chesswar/ability/PieceAbility.java)**:
   **`Component`**, **`Cold Data`** - 기물 능력 기본 인터페이스.
