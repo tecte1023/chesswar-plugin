@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.piece.ability;
+package dev.tecte.chesswar.piece;
 
 public enum InteractionResult {
     SUCCESS,

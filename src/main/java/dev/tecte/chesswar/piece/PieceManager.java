@@ -2,15 +2,11 @@ package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
+import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.game.CombatPolicy;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
 import dev.tecte.chesswar.game.manager.GameAnnouncer;
-import dev.tecte.chesswar.piece.ability.BishopAbility;
-import dev.tecte.chesswar.piece.ability.KingAbility;
-import dev.tecte.chesswar.piece.ability.KnightAbility;
-import dev.tecte.chesswar.piece.ability.PawnAbility;
-import dev.tecte.chesswar.piece.ability.RookAbility;
 import dev.tecte.chesswar.team.Team;
 import io.lumine.mythic.api.mobs.MobManager;
 import io.lumine.mythic.api.mobs.MythicMob;
@@ -41,6 +37,7 @@ public class PieceManager {
 
     private final org.bukkit.plugin.Plugin plugin;
     private final PieceState pieceState;
+    private final ActionPatternTable actionPatternTable;
     private final MobManager mobManager;
     private final PiecePdcMapper pdcMapper;
     private final BoardComponent boardComponent;
@@ -114,68 +111,64 @@ public class PieceManager {
     }
 
     public void deployBunkerToBarracks() {
-        final Piece[][] pieces = pieceState.boardPieces();
+        final Piece[] occupancy = pieceState.boardOccupancy();
 
-        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
-            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
-                final Piece piece = pieces[x][y];
+        for (int i = 0; i < Coordinate.SQUARE_COUNT; i++) {
+            final Piece piece = occupancy[i];
 
-                if (piece == null) {
-                    continue;
-                }
-
-                final LivingEntity entity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
-
-                if (entity == null) {
-                    continue;
-                }
-
-                final Team team = piece.team();
-                // TODO: [Refactoring Phase 2] BoardManager 수정에 따른 후속 작업 필요
-                final ChessBoard barracksBoard = boardComponent.board();
-
-                if (barracksBoard == null) {
-                    continue;
-                }
-
-                final Coordinate coord = Coordinate.of(x, y);
-                final Location targetLoc = barracksBoard.toCenterLocation(coord);
-                targetLoc.setDirection(barracksBoard.calculateDirection(team));
-
-                entity.teleport(targetLoc);
+            if (piece == null) {
+                continue;
             }
+
+            final LivingEntity entity = piece.isPlayer() ? Bukkit.getPlayer(piece.id()) : (Bukkit.getEntity(piece.id()) instanceof LivingEntity e ? e : null);
+
+            if (entity == null) {
+                continue;
+            }
+
+            final Team team = piece.team();
+            // TODO: [Refactoring Phase 2] BoardManager 수정에 따른 후속 작업 필요
+            final ChessBoard barracksBoard = boardComponent.board();
+
+            if (barracksBoard == null) {
+                continue;
+            }
+
+            final Coordinate coord = Coordinate.of(i % Coordinate.BOARD_SIZE, i / Coordinate.BOARD_SIZE);
+            final Location targetLoc = barracksBoard.toCenterLocation(coord);
+            targetLoc.setDirection(barracksBoard.calculateDirection(team));
+
+            entity.teleport(targetLoc);
         }
     }
 
     public void deployBunkerToBattlefield(final ChessBoard board) {
         final Location targetLoc = board.origin();
-        final Piece[][] pieces = pieceState.boardPieces();
+        final Piece[] occupancy = pieceState.boardOccupancy();
 
-        for (int x = 0; x < Coordinate.BOARD_SIZE; x++) {
-            for (int y = 0; y < Coordinate.BOARD_SIZE; y++) {
-                final Piece existingPiece = pieces[x][y];
+        for (int i = 0; i < Coordinate.SQUARE_COUNT; i++) {
+            final Piece existingPiece = occupancy[i];
 
-                if (existingPiece == null) {
-                    continue;
-                }
-
-                final LivingEntity entity = existingPiece.isPlayer() ? Bukkit.getPlayer(existingPiece.id()) : (Bukkit.getEntity(existingPiece.id()) instanceof LivingEntity e ? e : null);
-
-                if (entity == null) {
-                    continue;
-                }
-
-                if (existingPiece.isPlayer()) {
-                    entity.remove();
-                    continue;
-                }
-
-                final Coordinate coordinate = Coordinate.of(x, y);
-                board.updateToCenterLocation(coordinate, targetLoc);
-                targetLoc.setDirection(board.calculateDirection(existingPiece.team()));
-                entity.teleport(targetLoc);
-                visualManager.snapModel(entity);
+            if (existingPiece == null) {
+                continue;
             }
+
+            final LivingEntity entity = existingPiece.isPlayer() ? Bukkit.getPlayer(existingPiece.id()) : (Bukkit.getEntity(existingPiece.id()) instanceof LivingEntity e ? e : null);
+
+            if (entity == null) {
+                continue;
+            }
+
+            if (existingPiece.isPlayer()) {
+                entity.remove();
+                continue;
+            }
+
+            final Coordinate coordinate = Coordinate.of(i % Coordinate.BOARD_SIZE, i / Coordinate.BOARD_SIZE);
+            board.updateToCenterLocation(coordinate, targetLoc);
+            targetLoc.setDirection(board.calculateDirection(existingPiece.team()));
+            entity.teleport(targetLoc);
+            visualManager.snapModel(entity);
         }
     }
 
@@ -418,17 +411,28 @@ public class PieceManager {
     }
 
     public void attachAbilities(final Piece piece) {
-        switch (piece.type()) {
-            case ROOK -> piece.abilities().add(new RookAbility(announcer, 1.0));
-            case KNIGHT -> piece.abilities().add(new KnightAbility(pieceState, announcer));
-            case BISHOP -> piece.abilities().add(new BishopAbility(pieceState, announcer, 1.0));
-            case PAWN -> piece.abilities().add(new PawnAbility());
-            case QUEEN -> {
-                piece.abilities().add(new RookAbility(announcer, 0.5));
-                piece.abilities().add(new BishopAbility(pieceState, announcer, 0.5));
-            }
-            case KING -> piece.abilities().add(new KingAbility(pieceState, combatPolicy, announcer));
+        final PieceAbility[] abilities = switch (piece.type()) {
+            case ROOK -> new PieceAbility[]{new RookAbility(announcer, 1.0)};
+            case KNIGHT -> new PieceAbility[]{new KnightAbility(pieceState, announcer)};
+            case BISHOP -> new PieceAbility[]{new BishopAbility(pieceState, announcer, 1.0)};
+            case PAWN -> new PieceAbility[]{new PawnAbility()};
+            case QUEEN -> new PieceAbility[]{
+                    new RookAbility(announcer, 0.5),
+                    new BishopAbility(pieceState, announcer, 0.5)
+            };
+            case KING -> new PieceAbility[]{new KingAbility(pieceState, combatPolicy, announcer)};
+            default -> new PieceAbility[0];
+        };
+        piece.ability().abilities(abilities);
+    }
+
+    public ActionMaskComponent getValidMask(final Coordinate position, final Piece piece) {
+        if (piece.actionMask().lastVersion() != pieceState.occupancyVersion()) {
+            final ActionPattern pattern = actionPatternTable.patternFor(piece.type());
+            pattern.updateAction(pieceState.boardOccupancy(), piece, position, piece.actionMask());
+            piece.actionMask().lastVersion(pieceState.occupancyVersion());
         }
+        return piece.actionMask();
     }
 
     private static String convertToPascalCase(final String source) {

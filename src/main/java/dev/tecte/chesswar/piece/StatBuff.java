@@ -1,30 +1,38 @@
 package dev.tecte.chesswar.piece;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import org.jetbrains.annotations.NotNull;
 
 /**
- * [순수 데이터 객체] 팀별 기물 스탯 강화 정보를 저장합니다.
+ * [Value Object] 팀별 기물 스탯 강화 수치를 표현하는 불변 객체.
  */
-@Data
+@Getter
 @Accessors(fluent = true)
-@NoArgsConstructor
-@AllArgsConstructor(staticName = "of")
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class StatBuff {
-    private double health = 0.0;
-    private double damage = 0.0;
+    private final double health;
+    private final double damage;
 
-    public static StatBuff create() {
-        return new StatBuff();
+    @NotNull
+    public static StatBuff of(final double health, final double damage) {
+        return new StatBuff(health, damage);
     }
 
-    public void addHealth(final double amount) {
-        health += amount;
+    @NotNull
+    public static StatBuff empty() {
+        return new StatBuff(0.0, 0.0);
     }
 
-    public void addDamage(final double amount) {
-        damage += amount;
+    @NotNull
+    public StatBuff withHealth(final double amount) {
+        return new StatBuff(health + amount, damage);
+    }
+
+    @NotNull
+    public StatBuff withDamage(final double amount) {
+        return new StatBuff(health, damage + amount);
     }
 }

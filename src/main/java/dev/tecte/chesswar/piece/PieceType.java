@@ -3,6 +3,7 @@ package dev.tecte.chesswar.piece;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import org.jetbrains.annotations.NotNull;
 
 @Getter
 @Accessors(fluent = true)
@@ -57,10 +58,18 @@ public enum PieceType {
             15
     );
 
+    @NotNull
     private final String displayName;
+
+    @NotNull
     private final String symbol;
+
+    @NotNull
     private final String description;
+
+    @NotNull
     private final String rangeDescription;
+
     private final double baseHealth;
     private final double baseDamage;
 
