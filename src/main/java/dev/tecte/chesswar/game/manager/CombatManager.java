@@ -11,12 +11,13 @@ import dev.tecte.chesswar.game.component.GamePhase;
 import dev.tecte.chesswar.game.component.Participant;
 import dev.tecte.chesswar.game.event.KingDeathEvent;
 import dev.tecte.chesswar.game.event.PieceSpawnEvent;
+import dev.tecte.chesswar.piece.InteractionResult;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PieceState;
 import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.piece.StatBuff;
-import dev.tecte.chesswar.piece.ability.PieceAbility;
+import dev.tecte.chesswar.piece.PieceAbility;
 import dev.tecte.chesswar.team.Team;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -286,15 +287,15 @@ public class CombatManager implements Listener {
         if (targetPiece.team() == attackingPiece.team()) {
             processingAttack = true;
             try {
-                for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : attackingPiece.abilities()) {
-                    final dev.tecte.chesswar.piece.ability.InteractionResult result = ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant);
-                    if (result == dev.tecte.chesswar.piece.ability.InteractionResult.SUCCESS) {
+                for (final PieceAbility ability : attackingPiece.ability().abilities()) {
+                    final InteractionResult result = ability.onAttackTeammate(attacker, victim, finalAttackingCoordinate, targetCoordinate, attackingPiece, targetPiece, participant);
+                    if (result == InteractionResult.SUCCESS) {
                         if (participant != null && participant.commanderTarget() != null) {
                             applyGlowing(participant.commanderTarget(), false);
                             participant.commanderTarget(null);
                         }
                         return AttackResult.ACTION_DONE;
-                    } else if (result == dev.tecte.chesswar.piece.ability.InteractionResult.FAIL_HANDLED) {
+                    } else if (result == InteractionResult.FAIL_HANDLED) {
                         return AttackResult.INVALID;
                     }
                 }
@@ -337,7 +338,7 @@ public class CombatManager implements Listener {
             return;
         }
 
-        for (final PieceAbility ability : piece.abilities()) {
+        for (final PieceAbility ability : piece.ability().abilities()) {
             ability.onTurnStart(player, piece, participant);
         }
     }
@@ -426,7 +427,7 @@ public class CombatManager implements Listener {
             participant.commanderTarget(null);
         }
 
-        for (final PieceAbility ability : movingPiece.abilities()) {
+        for (final PieceAbility ability : movingPiece.ability().abilities()) {
             if (!ability.onMove(player, movingPiece, finalFrom, to)) {
                 return false;
             }
@@ -462,7 +463,7 @@ public class CombatManager implements Listener {
             final Piece targetPiece,
             final Participant participant
     ) {
-        for (final PieceAbility ability : attackingPiece.abilities()) {
+        for (final PieceAbility ability : attackingPiece.ability().abilities()) {
             if (ability.onInteractSameTeam(attacker, myCoord, targetCoord, attackingPiece, targetPiece, participant)) {
                 return AttackResult.COMMAND_CHANGED;
             }
@@ -496,7 +497,7 @@ public class CombatManager implements Listener {
             final dev.tecte.chesswar.piece.StatBuff buff = pieceState.getBuff(attackingPiece.team(), attackingPiece.type());
             double damage = Math.round(baseDamage + buff.damage() + attackingPiece.personalBuff().damage());
 
-            for (final PieceAbility ability : attackingPiece.abilities()) {
+            for (final PieceAbility ability : attackingPiece.ability().abilities()) {
                 damage = ability.onAttack(attacker, victim, attackCoord, targetCoord, attackingPiece, targetPiece, damage);
             }
 

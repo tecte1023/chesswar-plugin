@@ -4,6 +4,7 @@ import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardEnvironmentPresenter;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.BoardVisualManager;
+import dev.tecte.chesswar.piece.PieceAbility;
 import dev.tecte.chesswar.piece.PieceLayout;
 import dev.tecte.chesswar.board.MoveValidator;
 import dev.tecte.chesswar.economy.EconomyManager;
@@ -1030,7 +1031,7 @@ public class GameManager implements Listener {
                     if (targetPiece != null && targetPiece.team() == participant.team()) {
                         final LivingEntity targetEntity = targetPiece.isPlayer() ? Bukkit.getPlayer(targetPiece.id()) : (Bukkit.getEntity(targetPiece.id()) instanceof LivingEntity e ? e : null);
                         boolean interactable = false;
-                        for (final dev.tecte.chesswar.piece.ability.PieceAbility ability : myPiece.abilities()) {
+                        for (final PieceAbility ability : myPiece.ability().abilities()) {
                             if (ability.canInteract(player, myPiece, targetPiece, targetEntity)) {
                                 interactable = true;
                                 break;

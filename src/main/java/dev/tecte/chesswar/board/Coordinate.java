@@ -31,8 +31,12 @@ public final class Coordinate {
         return CACHE[flatten(x, y)];
     }
 
+    public static boolean isValid(final int x, final int y) {
+        return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
+    }
+
     public static boolean isOutOfBounds(final int x, final int y) {
-        return x < 0 || x >= BOARD_SIZE || y < 0 || y >= BOARD_SIZE;
+        return !isValid(x, y);
     }
 
     public static int flatten(final int x, final int y) {

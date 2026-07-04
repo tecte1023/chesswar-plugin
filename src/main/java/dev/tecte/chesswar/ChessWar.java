@@ -88,11 +88,11 @@ public final class ChessWar extends JavaPlugin {
     private void initializeManagers() {
         final GameContext context = GameContext.create();
         final PieceState pieceState = PieceState.create();
-        final BoardComponent boardComponent = BoardComponent.create();
+        final BoardComponent boardComponent = new BoardComponent();
         final EconomyState economyState = EconomyState.create();
         piecePdcMapper = PiecePdcMapper.create(this);
 
-        boardComponent = BoardComponent.create();
+
         boardEnvPresenter = new BoardEnvironmentPresenter(
                 new NamespacedKey(this, BoardEnvironmentPresenter.READY_BUTTON_KEY),
                 new NamespacedKey(this, BoardEnvironmentPresenter.TURN_ORDER_KEY),
@@ -104,7 +104,7 @@ public final class ChessWar extends JavaPlugin {
         gameAnnouncer = new GameAnnouncer(context, pieceState);
         pieceVisualManager = new PieceVisualManager();
 
-        pieceManager = new PieceManager(this, pieceState, MythicProvider.get().getMobManager(), piecePdcMapper, boardComponent, boardManager, moveValidator, combatPolicy, gameAnnouncer, pieceVisualManager);
+        pieceManager = new PieceManager(this, pieceState, dev.tecte.chesswar.piece.ActionPatternTable.create(), MythicProvider.get().getMobManager(), piecePdcMapper, boardComponent, boardManager, moveValidator, combatPolicy, gameAnnouncer, pieceVisualManager);
         environmentManager = new EnvironmentManager();
 
         boardVisualManager = new BoardVisualManager(this, boardComponent, boardManager, gameAnnouncer);
