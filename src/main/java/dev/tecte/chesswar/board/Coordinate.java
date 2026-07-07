@@ -46,4 +46,12 @@ public final class Coordinate {
     public int flatIndex() {
         return flatten(x, y);
     }
+
+    public boolean isDarkSquare() {
+        return (x + y) % 2 == 0;
+    }
+
+    public boolean isLightSquare() {
+        return !isDarkSquare();
+    }
 }

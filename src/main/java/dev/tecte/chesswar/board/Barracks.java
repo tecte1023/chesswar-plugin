@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import org.bukkit.block.BlockFace;
 import org.jetbrains.annotations.NotNull;
 
+@Getter
 @Accessors(fluent = true)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class Barracks {
@@ -23,7 +24,6 @@ public final class Barracks {
     private static final int CHEST_BLOCK_OFFSET = Grid.CELL_SIZE / 2;
 
     @NotNull
-    @Getter
     private final Team team;
 
     @NotNull
@@ -39,7 +39,6 @@ public final class Barracks {
     private final Location rightChestLocation;
 
     @NotNull
-    @Getter
     private final BlockFace chestFacing;
 
     @NotNull

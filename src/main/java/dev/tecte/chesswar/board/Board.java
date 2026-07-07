@@ -2,6 +2,7 @@ package dev.tecte.chesswar.board;
 
 import dev.tecte.chesswar.team.Team;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
 import org.bukkit.Location;
@@ -19,6 +20,7 @@ public final class Board {
     private static final int BARRACKS_OFFSET = Grid.PHYSICAL_LENGTH + BARRACKS_GAP;
 
     @NotNull
+    @Getter
     private final Grid grid;
 
     @NotNull

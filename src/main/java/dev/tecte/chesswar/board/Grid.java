@@ -14,6 +14,10 @@ public final class Grid {
     public static final int CELL_SIZE = 3;
     public static final int PHYSICAL_LENGTH = Coordinate.BOARD_SIZE * CELL_SIZE;
     public static final double CELL_OFFSET = CELL_SIZE / 2.0;
+    private static final double CENTER_OFFSET = (CELL_SIZE - 1) / 2.0;
+    private static final BlockFace[] FACES = {
+            BlockFace.SOUTH, BlockFace.WEST, BlockFace.NORTH, BlockFace.EAST
+    };
 
     @NotNull
     private final Location anchor;
@@ -31,9 +35,15 @@ public final class Grid {
 
     @NotNull
     public static Grid create(@NotNull final Location anchor) {
-        final Location location = anchor.toBlockLocation();
-        final BlockFace forward = yawToFace(anchor.getYaw());
-        final BlockFace right = toRightFace(forward);
+        final Location location = anchor.toCenterLocation();
+        final int directionIndex = Math.floorMod(Math.round(anchor.getYaw() / 90f), 4);
+        final float snappedYaw = directionIndex == 3 ? -90f : directionIndex * 90f;
+        final BlockFace forward = FACES[directionIndex];
+        final BlockFace right = FACES[(directionIndex + 1) % 4];
+
+        location.setY(anchor.getBlockY());
+        location.setYaw(snappedYaw);
+        location.setPitch(0f);
 
         final double[] worldXTable = new double[Coordinate.SQUARE_COUNT];
         final double[] worldZTable = new double[Coordinate.SQUARE_COUNT];
@@ -43,15 +53,20 @@ public final class Grid {
         final int rModX = right.getModX();
         final int rModZ = right.getModZ();
 
-        final double startX = location.x() + CELL_OFFSET;
-        final double startZ = location.z() + CELL_OFFSET;
+        final double startX = location.x() + (rModX * CENTER_OFFSET) + (fModX * CENTER_OFFSET);
+        final double startZ = location.z() + (rModZ * CENTER_OFFSET) + (fModZ * CENTER_OFFSET);
+
+        final int forwardStepX = fModX * CELL_SIZE;
+        final int forwardStepZ = fModZ * CELL_SIZE;
+        final int rightStepX = rModX * CELL_SIZE;
+        final int rightStepZ = rModZ * CELL_SIZE;
 
         for (int gridY = 0; gridY < Coordinate.BOARD_SIZE; gridY++) {
             for (int gridX = 0; gridX < Coordinate.BOARD_SIZE; gridX++) {
                 final int index = Coordinate.flatten(gridX, gridY);
 
-                worldXTable[index] = startX + (gridX * rModX * CELL_SIZE) + (gridY * fModX * CELL_SIZE);
-                worldZTable[index] = startZ + (gridX * rModZ * CELL_SIZE) + (gridY * fModZ * CELL_SIZE);
+                worldXTable[index] = startX + (gridX * rightStepX) + (gridY * forwardStepX);
+                worldZTable[index] = startZ + (gridX * rightStepZ) + (gridY * forwardStepZ);
             }
         }
 
@@ -84,29 +99,5 @@ public final class Grid {
 
     public double getWorldZ(@NotNull final Coordinate coordinate) {
         return worldZTable[coordinate.flatIndex()];
-    }
-
-    @NotNull
-    private static BlockFace yawToFace(final float yaw) {
-        final int directionIndex = Math.floorMod(Math.round(yaw / 90f), 4);
-
-        return switch (directionIndex) {
-            case 0 -> BlockFace.SOUTH;
-            case 1 -> BlockFace.WEST;
-            case 2 -> BlockFace.NORTH;
-            case 3 -> BlockFace.EAST;
-            default -> throw new IllegalStateException("계산 범위를 벗어난 각도입니다: " + directionIndex);
-        };
-    }
-
-    @NotNull
-    private static BlockFace toRightFace(@NotNull final BlockFace forward) {
-        return switch (forward) {
-            case NORTH -> BlockFace.EAST;
-            case SOUTH -> BlockFace.WEST;
-            case EAST -> BlockFace.SOUTH;
-            case WEST -> BlockFace.NORTH;
-            default -> throw new IllegalArgumentException("지원하지 않는 방향: " + forward);
-        };
     }
 }
