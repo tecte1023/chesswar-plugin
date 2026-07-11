@@ -1,9 +1,9 @@
-/*
 package dev.tecte.chesswar.game;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
+import org.jetbrains.annotations.NotNull;
 
 @Getter
 @Accessors(fluent = true)
@@ -15,8 +15,10 @@ public enum GamePhase {
     BATTLE("전투"),
     ENDED("종료");
 
+    @NotNull
     private final String displayName;
 
+    @NotNull
     public GamePhase next() {
         return switch (this) {
             case WAITING -> PIECE_SELECTION;
@@ -27,4 +29,3 @@ public enum GamePhase {
         };
     }
 }
-*/

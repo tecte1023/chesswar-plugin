@@ -1,6 +1,6 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.team.Team;
+import dev.tecte.chesswar.team.TeamSide;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -35,8 +35,8 @@ public final class BoardPresenter {
         }
 
         final List<BlockDisplay> entities = new ArrayList<>();
-        final Grid whiteGrid = board.getBarracks(Team.WHITE).grid();
-        final Grid blackGrid = board.getBarracks(Team.BLACK).grid();
+        final Grid whiteGrid = board.getBarracks(TeamSide.WHITE).grid();
+        final Grid blackGrid = board.getBarracks(TeamSide.BLACK).grid();
 
         spawnBaseLayer(player, board.grid(), entities);
         spawnBaseLayer(player, whiteGrid, entities);

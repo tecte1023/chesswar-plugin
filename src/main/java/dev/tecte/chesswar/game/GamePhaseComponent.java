@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.board;
+package dev.tecte.chesswar.game;
 
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -7,14 +7,11 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.List;
-import java.util.UUID;
-
 @Getter
 @Setter(AccessLevel.PACKAGE)
 @Accessors(fluent = true)
 @AllArgsConstructor
-public final class BoardUIComponent {
+public final class GamePhaseComponent {
     @NotNull
-    private List<UUID> adminViewers;
+    private GamePhase phase;
 }

@@ -43,7 +43,7 @@ public enum LeaperPattern implements ActionPattern {
                 continue;
             }
 
-            if (occupant.team() != piece.team()) {
+            if (occupant.teamSide() != piece.teamSide()) {
                 attackMask |= (1L << index);
             }
         }

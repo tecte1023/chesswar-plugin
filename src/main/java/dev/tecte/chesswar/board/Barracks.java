@@ -1,6 +1,6 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.team.Team;
+import dev.tecte.chesswar.team.TeamSide;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public final class Barracks {
     private static final int CHEST_BLOCK_OFFSET = Grid.CELL_SIZE / 2;
 
     @NotNull
-    private final Team team;
+    private final TeamSide teamSide;
 
     @NotNull
     private final Grid grid;
@@ -42,11 +42,11 @@ public final class Barracks {
     private final BlockFace chestFacing;
 
     @NotNull
-    public static Barracks create(@NotNull final Team team, @NotNull final Location anchor) {
+    public static Barracks create(@NotNull final TeamSide teamSide, @NotNull final Location anchor) {
         final Grid grid = Grid.create(anchor);
-        final boolean isWhite = team == Team.WHITE;
+        final boolean isWhite = teamSide == TeamSide.WHITE;
 
-        final int chestOffset = CHEST_BLOCK_OFFSET * team.direction();
+        final int chestOffset = CHEST_BLOCK_OFFSET * teamSide.direction();
         final BlockFace right = grid.right();
 
         final Location spawnLocation = grid.getCenterAt(isWhite ? WHITE_SPAWN : BLACK_SPAWN)
@@ -57,7 +57,7 @@ public final class Barracks {
                 .add(right.getModX() * -chestOffset, 0, right.getModZ() * -chestOffset);
         final BlockFace chestFacing = isWhite ? grid.forward().getOppositeFace() : grid.forward();
 
-        return new Barracks(team, grid, spawnLocation, leftChestLocation, rightChestLocation, chestFacing);
+        return new Barracks(teamSide, grid, spawnLocation, leftChestLocation, rightChestLocation, chestFacing);
     }
 
     @NotNull

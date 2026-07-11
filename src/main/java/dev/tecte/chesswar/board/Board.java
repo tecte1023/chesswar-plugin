@@ -1,6 +1,6 @@
 package dev.tecte.chesswar.board;
 
-import dev.tecte.chesswar.team.Team;
+import dev.tecte.chesswar.team.TeamSide;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -24,16 +24,16 @@ public final class Board {
     private final Grid grid;
 
     @NotNull
-    private final Map<Team, Barracks> teamBarracks;
+    private final Map<TeamSide, Barracks> teamBarracks;
 
     @NotNull
     public static Board create(@NotNull final Location mainAnchor) {
         final Grid mainGrid = Grid.create(mainAnchor);
         final BlockFace forward = mainGrid.forward();
-        final Map<Team, Barracks> teamBarracks = new EnumMap<>(Team.class);
+        final Map<TeamSide, Barracks> teamBarracks = new EnumMap<>(TeamSide.class);
 
-        for (final Team team : Team.values()) {
-            teamBarracks.put(team, Barracks.create(team, calculateBarracksAnchor(mainAnchor, forward, team)));
+        for (final TeamSide teamSide : TeamSide.values()) {
+            teamBarracks.put(teamSide, Barracks.create(teamSide, calculateBarracksAnchor(mainAnchor, forward, teamSide)));
         }
 
         return new Board(mainGrid, Collections.unmodifiableMap(teamBarracks));
@@ -43,17 +43,17 @@ public final class Board {
     private static Location calculateBarracksAnchor(
             @NotNull final Location mainAnchor,
             @NotNull final BlockFace forward,
-            @NotNull final Team team
+            @NotNull final TeamSide teamSide
     ) {
         final Location anchor = mainAnchor.clone();
-        final int offset = BARRACKS_OFFSET * team.direction();
+        final int offset = BARRACKS_OFFSET * teamSide.direction();
 
         return anchor.add(forward.getModX() * offset, 0, forward.getModZ() * offset);
     }
 
     @NotNull
-    public Barracks getBarracks(@NotNull final Team team) {
-        return teamBarracks.get(team);
+    public Barracks getBarracks(@NotNull final TeamSide teamSide) {
+        return teamBarracks.get(teamSide);
     }
 
     @NotNull

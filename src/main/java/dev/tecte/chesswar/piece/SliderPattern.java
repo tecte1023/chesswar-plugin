@@ -63,7 +63,7 @@ public enum SliderPattern implements ActionPattern {
                     continue;
                 }
 
-                if (occupant.team() != piece.team()) {
+                if (occupant.teamSide() != piece.teamSide()) {
                     attackMask |= (1L << index);
                 }
 
@@ -104,7 +104,7 @@ public enum SliderPattern implements ActionPattern {
                     break;
                 }
 
-                if (occupant.team() == piece.team()) {
+                if (occupant.teamSide() == piece.teamSide()) {
                     leaped = true;
                     cx += dir[0];
                     cy += dir[1];

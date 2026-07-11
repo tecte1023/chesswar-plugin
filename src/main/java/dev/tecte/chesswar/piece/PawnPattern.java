@@ -1,7 +1,7 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.Coordinate;
-import dev.tecte.chesswar.team.Team;
+import dev.tecte.chesswar.team.TeamSide;
 import org.jetbrains.annotations.NotNull;
 
 public enum PawnPattern implements ActionPattern {
@@ -28,8 +28,8 @@ public enum PawnPattern implements ActionPattern {
     ) {
         long moveMask = 0L;
 
-        final Team team = piece.team();
-        final int direction = team.direction();
+        final TeamSide teamSide = piece.teamSide();
+        final int direction = teamSide.direction();
         final int forwardY = position.y() + direction;
 
         if (Coordinate.isOutOfBounds(position.x(), forwardY)) {
@@ -44,7 +44,7 @@ public enum PawnPattern implements ActionPattern {
 
         moveMask |= (1L << forwardIndex);
 
-        if (hasLeftStartRow(team, position.y())) {
+        if (hasLeftStartRow(teamSide, position.y())) {
             return moveMask;
         }
 
@@ -70,8 +70,8 @@ public enum PawnPattern implements ActionPattern {
     ) {
         long attackMask = 0L;
 
-        final Team team = piece.team();
-        final int forwardY = position.y() + team.direction();
+        final TeamSide teamSide = piece.teamSide();
+        final int forwardY = position.y() + teamSide.direction();
 
         for (final int dx : new int[]{-1, 1}) {
             final int attackX = position.x() + dx;
@@ -87,7 +87,7 @@ public enum PawnPattern implements ActionPattern {
                 continue;
             }
 
-            if (occupant.team() == piece.team()) {
+            if (occupant.teamSide() == piece.teamSide()) {
                 continue;
             }
 
@@ -97,7 +97,7 @@ public enum PawnPattern implements ActionPattern {
         return attackMask;
     }
 
-    private boolean hasLeftStartRow(@NotNull final Team team, final int currentY) {
-        return team == Team.WHITE ? currentY != WHITE_START_ROW : currentY != BLACK_START_ROW;
+    private boolean hasLeftStartRow(@NotNull final TeamSide teamSide, final int currentY) {
+        return teamSide == TeamSide.WHITE ? currentY != WHITE_START_ROW : currentY != BLACK_START_ROW;
     }
 }
