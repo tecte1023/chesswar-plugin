@@ -140,8 +140,8 @@ public void processAction(CompositeEntity entity, Vector target) {
   턴 전환 등 간헐적으로 갱신되는 **중빈도 갱신** 데이터는 사이드 이펙트 방지를 위해 `Value Object`로 유지하고,
   갱신 시 `setter`를 통해 참조만 교체하는 것을 권장합니다.
 * **Hot Data**:
-  매 `Tick`마다 갱신되거나, 특정 시점에 **많은 객체를 대상으로 일괄 갱신**되는 **고빈도 갱신** 데이터는 객체 생성이 엄격히 금지됩니다.
-  순간적인 GC 스파이크를 차단하기 위해, 가변 객체의 내부 필드를 직접 수정하는 `In-place Mutation`을 강제합니다.
+  매 `Tick`마다 갱신되거나, 간헐적으로 실행되더라도 대규모 객체를 일괄 갱신하는 데이터는 객체 생성이 엄격히 금지됩니다.
+  해당 데이터는 가변 객체의 내부 필드를 직접 수정하는 `In-place Mutation`을 강제합니다.
 
 ```java
 // 🚨 Hot Data: 가비지 생성을 엄격히 차단
