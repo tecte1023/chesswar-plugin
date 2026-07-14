@@ -1,7 +1,8 @@
 package dev.tecte.chesswar;
 
 import co.aikar.commands.PaperCommandManager;
-import dev.tecte.chesswar.admin.command.BoardAdminCommand;
+import dev.tecte.chesswar.admin.BoardAdminCommand;
+import dev.tecte.chesswar.admin.TeamAdminCommand;
 import dev.tecte.chesswar.board.Board;
 import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
@@ -36,13 +37,14 @@ public final class ChessWar extends JavaPlugin {
         final var boardPresenter = new BoardPresenter(this);
         final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
 
-        commandManager.registerCommand(new BoardAdminCommand(boardManager));
-
         final var gamePhaseComponent = new GamePhaseComponent(GamePhase.WAITING);
         final var teamRosterComponent = new TeamRosterComponent(new UUID[TeamSide.values().length][0]);
         final var teamPresenter = new TeamPresenter();
-        final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent, teamPresenter);
-        final var teamSelectionListener = new TeamSelectionListener(teamManager);
+        final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
+        final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
+
+        commandManager.registerCommand(new BoardAdminCommand(boardManager));
+        commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));
 
         getServer().getPluginManager().registerEvents(teamSelectionListener, this);
 

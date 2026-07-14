@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.admin.command;
+package dev.tecte.chesswar.admin;
 
 import co.aikar.commands.BaseCommand;
 import co.aikar.commands.annotation.CommandAlias;
@@ -13,12 +13,13 @@ import org.jetbrains.annotations.Nullable;
 
 @CommandAlias("chesswar|cw")
 @CommandPermission("chesswar.admin")
+@Subcommand("admin board")
 @RequiredArgsConstructor
 public final class BoardAdminCommand extends BaseCommand {
     @NotNull
     private final BoardManager boardManager;
 
-    @Subcommand("admin board view")
+    @Subcommand("view")
     public void onViewBoard(@NotNull final Player player, @Nullable @Optional final Boolean state) {
         if (state == null) {
             boardManager.toggleBoardVisibility(player);
