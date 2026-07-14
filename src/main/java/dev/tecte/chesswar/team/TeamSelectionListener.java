@@ -8,12 +8,16 @@ import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 @RequiredArgsConstructor
 public final class TeamSelectionListener implements Listener {
     @NotNull
     private final TeamManager teamManager;
+
+    @NotNull
+    private final TeamPresenter teamPresenter;
 
     @EventHandler
     public void onPlayerInteract(@NotNull final PlayerInteractEvent event) {
@@ -39,7 +43,10 @@ public final class TeamSelectionListener implements Listener {
             return;
         }
 
-        teamManager.tryJoinTeam(event.getPlayer(), targetTeamSide);
+        final Player player = event.getPlayer();
+        final JoinResult result = teamManager.tryJoinTeam(player, targetTeamSide);
+
+        teamPresenter.showPlayerJoinFeedback(player, result, targetTeamSide);
     }
 
     @EventHandler
@@ -50,6 +57,9 @@ public final class TeamSelectionListener implements Listener {
             return;
         }
 
-        teamManager.tryLeaveTeam(event.getPlayer(), targetTeamSide);
+        final Player player = event.getPlayer();
+        final LeaveResult result = teamManager.tryLeaveTeam(player, targetTeamSide);
+
+        teamPresenter.showPlayerLeaveFeedback(player, result, targetTeamSide);
     }
 }

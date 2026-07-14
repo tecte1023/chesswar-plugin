@@ -10,6 +10,8 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 public final class TeamManager {
+    private static final int MAX_ROSTER_SIZE = 8;
+
     @NotNull
     private final TeamRosterComponent rosterComponent;
 
@@ -17,33 +19,57 @@ public final class TeamManager {
     private final GamePhaseComponent gamePhaseComponent;
 
     @NotNull
-    private final TeamPresenter presenter;
-
-    public void tryJoinTeam(@NotNull final Player player, @NotNull final TeamSide teamSide) {
+    public JoinResult tryJoinTeam(@NotNull final Player player, @NotNull final TeamSide teamSide) {
         if (gamePhaseComponent.phase() != GamePhase.WAITING) {
-            return;
+            return JoinResult.INVALID_PHASE;
         }
 
         final UUID playerId = player.getUniqueId();
-        final UUID[] targetRoster = rosterComponent.teamRosters()[teamSide.ordinal()];
+        final JoinResult checkResult = checkAndLeaveExistingTeam(playerId, teamSide);
 
-        for (final UUID uuid : targetRoster) {
-            if (uuid.equals(playerId)) {
-                return;
-            }
+        if (checkResult != JoinResult.SUCCESS) {
+            return checkResult;
         }
 
-        for (final TeamSide t : TeamSide.values()) {
-            leaveTeamInternal(playerId, t);
+        final UUID[] targetRoster = rosterComponent.teamRosters()[teamSide.ordinal()];
+
+        if (targetRoster.length >= MAX_ROSTER_SIZE) {
+            return JoinResult.TEAM_FULL;
         }
 
         rosterComponent.teamRosters()[teamSide.ordinal()] = withElement(targetRoster, playerId);
-        presenter.sendJoinMessage(player, teamSide);
+
+        return JoinResult.SUCCESS;
+    }
+
+    @NotNull
+    private JoinResult checkAndLeaveExistingTeam(@NotNull final UUID playerId, @NotNull final TeamSide targetTeamSide) {
+        final UUID[][] rosters = rosterComponent.teamRosters();
+
+        for (int teamIndex = 0; teamIndex < rosters.length; teamIndex++) {
+            final UUID[] currentRoster = rosters[teamIndex];
+
+            for (int playerIndex = 0; playerIndex < currentRoster.length; playerIndex++) {
+                if (!currentRoster[playerIndex].equals(playerId)) {
+                    continue;
+                }
+
+                if (teamIndex == targetTeamSide.ordinal()) {
+                    return JoinResult.ALREADY_IN_TEAM;
+                }
+
+                rosters[teamIndex] = withoutElement(currentRoster, playerIndex);
+
+                return JoinResult.SUCCESS;
+            }
+        }
+
+        return JoinResult.SUCCESS;
     }
 
     @NotNull
     private UUID[] withElement(@NotNull final UUID[] elements, @NotNull final UUID element) {
-        final UUID[] newElements = new UUID[elements.length + 1];
+        final var newElements = new UUID[elements.length + 1];
 
         System.arraycopy(elements, 0, newElements, 0, elements.length);
         newElements[elements.length] = element;
@@ -51,38 +77,39 @@ public final class TeamManager {
         return newElements;
     }
 
-    public void tryLeaveTeam(@NotNull final Player player, @NotNull final TeamSide teamSide) {
+    @NotNull
+    public LeaveResult tryLeaveTeam(@NotNull final Player player, @NotNull final TeamSide teamSide) {
         if (gamePhaseComponent.phase() != GamePhase.WAITING) {
-            return;
+            return LeaveResult.INVALID_PHASE;
         }
 
-        if (!leaveTeamInternal(player.getUniqueId(), teamSide)) {
-            return;
-        }
-
-        presenter.sendLeaveMessage(player);
-    }
-
-    private boolean leaveTeamInternal(@NotNull final UUID playerId, @NotNull final TeamSide teamSide) {
         final UUID[] roster = rosterComponent.teamRosters()[teamSide.ordinal()];
 
         for (int i = 0; i < roster.length; i++) {
-            if (roster[i].equals(playerId)) {
-                rosterComponent.teamRosters()[teamSide.ordinal()] = withoutElement(roster, i);
-                return true;
+            if (!roster[i].equals(player.getUniqueId())) {
+                continue;
             }
+
+            rosterComponent.teamRosters()[teamSide.ordinal()] = withoutElement(roster, i);
+
+            return LeaveResult.SUCCESS;
         }
 
-        return false;
+        return LeaveResult.NOT_IN_TEAM;
     }
 
     @NotNull
     private UUID[] withoutElement(@NotNull final UUID[] elements, final int index) {
-        final UUID[] newElements = new UUID[elements.length - 1];
+        final var newElements = new UUID[elements.length - 1];
 
         System.arraycopy(elements, 0, newElements, 0, index);
         System.arraycopy(elements, index + 1, newElements, index, elements.length - index - 1);
 
         return newElements;
+    }
+
+    @NotNull
+    public UUID[][] teamRosters() {
+        return rosterComponent.teamRosters();
     }
 }
