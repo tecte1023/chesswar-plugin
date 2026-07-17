@@ -12,8 +12,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 @CommandAlias("chesswar|cw")
-@CommandPermission("chesswar.admin")
 @Subcommand("admin board")
+@CommandPermission("chesswar.admin")
 @RequiredArgsConstructor
 public final class BoardAdminCommand extends BaseCommand {
     @NotNull

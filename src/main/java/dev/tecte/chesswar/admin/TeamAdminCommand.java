@@ -16,8 +16,8 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 @CommandAlias("chesswar|cw")
-@CommandPermission("chesswar.admin")
 @Subcommand("admin team")
+@CommandPermission("chesswar.admin")
 @RequiredArgsConstructor
 public final class TeamAdminCommand extends BaseCommand {
     @NotNull
