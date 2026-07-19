@@ -55,6 +55,7 @@ public final class ChessWar extends JavaPlugin {
         final var waitingPhaseManager = new WaitingPhaseManager(
                 startTriggerUIComponent,
                 gamePhaseComponent,
+                teamRosterComponent,
                 waitingPhasePresenter
         );
         final var waitingPhaseListener = new WaitingPhaseListener(waitingPhaseManager);

@@ -6,6 +6,7 @@ import co.aikar.commands.annotation.CommandPermission;
 import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.game.WaitingPhaseManager;
 import lombok.RequiredArgsConstructor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,5 +21,15 @@ public final class GameAdminCommand extends BaseCommand {
     @Subcommand("setstart")
     public void onSetStart(@NotNull final Player player) {
         waitingPhaseManager.forceBindStartTrigger(player.getLocation());
+    }
+
+    @Subcommand("start")
+    public void onStart(@NotNull final CommandSender sender) {
+        waitingPhaseManager.tryStartGame();
+    }
+
+    @Subcommand("stop")
+    public void onStop(@NotNull final CommandSender sender) {
+        waitingPhaseManager.tryStopGame();
     }
 }

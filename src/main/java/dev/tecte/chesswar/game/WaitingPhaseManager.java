@@ -1,7 +1,10 @@
 package dev.tecte.chesswar.game;
 
 import lombok.RequiredArgsConstructor;
+import dev.tecte.chesswar.team.TeamRosterComponent;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
@@ -13,6 +16,9 @@ public final class WaitingPhaseManager {
 
     @NotNull
     private final GamePhaseComponent phaseComponent;
+
+    @NotNull
+    private final TeamRosterComponent teamRosterComponent;
 
     @NotNull
     private final WaitingPhasePresenter presenter;
@@ -42,13 +48,62 @@ public final class WaitingPhaseManager {
             return;
         }
 
-        final Location triggerLocation = triggerComponent.startTriggerLocation();
+        applyGameStart();
+    }
 
-        if (triggerLocation == null) {
+    public void tryStartGame() {
+        if (phaseComponent.phase() != GamePhase.WAITING) {
             return;
         }
 
+        applyGameStart();
+    }
+
+    private void applyGameStart() {
         phaseComponent.phase(phaseComponent.phase().next());
-        presenter.showGameStartFeedback(triggerLocation);
+
+        final UUID[][] rosters = teamRosterComponent.teamRosters();
+
+        for (final UUID[] team : rosters) {
+            for (final UUID memberId : team) {
+                if (memberId == null) {
+                    continue;
+                }
+
+                final Player player = Bukkit.getPlayer(memberId);
+
+                if (player == null) {
+                    continue;
+                }
+
+                presenter.showGameStartFeedback(player);
+            }
+        }
+    }
+
+    public void tryStopGame() {
+        if (phaseComponent.phase() == GamePhase.WAITING) {
+            return;
+        }
+
+        phaseComponent.phase(GamePhase.WAITING);
+
+        final UUID[][] rosters = teamRosterComponent.teamRosters();
+
+        for (final UUID[] team : rosters) {
+            for (final UUID memberId : team) {
+                if (memberId == null) {
+                    continue;
+                }
+
+                final Player player = Bukkit.getPlayer(memberId);
+
+                if (player == null) {
+                    continue;
+                }
+
+                presenter.showGameStopFeedback(player);
+            }
+        }
     }
 }
