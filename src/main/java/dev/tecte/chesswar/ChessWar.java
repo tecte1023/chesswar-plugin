@@ -7,11 +7,16 @@ import dev.tecte.chesswar.admin.TeamAdminCommand;
 import dev.tecte.chesswar.board.Board;
 import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
-import dev.tecte.chesswar.board.BoardUIComponent;
 import dev.tecte.chesswar.board.BoardPresenter;
+import dev.tecte.chesswar.board.BoardUIComponent;
+import dev.tecte.chesswar.game.GameLifecycleManager;
+import dev.tecte.chesswar.game.GameLifecyclePresenter;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.GamePhaseComponent;
+import dev.tecte.chesswar.game.InternalEventBus;
 import dev.tecte.chesswar.game.StartTriggerUIComponent;
+import dev.tecte.chesswar.game.StartingPhaseManager;
+import dev.tecte.chesswar.game.StartingPhasePresenter;
 import dev.tecte.chesswar.game.WaitingPhaseListener;
 import dev.tecte.chesswar.game.WaitingPhaseManager;
 import dev.tecte.chesswar.game.WaitingPhasePresenter;
@@ -25,6 +30,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.UUID;
@@ -33,39 +39,56 @@ import java.util.UUID;
 public final class ChessWar extends JavaPlugin {
     @Override
     public void onEnable() {
-        final PluginManager pluginManager = getServer().getPluginManager();
-        final Location spawnLocation = Bukkit.getWorlds().getFirst().getSpawnLocation();
         final var commandManager = new PaperCommandManager(this);
+        final PluginManager pluginManager = getServer().getPluginManager();
+        final var internalEventBus = new InternalEventBus();
 
-        spawnLocation.setYaw(90f);
-
-        final var boardComponent = new BoardComponent(Board.create(spawnLocation));
+        final var boardComponent = new BoardComponent(Board.create(getDefaultSpawnLocation()));
         final var boardUIComponent = new BoardUIComponent(new ArrayList<>());
-        final var boardPresenter = new BoardPresenter(this);
-        final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
-
         final var gamePhaseComponent = new GamePhaseComponent(GamePhase.WAITING);
         final var teamRosterComponent = new TeamRosterComponent(new UUID[TeamSide.values().length][0]);
-        final var teamPresenter = new TeamPresenter();
-        final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
-        final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
-
         final var startTriggerUIComponent = new StartTriggerUIComponent(null, null);
+
+        final var boardPresenter = new BoardPresenter(this);
+        final var teamPresenter = new TeamPresenter();
         final var waitingPhasePresenter = new WaitingPhasePresenter();
+        final var startingPhasePresenter = new StartingPhasePresenter();
+        final var gameLifecyclePresenter = new GameLifecyclePresenter();
+
+        final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
+        final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
+        final var startingPhaseManager = new StartingPhaseManager(
+                this,
+                gamePhaseComponent,
+                teamRosterComponent,
+                boardComponent,
+                startingPhasePresenter
+        );
         final var waitingPhaseManager = new WaitingPhaseManager(
                 startTriggerUIComponent,
                 gamePhaseComponent,
-                teamRosterComponent,
-                waitingPhasePresenter
+                waitingPhasePresenter,
+                internalEventBus
         );
+        final var gameLifecycleManager = new GameLifecycleManager(
+                gamePhaseComponent,
+                teamRosterComponent,
+                gameLifecyclePresenter,
+                internalEventBus
+        );
+
+        final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
         final var waitingPhaseListener = new WaitingPhaseListener(waitingPhaseManager);
 
-        commandManager.registerCommand(new BoardAdminCommand(boardManager));
-        commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));
-        commandManager.registerCommand(new GameAdminCommand(waitingPhaseManager));
+        internalEventBus.registerPhaseListener(waitingPhaseManager);
+        internalEventBus.registerPhaseListener(startingPhaseManager);
 
         pluginManager.registerEvents(teamSelectionListener, this);
         pluginManager.registerEvents(waitingPhaseListener, this);
+
+        commandManager.registerCommand(new BoardAdminCommand(boardManager));
+        commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));
+        commandManager.registerCommand(new GameAdminCommand(waitingPhaseManager, gameLifecycleManager));
 
         log.info("ChessWar has been enabled!");
     }
@@ -73,5 +96,14 @@ public final class ChessWar extends JavaPlugin {
     @Override
     public void onDisable() {
         log.info("ChessWar has been disabled!");
+    }
+
+    @NotNull
+    private Location getDefaultSpawnLocation() {
+        final Location location = Bukkit.getWorlds().getFirst().getSpawnLocation();
+
+        location.setYaw(90f);
+
+        return location;
     }
 }

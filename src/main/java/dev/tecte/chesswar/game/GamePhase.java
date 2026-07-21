@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 @RequiredArgsConstructor
 public enum GamePhase {
     WAITING("대기"),
+    STARTING("시작 중"),
     PIECE_SELECTION("병력 편성"),
     TURN_ORDER("순서 조율"),
     BATTLE("전투"),
@@ -21,7 +22,8 @@ public enum GamePhase {
     @NotNull
     public GamePhase next() {
         return switch (this) {
-            case WAITING -> PIECE_SELECTION;
+            case WAITING -> STARTING;
+            case STARTING -> PIECE_SELECTION;
             case PIECE_SELECTION -> TURN_ORDER;
             case TURN_ORDER -> BATTLE;
             case BATTLE -> ENDED;

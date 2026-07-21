@@ -1,16 +1,13 @@
 package dev.tecte.chesswar.game;
 
 import lombok.RequiredArgsConstructor;
-import dev.tecte.chesswar.team.TeamRosterComponent;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.UUID;
 
 @RequiredArgsConstructor
-public final class WaitingPhaseManager {
+public final class WaitingPhaseManager implements GamePhaseChangeListener {
     @NotNull
     private final StartTriggerUIComponent triggerComponent;
 
@@ -18,22 +15,54 @@ public final class WaitingPhaseManager {
     private final GamePhaseComponent phaseComponent;
 
     @NotNull
-    private final TeamRosterComponent teamRosterComponent;
-
-    @NotNull
     private final WaitingPhasePresenter presenter;
 
+    @NotNull
+    private final InternalEventBus internalEventBus;
+
     public void forceBindStartTrigger(@NotNull final Location location) {
-        final StartTriggerIds oldTriggerIds = triggerComponent.activeTriggerIds();
-
-        if (oldTriggerIds != null) {
-            presenter.hideStartTrigger(oldTriggerIds.interactionId(), oldTriggerIds.textId());
-        }
-
         final Location triggerLocation = location.clone().add(0, 1.0, 0);
-        final StartTriggerIds newTriggerIds = presenter.showStartTrigger(triggerLocation);
 
         triggerComponent.startTriggerLocation(triggerLocation);
+
+        if (phaseComponent.phase() != GamePhase.WAITING) {
+            return;
+        }
+
+        spawnTrigger();
+    }
+
+    @Override
+    public void onPhaseChanged(@NotNull final GamePhase newPhase) {
+        if (newPhase == GamePhase.WAITING) {
+            spawnTrigger();
+        } else {
+            hideTrigger();
+        }
+    }
+
+    private void hideTrigger() {
+        final StartTriggerIds oldTriggerIds = triggerComponent.activeTriggerIds();
+
+        if (oldTriggerIds == null) {
+            return;
+        }
+
+        triggerComponent.activeTriggerIds(null);
+        presenter.hideStartTrigger(oldTriggerIds);
+    }
+
+    private void spawnTrigger() {
+        final Location location = triggerComponent.startTriggerLocation();
+
+        if (location == null) {
+            return;
+        }
+
+        hideTrigger();
+
+        final StartTriggerIds newTriggerIds = presenter.showStartTrigger(location);
+
         triggerComponent.activeTriggerIds(newTriggerIds);
     }
 
@@ -61,49 +90,6 @@ public final class WaitingPhaseManager {
 
     private void applyGameStart() {
         phaseComponent.phase(phaseComponent.phase().next());
-
-        final UUID[][] rosters = teamRosterComponent.teamRosters();
-
-        for (final UUID[] team : rosters) {
-            for (final UUID memberId : team) {
-                if (memberId == null) {
-                    continue;
-                }
-
-                final Player player = Bukkit.getPlayer(memberId);
-
-                if (player == null) {
-                    continue;
-                }
-
-                presenter.showGameStartFeedback(player);
-            }
-        }
-    }
-
-    public void tryStopGame() {
-        if (phaseComponent.phase() == GamePhase.WAITING) {
-            return;
-        }
-
-        phaseComponent.phase(GamePhase.WAITING);
-
-        final UUID[][] rosters = teamRosterComponent.teamRosters();
-
-        for (final UUID[] team : rosters) {
-            for (final UUID memberId : team) {
-                if (memberId == null) {
-                    continue;
-                }
-
-                final Player player = Bukkit.getPlayer(memberId);
-
-                if (player == null) {
-                    continue;
-                }
-
-                presenter.showGameStopFeedback(player);
-            }
-        }
+        internalEventBus.publishPhaseChange(GamePhase.STARTING);
     }
 }
