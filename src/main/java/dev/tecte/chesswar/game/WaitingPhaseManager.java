@@ -89,7 +89,9 @@ public final class WaitingPhaseManager implements GamePhaseChangeListener {
     }
 
     private void applyGameStart() {
-        phaseComponent.phase(phaseComponent.phase().next());
-        internalEventBus.publishPhaseChange(GamePhase.STARTING);
+        final GamePhase nextPhase = phaseComponent.phase().next();
+
+        phaseComponent.phase(nextPhase);
+        internalEventBus.publishPhaseChange(nextPhase);
     }
 }
