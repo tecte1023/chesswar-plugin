@@ -2,6 +2,10 @@ package dev.tecte.chesswar.game;
 
 import dev.tecte.chesswar.board.Board;
 import dev.tecte.chesswar.board.BoardComponent;
+import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.piece.InitialLayoutPolicy;
+import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.team.TeamRosterComponent;
 import dev.tecte.chesswar.team.TeamSide;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +16,6 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Objects;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -30,7 +33,13 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
     private final BoardComponent boardComponent;
 
     @NotNull
+    private final PieceManager pieceManager;
+
+    @NotNull
     private final StartingPhasePresenter presenter;
+
+    @NotNull
+    private final InternalEventBus internalEventBus;
 
     @Override
     public void onPhaseChanged(@NotNull final GamePhase newPhase) {
@@ -38,7 +47,51 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
             return;
         }
 
+        spawnPiecesAsync();
         startCountdown();
+    }
+
+    private void spawnPiecesAsync() {
+        final Board board = boardComponent.board();
+
+        new BukkitRunnable() {
+            private int index = 0;
+
+            @Override
+            public void run() {
+                if (phaseComponent.phase() != GamePhase.STARTING) {
+                    cancel();
+                    return;
+                }
+
+                int spawnedThisTick = 0;
+
+                while (index < Coordinate.SQUARE_COUNT) {
+                    final var coordinate = Coordinate.fromFlatIndex(index);
+                    final PieceType type = InitialLayoutPolicy.initialPieceType(coordinate);
+                    final TeamSide teamSide = InitialLayoutPolicy.teamSide(coordinate);
+
+                    index++;
+
+                    if (type == null || teamSide == null) {
+                        continue;
+                    }
+
+                    final Location spawnLocation = board.getCenterAt(coordinate);
+                    final float yaw = board.grid().anchor().getYaw() + teamSide.yawOffset();
+
+                    spawnLocation.setYaw(yaw);
+                    pieceManager.forceSpawnPiece(coordinate, type, teamSide, spawnLocation);
+                    spawnedThisTick++;
+
+                    if (spawnedThisTick >= 2) {
+                        return;
+                    }
+                }
+
+                cancel();
+            }
+        }.runTaskTimer(plugin, 0L, 1L);
     }
 
     private void startCountdown() {
@@ -56,7 +109,8 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
                     notifyCountdown(count);
                     count--;
                 } else {
-                    executeGameStart();
+                    notifyGameStart();
+                    applyGameStart();
                     cancel();
                 }
             }
@@ -79,12 +133,8 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
         }
     }
 
-    private void executeGameStart() {
+    private void notifyGameStart() {
         final Board board = boardComponent.board();
-
-        Objects.requireNonNull(board, "StartingPhaseManager: Board is null on executeGameStart");
-        phaseComponent.phase(phaseComponent.phase().next());
-
         final UUID[][] rosters = teamRosterComponent.teamRosters();
 
         for (final TeamSide teamSide : TeamSide.values()) {
@@ -102,7 +152,12 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
                 presenter.showGameStartFeedback(player);
             }
         }
+    }
 
-        // TODO: 벙커에 미리 소환된 기물들을 각 진영으로 텔레포트 배치 (PieceManager 위임)
+    private void applyGameStart() {
+        final GamePhase nextPhase = phaseComponent.phase().next();
+
+        phaseComponent.phase(nextPhase);
+        internalEventBus.publishPhaseChange(nextPhase);
     }
 }

@@ -8,6 +8,7 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum GoldSource {
+    STARTING_FUND("초기 자금", 100),
     STIPEND("봉급", 50),
     BOUNTY("포상금", 200),
     LEVY("징세", 100),

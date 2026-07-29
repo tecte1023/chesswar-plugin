@@ -31,6 +31,11 @@ public final class Coordinate {
         return CACHE[flatten(x, y)];
     }
 
+    @NotNull
+    public static Coordinate fromFlatIndex(final int flatIndex) {
+        return CACHE[flatIndex];
+    }
+
     public static boolean isValid(final int x, final int y) {
         return x >= 0 && x < BOARD_SIZE && y >= 0 && y < BOARD_SIZE;
     }
@@ -49,9 +54,5 @@ public final class Coordinate {
 
     public boolean isDarkSquare() {
         return (x + y) % 2 == 0;
-    }
-
-    public boolean isLightSquare() {
-        return !isDarkSquare();
     }
 }

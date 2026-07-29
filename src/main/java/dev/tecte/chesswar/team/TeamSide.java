@@ -12,8 +12,8 @@ import org.jetbrains.annotations.Nullable;
 @Accessors(fluent = true)
 @RequiredArgsConstructor
 public enum TeamSide {
-    WHITE("백팀", NamedTextColor.WHITE, Material.WHITE_WOOL, 1),
-    BLACK("흑팀", NamedTextColor.DARK_GRAY, Material.BLACK_WOOL, -1);
+    WHITE("백팀", NamedTextColor.WHITE, Material.WHITE_WOOL, 1, 0f),
+    BLACK("흑팀", NamedTextColor.DARK_GRAY, Material.BLACK_WOOL, -1, 180f);
 
     @NotNull
     private final String teamName;
@@ -25,6 +25,8 @@ public enum TeamSide {
     private final Material teamItem;
 
     private final int direction;
+
+    private final float yawOffset;
 
     @Nullable
     public static TeamSide fromMaterial(@NotNull final Material material) {

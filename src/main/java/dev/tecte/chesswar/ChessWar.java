@@ -9,6 +9,7 @@ import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.BoardManager;
 import dev.tecte.chesswar.board.BoardPresenter;
 import dev.tecte.chesswar.board.BoardUIComponent;
+import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.game.GameLifecycleManager;
 import dev.tecte.chesswar.game.GameLifecyclePresenter;
 import dev.tecte.chesswar.game.GamePhase;
@@ -20,6 +21,9 @@ import dev.tecte.chesswar.game.StartingPhasePresenter;
 import dev.tecte.chesswar.game.WaitingPhaseListener;
 import dev.tecte.chesswar.game.WaitingPhaseManager;
 import dev.tecte.chesswar.game.WaitingPhasePresenter;
+import dev.tecte.chesswar.piece.Piece;
+import dev.tecte.chesswar.piece.PieceManager;
+import dev.tecte.chesswar.piece.PiecePresenter;
 import dev.tecte.chesswar.team.TeamManager;
 import dev.tecte.chesswar.team.TeamPresenter;
 import dev.tecte.chesswar.team.TeamRosterComponent;
@@ -49,12 +53,15 @@ public final class ChessWar extends JavaPlugin {
         final var teamRosterComponent = new TeamRosterComponent(new UUID[TeamSide.values().length][0]);
         final var startTriggerUIComponent = new StartTriggerUIComponent(null, null);
 
+        final var piecePresenter = new PiecePresenter();
         final var boardPresenter = new BoardPresenter(this);
         final var teamPresenter = new TeamPresenter();
         final var waitingPhasePresenter = new WaitingPhasePresenter();
         final var startingPhasePresenter = new StartingPhasePresenter();
         final var gameLifecyclePresenter = new GameLifecyclePresenter();
 
+        final var occupancy = new Piece[Coordinate.SQUARE_COUNT];
+        final var pieceManager = new PieceManager(piecePresenter, occupancy);
         final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
         final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
         final var startingPhaseManager = new StartingPhaseManager(
@@ -62,7 +69,9 @@ public final class ChessWar extends JavaPlugin {
                 gamePhaseComponent,
                 teamRosterComponent,
                 boardComponent,
-                startingPhasePresenter
+                pieceManager,
+                startingPhasePresenter,
+                internalEventBus
         );
         final var waitingPhaseManager = new WaitingPhaseManager(
                 startTriggerUIComponent,
