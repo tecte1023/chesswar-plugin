@@ -33,6 +33,11 @@
   필드는 제어 주체인 동일 패키지의 `Manager`가 직접 조작할 수 있도록
   `package-private` 접근 제어자와 `@Accessors(fluent = true)`를 사용하여 C 구조체처럼 순수 데이터로 노출합니다.
   단, 불변 데이터 구조체인 `Value Object`는 외부 결합도를 낮추기 위해 내부 자료구조를 은닉하는 위임 메서드 제공을 권장합니다.
+* **Mutability Constraint**:
+  상태 데이터인 `Component`는 값을 변경할 때 기존 객체의 내부 필드를 덮어쓰는 `In-place Mutation`을 강제하여 가비지 생성을 차단합니다.
+  단, 핵심 식별자나 절대 변하지 않는 데이터는 루트 객체 내부에 인라인화하여 불변으로 보호합니다.
+* **Zero-state Axiom**:
+  메모리 할당 시 비어있음을 뜻하는 `0`이나 `false` 등은 매직 넘버가 아니므로 별도의 상수로 추출하지 않고 인라인 하드코딩합니다. 진짜 기획 수치는 외부 트랜잭션을 통해 별도로 주입받습니다.
 
 ```java
 // 🟢 DO: 역할에 맞는 명명, Visual 접미사, 전체 인자 생성자 강제
@@ -75,6 +80,13 @@ public class VisualPositionComponent {
         x = 0;
     }
 }
+
+// 🟢 DO: 메모리 할당의 공리인 0은 인라인 하드코딩
+Piece piece = new Piece(uuid, new GoldComponent(0));
+
+// ❌ DON'T: 0을 기획적 매직 넘버로 착각하여 별도 상수로 분리
+private static final int INITIAL_GOLD = 0;
+Piece piece = new Piece(uuid, new GoldComponent(INITIAL_GOLD));
 ```
 
 ### 1.2 Logic Controllers
@@ -94,15 +106,20 @@ public class VisualPositionComponent {
 * **Manager Method**:
   상태 갱신 시 `try~` 등 검증 시도 및 `force~`, `apply~` 등 강제 갱신 의미의 접두사를 강제하며,
   `onPlayerClick`과 같은 엔진 이벤트 이름을 그대로 차용하는 것을 금지합니다.
+  단, 이 규칙은 외부 계층에서 호출하는 공개 메서드에만 강제됩니다. 인터페이스 오버라이딩이나 내부 전용 헬퍼 메서드는 가독성을 위해 순수 동사 사용을 허용합니다.
 * **Presenter Method**:
   멱등성 파괴를 경고하기 위해 모호한 `render~` 동사를 금지하고 유무가 갈리는 `show~`, `hide~` 동사를 강제합니다.
 * **Instantiation**:
   내부 값 계산, 조립, 캐시 조회 등 단순 대입 이상의 제어 로직이 필요한 경우, 비공개 생성자와 정적 팩토리 메서드를 강제합니다.
   순수 연산 기능만 수행하는 `System` 객체는 무의미한 인스턴스화를 방지하기 위해 열거형이나 정적 싱글톤을 강제합니다.
-* **Validation Boundary**:
-  `Input Controller` 경계에서만 철저한 물리적 검증(Null 체크 등) 및 조기 종료 패턴을 수행합니다.
-  `Manager`와 `System` 내부 루프에서는 분기 오버헤드를 막기 위해 런타임 Null 체크를 생략하고,
-  `Lombok @NonNull` 등을 통한 컴파일 타임 정적 분석에 완전히 의존합니다.
+* **Validation Boundary and Fail-Fast**:
+  런타임 널 검사는 외곽 계층에서 간헐적으로 발생하는 `Warm/Cold Path`에서만 허용하며, 매 틱마다 도는 `Hot Path` 내부에서는 완벽한 무상태와 무검증으로 동작해야 합니다.
+  개발자의 논리적 에러로 인한 불가능한 상태는 서버 셧다운 우려가 없으므로 무조건 `Objects.requireNonNull`을 사용하여 즉시 크래시를 냅니다.
+  반면 기획상 물리 엔진에 의해 대상이 파괴되어 `Idempotency`가 확보된 경우에는 에러 로그 없이 조용히 리턴합니다.
+* **Dry Assertion Message**:
+  단언문의 예외 메시지는 비즈니스적 뉘앙스나 백엔드식 문장형 텍스트를 배제하고, "어느 위치에서 어떤 변수가 터졌는지" 로봇처럼 직관적이고 건조하게 명시합니다.
+* **External Resource Fail-safe**:
+  마인크래프트 몹은 자바 변수 참조를 지운다고 맵에서 사라지지 않습니다. 기획상 위치가 빈 칸이라도 객체를 배열에 덮어쓰기 전에는 반드시 기존 물리 엔티티의 존재를 검사하고 명시적으로 파괴하는 로직을 강제하여 몹 누수를 방어합니다.
 
 ```java
 // 🟢 DO: 역할에 맞는 접미사와 명확한 동사 사용
@@ -114,14 +131,85 @@ public enum TurnPolicy {
     }
 }
 
-public class MatchManager {
-    public boolean tryMovePiece(PlayerId player, Coordinate from, Coordinate to) {
+// 🟢 DO: 공개 메서드 접두사 강제 및 내부 헬퍼, 오버라이딩 메서드의 순수 동사 허용
+public class MatchManager implements PhaseListener {
+    public boolean tryStartMatch() {
+        setupWorld();
         return true;
+    }
+    
+    private void setupWorld() {
+    }
+
+    @Override
+    public void onPhaseChanged() {
+    }
+}
+
+// ❌ DON'T: 내부 헬퍼 메서드나 인터페이스 오버라이딩까지 접두사를 강제하여 가독성 저하
+public class BadMatchManager implements PhaseListener {
+    public boolean tryStartMatch() {
+        forceSetupWorld();
+        return true;
+    }
+    
+    private void forceSetupWorld() {
+    }
+
+    @Override
+    public void applyOnPhaseChanged() {
     }
 }
 
 public class ParticlePresenter {
     public void showExplosion(int x, int y, int z) {
+    }
+}
+
+// 🟢 DO: 이원화된 예외 처리 (내부 로직은 크래시 강제, 외부 요인은 조기 종료)
+public class PiecePresenter {
+    public void hidePiece(UUID entityId) {
+        Entity entity = Bukkit.getEntity(entityId);
+
+        // 외부 물리 엔진 요인: 조용히 무시
+        if (entity == null) {
+          return;
+        }
+
+        entity.remove();
+    }
+}
+
+public class MatchManager {
+    public void process(Location loc) {
+        // 🟢 DO: 로봇처럼 직관적이고 건조한 메시지로 즉시 크래시 유발
+        World world = Objects.requireNonNull(loc.getWorld(), "MatchManager: loc.getWorld() is null");
+    }
+}
+
+// ❌ DON'T: 불가능한 상태를 조용히 넘기거나 문장형 에러 메시지 사용
+public class BadMatchManager {
+    public void process(Location loc) {
+        if (loc.getWorld() == null) {
+            log.error("Match location must have a valid world.");
+            return; 
+        }
+    }
+}
+
+public class BoardManager {
+    public void spawnPiece(Piece[] board, int index, Piece newPiece) {
+        // 🟢 DO: 외부 리소스를 배열에 덮어쓰기 전 반드시 기존 엔티티 파괴 검증
+        if (board[index] != null) {
+            board[index].remove(); 
+        }
+
+        board[index] = newPiece;
+    }
+
+    public void spawnPieceUnsafe(Piece[] board, int index, Piece newPiece) {
+        // ❌ DON'T: 기획상 빈 칸임을 맹신하고 덮어쓰기 (몹 누수 발생)
+        board[index] = newPiece;
     }
 }
 
@@ -137,9 +225,62 @@ public class ParticlePresenter {
     public void renderExplosion(Vector pos) {
     }
 }
+
+// ❌ DON'T: 매 틱 돌아가는 루프 내부에서 예외 객체 생성 (GC 폭탄)
+public class TickSystem {
+    public void onTick(Entity entity) {
+        if (entity == null) {
+            throw new IllegalStateException("Entity is null"); 
+        }
+    }
+}
 ```
 
-### 1.3 Event
+### 1.3 Logging and Static Analysis
+
+> 적용 대상: 모든 로직 컨트롤러 및 데이터 객체
+
+* **Cold Code Extraction**:
+  초고빈도 틱 루프 렌더링 성능 최적화를 위해, 복잡한 에러 문자열을 조립하여 로깅하는 무거운 코드는 반드시 외부 비공개 메서드로 격리합니다.
+* **Atomic Text Block**:
+  서버 콘솔에 여러 줄의 에러를 남길 때는 다중 로깅 호출을 금지하고, 자바 15 텍스트 블록 기법을 사용하여 단 1회의 호출로 원자적 출력을 강제합니다. 메시지는 상수화하지 않고 인라인 하드코딩합니다.
+* **Pragmatic @NotNull**:
+  희소 배열이나 원소가 비워질 수 있는 자료구조 필드 껍데기에는 통합 개발 환경의 억지 오탐지 경고를 막기 위해 실용주의적 관점에서 어노테이션 검증을 생략합니다.
+
+```java
+// 🟢 DO: 에러 로깅을 외부 메서드로 빼고, 텍스트 블록과 인라인 메시지로 시선 강탈
+public class PiecePresenter {
+    public void showPiece() {
+        if (errorCondition) {
+            printSpawnFailedError();
+            return;
+        }
+        // 얇아진 바이트코드로 인해 메인 틱 루프 인라이닝 달성
+    }
+
+    private void printSpawnFailedError() {
+        log.error(
+            """
+            🚨 몹 소환에 실패했습니다.
+            디버깅 정보: 식별자가 유효하지 않습니다.
+            """
+        );
+    }
+}
+
+// ❌ DON'T: 메인 루프에 다중 로깅 호출과 상수 분리를 남발하여 인라이닝 붕괴 유발
+public class BadPiecePresenter {
+    public void showPiece() {
+        if (errorCondition) {
+            log.error(ErrorCode.SPAWN_FAIL_TITLE);
+            log.error(ErrorCode.SPAWN_FAIL_REASON);
+            return;
+        }
+    }
+}
+```
+
+### 1.4 Event
 
 > 적용 대상: `Internal Event`, `Engine Event`
 
@@ -242,6 +383,8 @@ public void applyDamage(Integer entityId, Vector targetPosition) {
 * **Variable Naming**:
   `Player` 등 외부 엔진 객체의 직접 캐싱을 금지하며, `~Id` 식별자로만 선언하여 단순 메모리 포인터임을 명시합니다.
   `playerList`처럼 변수명에 자료구조 이름 노출을 금지하고 `players`처럼 순수 복수형만 허용합니다.
+  `Manager`와 `Component` 내부의 비즈니스 상태 식별자는 오해 방지를 위해 무조건 풀네임을 강제합니다.
+  단, `System` 내부의 `Hot Path` 기하학 연산에 한해서는 수식 가독성을 극대화하기 위해 업계 표준 약어(`x`, `y`, `dt`, `vel` 등) 사용을 허용합니다.
 * **Constant Placement**:
   재컴파일 방지를 위해 게임 밸런스 수치는 `Value Object`나 열거형으로 격리합니다.
   단 90도 직각, 4방향 등 불변의 기하학적 진리는 상수로 추상화하지 않고 원시 수치 그대로 두거나 `System` 내부에 선언합니다.
@@ -255,6 +398,21 @@ public class PlayerComponent {
     private int degrees = 90;
 }
 
+// 🟢 DO: 비즈니스 로직 풀네임 강제 및 System 수식 내부 약어 허용
+public class StatComponent {
+    private int currentHealth;
+    private UUID attackerId;
+}
+
+public enum PhysicsSystem {
+    INSTANCE;
+    
+    public void calculateVelocity(Vector pos, Vector vel, double dt) {
+        UUID targetId = getTargetId();
+        Vector nextPos = pos.clone().add(vel.clone().multiply(dt));
+    }
+}
+
 // ❌ DON'T: 엔진 객체 직접 캐싱, 복수형 패키지 및 자료구조 이름 노출
 // Directory: chesswar/pieces/ (❌ 복수형 패키지)
 public class PlayerComponent {
@@ -262,6 +420,21 @@ public class PlayerComponent {
 
     private final Player player;
     private final List<UUID> enemyList;
+}
+
+// ❌ DON'T: 비즈니스 로직에 모호한 약어 사용 및 System 수식 내부 장황한 변수명
+public class BadStatComponent {
+    private int currHp;
+    private UUID atkId;
+}
+
+public enum BadPhysicsSystem {
+    INSTANCE;
+    
+    public void calculateVelocity(Vector position, Vector velocity, double deltaTime) {
+        UUID tgtId = getTgtId();
+        Vector nextPosition = position.clone().add(velocity.clone().multiply(deltaTime));
+    }
 }
 ```
 
