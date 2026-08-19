@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.board.Barracks;
 import dev.tecte.chesswar.board.Board;
 import dev.tecte.chesswar.board.BoardComponent;
 import dev.tecte.chesswar.board.Coordinate;
@@ -77,8 +78,9 @@ public final class StartingPhaseManager implements GamePhaseChangeListener {
                         continue;
                     }
 
-                    final Location spawnLocation = board.getCenterAt(coordinate);
-                    final float yaw = board.grid().anchor().getYaw() + teamSide.yawOffset();
+                    final Barracks barracks = board.getBarracks(teamSide);
+                    final Location spawnLocation = barracks.grid().getCenterAt(coordinate);
+                    final float yaw = barracks.grid().anchor().getYaw() + teamSide.yawOffset();
 
                     spawnLocation.setYaw(yaw);
                     pieceManager.forceSpawnPiece(coordinate, type, teamSide, spawnLocation);
