@@ -42,4 +42,15 @@ public final class PieceManager {
 
         occupancy[index] = piece;
     }
+
+    public void clearAllPieces() {
+        for (int i = 0; i < occupancy.length; i++) {
+            if (occupancy[i] == null) {
+                continue;
+            }
+
+            presenter.hidePiece(occupancy[i].id());
+            occupancy[i] = null;
+        }
+    }
 }

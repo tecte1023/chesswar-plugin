@@ -82,6 +82,7 @@ public final class ChessWar extends JavaPlugin {
         final var gameLifecycleManager = new GameLifecycleManager(
                 gamePhaseComponent,
                 teamRosterComponent,
+                pieceManager,
                 gameLifecyclePresenter,
                 internalEventBus
         );

@@ -1,5 +1,6 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.team.TeamRosterComponent;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
@@ -17,6 +18,9 @@ public final class GameLifecycleManager {
     private final TeamRosterComponent teamRosterComponent;
 
     @NotNull
+    private final PieceManager pieceManager;
+
+    @NotNull
     private final GameLifecyclePresenter presenter;
 
     @NotNull
@@ -26,6 +30,9 @@ public final class GameLifecycleManager {
         if (phaseComponent.phase() == GamePhase.WAITING) {
             return;
         }
+
+        pieceManager.clearAllPieces();
+        // TODO: 플레이어를 대기실로 텔레포트하는 등 전역 초기화 로직 추가
 
         phaseComponent.phase(GamePhase.WAITING);
         internalEventBus.publishPhaseChange(GamePhase.WAITING);
@@ -43,7 +50,5 @@ public final class GameLifecycleManager {
                 presenter.showGameStopFeedback(player);
             }
         }
-
-        // TODO: 향후 기물 삭제, 보드 초기화, 플레이어를 대기실로 텔레포트하는 등 전역 초기화 로직 추가
     }
 }
