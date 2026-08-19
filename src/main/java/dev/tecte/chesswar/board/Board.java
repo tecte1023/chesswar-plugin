@@ -46,7 +46,8 @@ public final class Board {
             @NotNull final TeamSide teamSide
     ) {
         final Location anchor = mainAnchor.clone();
-        final int offset = BARRACKS_OFFSET * teamSide.direction();
+        final int backwardDirection = -teamSide.direction();
+        final int offset = BARRACKS_OFFSET * backwardDirection;
 
         return anchor.add(forward.getModX() * offset, 0, forward.getModZ() * offset);
     }

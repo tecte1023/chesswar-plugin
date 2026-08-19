@@ -57,6 +57,8 @@ public final class Barracks {
                 .add(right.getModX() * -chestOffset, 0, right.getModZ() * -chestOffset);
         final BlockFace chestFacing = isWhite ? grid.forward().getOppositeFace() : grid.forward();
 
+        spawnLocation.setYaw(anchor.getYaw() + teamSide.yawOffset() + 180f);
+
         return new Barracks(teamSide, grid, spawnLocation, leftChestLocation, rightChestLocation, chestFacing);
     }
 
