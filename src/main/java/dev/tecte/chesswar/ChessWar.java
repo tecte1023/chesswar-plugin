@@ -24,6 +24,7 @@ import dev.tecte.chesswar.game.WaitingPhasePresenter;
 import dev.tecte.chesswar.piece.Piece;
 import dev.tecte.chesswar.piece.PieceManager;
 import dev.tecte.chesswar.piece.PiecePresenter;
+import dev.tecte.chesswar.piece.PieceDamageListener;
 import dev.tecte.chesswar.team.TeamManager;
 import dev.tecte.chesswar.team.TeamPresenter;
 import dev.tecte.chesswar.team.TeamRosterComponent;
@@ -61,7 +62,7 @@ public final class ChessWar extends JavaPlugin {
         final var gameLifecyclePresenter = new GameLifecyclePresenter();
 
         final var occupancy = new Piece[Coordinate.SQUARE_COUNT];
-        final var pieceManager = new PieceManager(piecePresenter, occupancy);
+        final var pieceManager = new PieceManager(piecePresenter, gamePhaseComponent, occupancy);
         final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
         final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
         final var startingPhaseManager = new StartingPhaseManager(
@@ -89,12 +90,14 @@ public final class ChessWar extends JavaPlugin {
 
         final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
         final var waitingPhaseListener = new WaitingPhaseListener(waitingPhaseManager);
+        final var pieceDamageListener = new PieceDamageListener(pieceManager);
 
         internalEventBus.registerPhaseListener(waitingPhaseManager);
         internalEventBus.registerPhaseListener(startingPhaseManager);
 
         pluginManager.registerEvents(teamSelectionListener, this);
         pluginManager.registerEvents(waitingPhaseListener, this);
+        pluginManager.registerEvents(pieceDamageListener, this);
 
         commandManager.registerCommand(new BoardAdminCommand(boardManager));
         commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));

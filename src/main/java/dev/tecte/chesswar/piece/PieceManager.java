@@ -2,6 +2,8 @@ package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.Coordinate;
 import dev.tecte.chesswar.economy.GoldComponent;
+import dev.tecte.chesswar.game.GamePhase;
+import dev.tecte.chesswar.game.GamePhaseComponent;
 import dev.tecte.chesswar.team.TeamSide;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Location;
@@ -13,6 +15,10 @@ import java.util.UUID;
 public final class PieceManager {
     @NotNull
     private final PiecePresenter presenter;
+
+    @NotNull
+    private final GamePhaseComponent phaseComponent;
+
     private final Piece[] occupancy;
 
     public void forceSpawnPiece(
@@ -52,5 +58,23 @@ public final class PieceManager {
             presenter.hidePiece(occupancy[i].id());
             occupancy[i] = null;
         }
+    }
+
+    public boolean hasPiece(@NotNull final UUID entityId) {
+        for (final Piece piece : occupancy) {
+            if (piece != null && piece.id().equals(entityId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public boolean isDamageProtected(@NotNull final UUID entityId) {
+        if (phaseComponent.phase() == GamePhase.BATTLE) {
+            return false;
+        }
+
+        return hasPiece(entityId);
     }
 }
