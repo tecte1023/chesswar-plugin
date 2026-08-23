@@ -8,6 +8,7 @@ import dev.tecte.chesswar.team.TeamSide;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -60,14 +61,19 @@ public final class PieceManager {
         }
     }
 
-    public boolean hasPiece(@NotNull final UUID entityId) {
+    @Nullable
+    public Piece findPiece(@NotNull final UUID entityId) {
         for (final Piece piece : occupancy) {
-            if (piece != null && piece.id().equals(entityId)) {
-                return true;
+            if (piece == null) {
+                continue;
+            }
+
+            if (piece.id().equals(entityId)) {
+                return piece;
             }
         }
 
-        return false;
+        return null;
     }
 
     public boolean isDamageProtected(@NotNull final UUID entityId) {
@@ -75,6 +81,6 @@ public final class PieceManager {
             return false;
         }
 
-        return hasPiece(entityId);
+        return findPiece(entityId) != null;
     }
 }

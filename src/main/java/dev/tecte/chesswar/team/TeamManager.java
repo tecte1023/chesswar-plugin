@@ -5,6 +5,7 @@ import dev.tecte.chesswar.game.GamePhaseComponent;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.UUID;
 
@@ -111,5 +112,22 @@ public final class TeamManager {
     @NotNull
     public UUID[][] teamRosters() {
         return rosterComponent.teamRosters();
+    }
+
+    @Nullable
+    public TeamSide findTeamSide(@NotNull final UUID playerId) {
+        final UUID[][] rosters = rosterComponent.teamRosters();
+
+        for (final TeamSide teamSide : TeamSide.values()) {
+            final UUID[] currentRoster = rosters[teamSide.ordinal()];
+
+            for (final UUID memberId : currentRoster) {
+                if (memberId.equals(playerId)) {
+                    return teamSide;
+                }
+            }
+        }
+
+        return null;
     }
 }

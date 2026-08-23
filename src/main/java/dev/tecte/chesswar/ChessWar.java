@@ -15,6 +15,9 @@ import dev.tecte.chesswar.game.GameLifecyclePresenter;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.GamePhaseComponent;
 import dev.tecte.chesswar.game.InternalEventBus;
+import dev.tecte.chesswar.game.PieceSelectionPhaseListener;
+import dev.tecte.chesswar.game.PieceSelectionPhaseManager;
+import dev.tecte.chesswar.game.PieceSelectionPhasePresenter;
 import dev.tecte.chesswar.game.StartTriggerUIComponent;
 import dev.tecte.chesswar.game.StartingPhaseManager;
 import dev.tecte.chesswar.game.StartingPhasePresenter;
@@ -59,6 +62,7 @@ public final class ChessWar extends JavaPlugin {
         final var teamPresenter = new TeamPresenter();
         final var waitingPhasePresenter = new WaitingPhasePresenter();
         final var startingPhasePresenter = new StartingPhasePresenter();
+        final var pieceSelectionPhasePresenter = new PieceSelectionPhasePresenter();
         final var gameLifecyclePresenter = new GameLifecyclePresenter();
 
         final var occupancy = new Piece[Coordinate.SQUARE_COUNT];
@@ -87,10 +91,19 @@ public final class ChessWar extends JavaPlugin {
                 gameLifecyclePresenter,
                 internalEventBus
         );
+        final var pieceSelectionPhaseManager = new PieceSelectionPhaseManager(
+                gamePhaseComponent,
+                pieceManager,
+                teamManager
+        );
 
         final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
         final var waitingPhaseListener = new WaitingPhaseListener(waitingPhaseManager);
         final var pieceDamageListener = new PieceDamageListener(pieceManager);
+        final var pieceSelectionPhaseListener = new PieceSelectionPhaseListener(
+                pieceSelectionPhaseManager,
+                pieceSelectionPhasePresenter
+        );
 
         internalEventBus.registerPhaseListener(waitingPhaseManager);
         internalEventBus.registerPhaseListener(startingPhaseManager);
@@ -98,6 +111,7 @@ public final class ChessWar extends JavaPlugin {
         pluginManager.registerEvents(teamSelectionListener, this);
         pluginManager.registerEvents(waitingPhaseListener, this);
         pluginManager.registerEvents(pieceDamageListener, this);
+        pluginManager.registerEvents(pieceSelectionPhaseListener, this);
 
         commandManager.registerCommand(new BoardAdminCommand(boardManager));
         commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));
