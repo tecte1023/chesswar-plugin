@@ -14,13 +14,13 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 public final class PieceManager {
-    @NotNull
-    private final PiecePresenter presenter;
+    private final Piece[] occupancy;
 
     @NotNull
     private final GamePhaseComponent phaseComponent;
 
-    private final Piece[] occupancy;
+    @NotNull
+    private final PiecePresenter presenter;
 
     public void forceSpawnPiece(
             @NotNull final Coordinate coordinate,
@@ -74,6 +74,72 @@ public final class PieceManager {
         }
 
         return null;
+    }
+
+    @Nullable
+    public Coordinate findCoordinate(@NotNull final UUID entityId) {
+        for (int i = 0; i < occupancy.length; i++) {
+            final Piece piece = occupancy[i];
+
+            if (piece != null && piece.id().equals(entityId)) {
+                return Coordinate.fromFlatIndex(i);
+            }
+        }
+
+        return null;
+    }
+
+    public void forceAssignPlayer(@NotNull final Coordinate coordinate, @NotNull final UUID playerId) {
+        final int index = coordinate.flatIndex();
+        final Piece oldPiece = occupancy[index];
+
+        if (oldPiece == null || oldPiece.isPlayer()) {
+            return;
+        }
+
+        presenter.hidePiece(oldPiece.id());
+        occupancy[index] = new Piece(
+                playerId,
+                oldPiece.teamSide(),
+                oldPiece.type(),
+                true,
+                oldPiece.stat(),
+                oldPiece.actionMask(),
+                oldPiece.effect(),
+                oldPiece.ability(),
+                oldPiece.gold()
+        );
+    }
+
+    public void forceUnassignPlayer(
+            @NotNull final Coordinate coordinate,
+            @NotNull final Location spawnLocation
+    ) {
+        final int index = coordinate.flatIndex();
+        final Piece oldPiece = occupancy[index];
+
+        if (oldPiece == null || !oldPiece.isPlayer()) {
+            return;
+        }
+
+        final UUID npcId = presenter.showPiece(oldPiece.teamSide(), oldPiece.type(), spawnLocation);
+
+        if (npcId == null) {
+            occupancy[index] = null;
+            return;
+        }
+
+        occupancy[index] = new Piece(
+                npcId,
+                oldPiece.teamSide(),
+                oldPiece.type(),
+                false,
+                oldPiece.stat(),
+                oldPiece.actionMask(),
+                oldPiece.effect(),
+                oldPiece.ability(),
+                oldPiece.gold()
+        );
     }
 
     public boolean isDamageProtected(@NotNull final UUID entityId) {

@@ -1,7 +1,13 @@
 package dev.tecte.chesswar.game;
 
+import dev.tecte.chesswar.board.Coordinate;
+import dev.tecte.chesswar.piece.InitialLayoutPolicy;
 import dev.tecte.chesswar.piece.PieceType;
+import dev.tecte.chesswar.team.TeamSide;
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -9,18 +15,47 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class PieceSelectionPhasePresenter {
-    public void showPieceDescription(
-            @NotNull final Player player,
-            @NotNull final PieceInspectionResult result
+    @NotNull
+    private final Component[][] descriptionCache;
+
+    @NotNull
+    public static PieceSelectionPhasePresenter create() {
+        final var cache = new Component[TeamSide.values().length][Coordinate.SQUARE_COUNT];
+
+        for (int flatIndex = 0; flatIndex < Coordinate.SQUARE_COUNT; flatIndex++) {
+            final var coordinate = Coordinate.fromFlatIndex(flatIndex);
+            final PieceType type = InitialLayoutPolicy.initialPieceType(coordinate);
+            final TeamSide ownerTeam = InitialLayoutPolicy.teamSide(coordinate);
+
+            if (type == null || ownerTeam == null) {
+                continue;
+            }
+
+            for (final TeamSide viewerTeam : TeamSide.values()) {
+                final var selectability = PieceSelectability.evaluate(type, ownerTeam, viewerTeam);
+
+                cache[viewerTeam.ordinal()][flatIndex] = buildPieceDescription(type, selectability, coordinate);
+            }
+        }
+
+        return new PieceSelectionPhasePresenter(cache);
+    }
+
+    @NotNull
+    private static Component buildPieceDescription(
+            @NotNull final PieceType type,
+            @NotNull final PieceSelectability selectability,
+            @NotNull final Coordinate coordinate
     ) {
-        final PieceType type = result.type();
         final Component decorationLine = Component.text(
                 "━━━━━━━━━━━━━━━",
                 NamedTextColor.DARK_GRAY,
                 TextDecoration.STRIKETHROUGH
         );
-        final Component message = Component.text()
+
+        return Component.text()
                 .append(Component.newline())
                 .append(decorationLine)
                 .appendSpace()
@@ -47,16 +82,16 @@ public final class PieceSelectionPhasePresenter {
                 .append(Component.newline())
                 .append(Component.newline())
                 .append(Component.text("               "))
-                .append(buildJoinButton(result.selectability()))
+                .append(buildJoinButton(selectability, coordinate))
                 .append(Component.newline())
                 .build();
-
-        player.sendMessage(message);
-        player.playSound(player, Sound.BLOCK_CHEST_OPEN, 1.0f, 1.0f);
     }
 
     @NotNull
-    private Component buildJoinButton(@NotNull final PieceSelectability selectability) {
+    private static Component buildJoinButton(
+            @NotNull final PieceSelectability selectability,
+            @NotNull final Coordinate coordinate
+    ) {
         final Component baseButton = Component.text()
                 .content("[ ")
                 .append(Component.text("참전하기").decorate(TextDecoration.BOLD))
@@ -69,7 +104,8 @@ public final class PieceSelectionPhasePresenter {
                     .hoverEvent(HoverEvent.showText(Component.text(
                             "클릭하여 해당 기물로 참전합니다.",
                             NamedTextColor.GREEN
-                    )));
+                    )))
+                    .clickEvent(ClickEvent.runCommand("/cw select " + coordinate.x() + " " + coordinate.y()));
             case UNSELECTABLE_TEAM -> baseButton
                     .color(NamedTextColor.GRAY)
                     .hoverEvent(HoverEvent.showText(Component.text(
@@ -83,5 +119,29 @@ public final class PieceSelectionPhasePresenter {
                             NamedTextColor.RED
                     )));
         };
+    }
+
+    public void showPieceDescription(
+            @NotNull final Player player,
+            @NotNull final Coordinate coordinate,
+            @NotNull final TeamSide viewerTeam
+    ) {
+        final Component cachedComponent = descriptionCache[viewerTeam.ordinal()][coordinate.flatIndex()];
+
+        if (cachedComponent == null) {
+            return;
+        }
+
+        player.sendMessage(cachedComponent);
+        player.playSound(player, Sound.BLOCK_CHEST_OPEN, 1.0f, 1.0f);
+    }
+
+    public void showPieceSelectedFeedback(@NotNull final Player player) {
+        player.playSound(player, Sound.ITEM_ARMOR_EQUIP_IRON, 1.0f, 1.0f);
+    }
+
+    public void showPieceAlreadyTakenFeedback(@NotNull final Player player) {
+        player.sendMessage(Component.text("이미 선택된 기물입니다.", NamedTextColor.RED));
+        player.playSound(player, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
     }
 }

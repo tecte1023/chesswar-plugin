@@ -15,6 +15,7 @@ import dev.tecte.chesswar.game.GameLifecyclePresenter;
 import dev.tecte.chesswar.game.GamePhase;
 import dev.tecte.chesswar.game.GamePhaseComponent;
 import dev.tecte.chesswar.game.InternalEventBus;
+import dev.tecte.chesswar.game.PieceSelectionCommand;
 import dev.tecte.chesswar.game.PieceSelectionPhaseListener;
 import dev.tecte.chesswar.game.PieceSelectionPhaseManager;
 import dev.tecte.chesswar.game.PieceSelectionPhasePresenter;
@@ -62,11 +63,11 @@ public final class ChessWar extends JavaPlugin {
         final var teamPresenter = new TeamPresenter();
         final var waitingPhasePresenter = new WaitingPhasePresenter();
         final var startingPhasePresenter = new StartingPhasePresenter();
-        final var pieceSelectionPhasePresenter = new PieceSelectionPhasePresenter();
+        final var pieceSelectionPhasePresenter = PieceSelectionPhasePresenter.create();
         final var gameLifecyclePresenter = new GameLifecyclePresenter();
 
         final var occupancy = new Piece[Coordinate.SQUARE_COUNT];
-        final var pieceManager = new PieceManager(piecePresenter, gamePhaseComponent, occupancy);
+        final var pieceManager = new PieceManager(occupancy, gamePhaseComponent, piecePresenter);
         final var boardManager = new BoardManager(boardComponent, boardUIComponent, boardPresenter);
         final var teamManager = new TeamManager(teamRosterComponent, gamePhaseComponent);
         final var startingPhaseManager = new StartingPhaseManager(
@@ -92,17 +93,19 @@ public final class ChessWar extends JavaPlugin {
                 internalEventBus
         );
         final var pieceSelectionPhaseManager = new PieceSelectionPhaseManager(
+                occupancy,
                 gamePhaseComponent,
+                boardComponent,
                 pieceManager,
-                teamManager
+                teamManager,
+                pieceSelectionPhasePresenter
         );
 
         final var teamSelectionListener = new TeamSelectionListener(teamManager, teamPresenter);
         final var waitingPhaseListener = new WaitingPhaseListener(waitingPhaseManager);
         final var pieceDamageListener = new PieceDamageListener(pieceManager);
         final var pieceSelectionPhaseListener = new PieceSelectionPhaseListener(
-                pieceSelectionPhaseManager,
-                pieceSelectionPhasePresenter
+                pieceSelectionPhaseManager
         );
 
         internalEventBus.registerPhaseListener(waitingPhaseManager);
@@ -116,6 +119,7 @@ public final class ChessWar extends JavaPlugin {
         commandManager.registerCommand(new BoardAdminCommand(boardManager));
         commandManager.registerCommand(new TeamAdminCommand(teamManager, teamPresenter));
         commandManager.registerCommand(new GameAdminCommand(waitingPhaseManager, gameLifecycleManager));
+        commandManager.registerCommand(new PieceSelectionCommand(pieceSelectionPhaseManager));
 
         log.info("ChessWar has been enabled!");
     }
