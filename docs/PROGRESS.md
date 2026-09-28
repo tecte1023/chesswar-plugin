@@ -1,19 +1,16 @@
 # 📝 ChessWar Development Progress
 
-## Milestone 1: Architecture Core
-- [ ] 엔진 이벤트 격리 및 전역 Event Bus 셋업
-- [ ] Entity 및 Component 최상위 인터페이스 정의
+## Milestone 2: Board & Basic Spawning
 
-## Milestone 2: Board & Spawning
+## Milestone 3: Core Interaction
 
-## Milestone 3: Combat Interaction
+## Milestone 4: Game Flow
 
-## Milestone 4: Game Phase Flow
+## Milestone 5: Economy & Tactical Command
 
-## Milestone 5: Economy & Command
-
-## Milestone 6: Abilities & Polish
+## Milestone 6: Special Abilities & Polish
 
 ---
 ## [Archive]
+- Milestone 1: Architecture Core
 - MVP 개발 완료
