@@ -23,7 +23,7 @@
 ### 1.2. Time & Coordinate Boundaries
 * **Time Units**: `Tick` 단위와 밀리초 단위 혼동 방지를 위해 시간 관련 변수에 `Ticks`, `Ms` 단위 접미사 필수 사용.
 * **Coordinate Spaces**: 아키텍처의 논리 및 물리 격리 원칙에 따라 `grid`, `world` 좌표 공간 접두사 필수 사용.
-* **Location vs Vector**: Bukkit 클래스인 `Location` 객체는 위치와 회전을 포함하므로 `loc` 명명 강제, 순수 이동 좌표인 `Vector` 객체만 `pos` 명명 강제.
+* **Location vs Vector**: 위치와 회전을 포함하는 `Location` 객체는 `loc` 명명을 강제하며, 방향·속도 물리량이나 고유 기준점 명사를 제외한 일반 위치 좌표 객체에만 `pos` 명명 강제.
 
 ### 1.3. Game Simulation Semantics
 * **Lifecycle & Action**: 백엔드식 데이터 조작 어휘 대신 `spawn`, `despawn`, `applyDamage` 등 생명주기 및 물리적 상호작용 동사 사용.
@@ -43,8 +43,9 @@
 * **Comments**: 코드의 동작을 단순히 번역하는 기계적인 주석 전면 금지.
   * **Inline Comments**: 동작 설명 주석은 전면 금지하되 엔진 버그 우회 등 불가피한 구현 이유 설명 시에만 제한적 허용.
   * **Javadoc**: 원칙적 작성 금지 및 타 서브시스템 호출 시 메인 스레드 블로킹 경고 표지판 목적으로만 극히 제한적 허용.
-* **Nullability**: 시스템 내부 모든 객체는 널이 아님을 기본값으로 간주하여 무분별한 어노테이션 도배 전면 금지 및 비즈니스 로직 가독성 확보.
-  * **@Nullable**: 외부 물리 경계선에서만 제한적 허용하며 분기 예측 방해를 막기 위해 `Hot-Path` 내부 방어적 널 체크 및 반환을 전면 금지하고 빈 구조체 반환 강제.
+* **Nullability**: 시스템 내부 필수 객체는 실행 경로를 불문하고 무결성을 신뢰하여 기계적 널 체크와 어노테이션 도배를 전면 금지하되, 외부 엔진 경계 호출부는 널 가드와 에러 로깅 강제.
+  * **Optional**: 내부 도메인에서 `Optional` 사용을 전면 금지하며, 외부 API가 반환하는 `Optional`은 호출 즉시 `.orElse(null)`로 언패킹하여 단일 널 가드로 정규화.
+  * **@Nullable**: 외부 물리 경계선에서만 제한적 허용하며 분기 예측 방해를 막기 위해 `Hot-Path` 내부 널 반환을 전면 금지하고 빈 구조체 반환 강제.
   * **@NotNull**: 롬복 통제로 초기 조립 무결성이 보장되므로 IDE 경고 차단 목적의 기계적 도배 전면 금지.
   ```java
   // 🟢 DO: 무결성 데이터를 신뢰하여 널 체크 생략 및 빈 배열 반환
@@ -77,11 +78,15 @@
       return components;
   }
   ```
-* **Type Inference Limit**: 숫자 연산에서 `var` 사용을 금지하고 우변만으로 객체 타입이 명백할 때만 제한적 허용.
+* **Type Inference Limit**: 생성자, 정적 팩토리, 우변 메서드명이나 클래스 리터럴에 반환 타입명이 명시된 단일 조회에만 `var`를 허용하며, 숫자 연산과 반환 타입 미노출 호출 및 다단계 변환 체이닝에는 명시적 타입 선언 강제.
 * **Final Modifier**: 식별자, 주입 필드, 람다를 제외한 파라미터는 무조건 `final`로 선언하되 엔진 생명주기상 지연 초기화가 필수적인 인프라 객체에 한해 예외적 생략 허용 및 초기화 검증 로직 강제.
 * **Braces Mandate**: 한 줄짜리 제어문이라도 중괄호 생략 금지.
 * **this Keyword Omission**: 생성자 및 Setter 내부의 섀도잉 방어를 제외한 모든 인스턴스 필드 접근 시 `this` 키워드 전면 생략.
 * **Constructor & Factory Method**: 생성자 내부는 부수 효과가 없는 순수 데이터 할당만 허용하며, 이벤트 구독 등 로직이 개입될 경우 `private` 생성자와 정적 팩토리 메서드로 객체 생명주기 완벽 분리.
+* **Vertical Whitespace**: 주석 대신 빈 줄로 메서드의 실행 위상을 분리하며 연속 2줄 이상의 빈 줄은 전면 금지.
+  * **Phase Separation**: 4줄 이상의 메서드는 검증, 준비 및 조립, 실행 및 변이, 반환의 위상 전환 시에만 빈 줄 1개를 삽입하고 3줄 이하 초단문 메서드는 내부 빈 줄 전면 생략.
+  * **Control Block Cohesion**: 제어문 블록 앞뒤는 빈 줄로 분리하되, 직전 라인이 해당 제어문 전용 변수 획득문인 경우 변수 선언과 제어문 가드를 빈 줄 없이 한 단위로 밀착.
+  * **Return Placement**: 복합 생성 반환이나 다중 라인 문단 뒤의 `return`은 빈 줄 1개로 분리하고, 단일 종결 동작 직후의 단순 반환은 빈 줄 없이 밀착.
 * **Law of Demeter**: 시스템 및 시뮬레이션 객체 내 디미터 법칙을 엄수하되 `Entity`-`Component` 경계, `Hot-Path` 다이렉트 위임, 데이터 구조체, 수학 체이닝, 외부 엔진 API 등 5대 구역에 한해 예외적 체이닝 허용.
 
 ## 3. Hot-Path Syntax Restraints
@@ -161,9 +166,10 @@ public class PieceDamageEvent implements SimulationEvent {
   3. 가변 상태 데이터
 * **Method Ordering**:
   1. 생성자 및 정적 팩토리 메서드
-  2. `Hot-Path` 진입점
-  3. `Cold-Path` 진입점
-  4. `private` 헬퍼 메서드: 호출하는 `public` 메서드 근처 배치.
+  2. 생명주기 및 메인 루프 진입점: `tick`, `onTick`, `setup`, `cleanup` 등 객체의 시작·갱신·종료 제어 메서드.
+  3. 핵심 도메인 행동 및 기능 그룹: 동일 도메인 기능은 인접 배치하되, 그룹 내부에서는 `Hot-Path` 변이 메서드를 상단에, `Cold-Path` 편의 메서드를 하단에 배치.
+  4. 단순 상태 검증 및 속성 조회: 상태 판별 및 단순 Getter 메서드.
+  5. `private` 헬퍼 메서드: 자신을 호출하는 `public` 메서드 바로 아래에 근접 배치.
 * **Parameter Ordering**:
   1. 공간 좌표: `x`, `y`, `z` 및 `width`, `height` 수학적 공간 배열 절대 엄수.
   2. 상호작용: `target`, `instigator`, `value` 순서의 주객 관계 배치 통일.
