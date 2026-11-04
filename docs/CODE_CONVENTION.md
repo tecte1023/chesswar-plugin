@@ -39,7 +39,7 @@
 * **Lombok Annotations**: 캡슐화 붕괴 및 은닉된 런타임 오버헤드 유발 어노테이션 전면 금지.
   * **허용**: `@Getter`, `@RequiredArgsConstructor`, `@AllArgsConstructor`, `@Slf4j`, 불변 객체 한정 자바 `record` 적극 사용.
   * **금지**: `@Data` 전면 금지 및 가변 필드를 포함하는 `Component` 등의 객체에 `@EqualsAndHashCode` 전면 금지.
-  * **제한적 허용**: 상태 변경 시 `@Setter` 제한적 허용, 직렬화 요구 시 `@NoArgsConstructor` 허용, 객체 할당 오버헤드가 존재하는 `@Builder`는 `Cold-Path` 한정 허용 및 `Hot-Path` 내부 금지.
+  * **제한적 허용**: 상태 변경 시 `@Setter` 제한적 허용, 직렬화 요구 또는 정적 유틸리티의 인스턴스화 방지를 위한 `AccessLevel.PRIVATE` 지정 시 `@NoArgsConstructor` 허용, 객체 할당 오버헤드가 존재하는 `@Builder`는 `Cold-Path` 한정 허용 및 `Hot-Path` 내부 금지.
 * **Comments**: 코드의 동작을 단순히 번역하는 기계적인 주석 전면 금지.
   * **Inline Comments**: 동작 설명 주석은 전면 금지하되 엔진 버그 우회 등 불가피한 구현 이유 설명 시에만 제한적 허용.
   * **Javadoc**: 원칙적 작성 금지 및 타 서브시스템 호출 시 메인 스레드 블로킹 경고 표지판 목적으로만 극히 제한적 허용.
@@ -78,8 +78,12 @@
       return components;
   }
   ```
-* **Type Inference Limit**: 생성자, 정적 팩토리, 우변 메서드명이나 클래스 리터럴에 반환 타입명이 명시된 단일 조회에만 `var`를 허용하며, 숫자 연산과 반환 타입 미노출 호출 및 다단계 변환 체이닝에는 명시적 타입 선언 강제.
+* **Type Inference Limit**: 생성자, 정적 팩토리, 클래스 리터럴에 반환 타입명이 명시된 단일 조회에만 `var`를 허용하며, 숫자 연산과 반환 타입 미노출 호출 및 다단계 변환 체이닝에는 명시적 타입 선언 강제.
 * **Final Modifier**: 식별자, 주입 필드, 람다를 제외한 파라미터는 무조건 `final`로 선언하되 엔진 생명주기상 지연 초기화가 필수적인 인프라 객체에 한해 예외적 생략 허용 및 초기화 검증 로직 강제.
+* **Constants & Literals**: 단일 메서드 내부 수식 값의 무분별한 상수화로 인한 시선 분산 및 추상화 경계 오염 전면 금지.
+  * **Class Constants**: 기획 규격, 다중 메서드 공유 리터럴, 재생성 방지가 필요한 불변 참조 객체에 한해서만 클래스 상단 `static final` 상수로 선언.
+  * **Explaining Variables**: 단일 메서드 내부에서만 쓰이나 인라인 작성 시 기하학적·비즈니스적 의도가 은닉되거나 중복 연산되는 파생 수식은 사용처 직전의 지역 변수로 선언.
+  * **Inline Literals**: 블록 중앙 보정, 직각 회전, 단순 배수 및 기본 인덱스 등 게임 수학과 엔진 환경에서 의미가 자명한 불변 상수는 수식에 인라인 리터럴로 직접 작성.
 * **Braces Mandate**: 한 줄짜리 제어문이라도 중괄호 생략 금지.
 * **this Keyword Omission**: 생성자 및 Setter 내부의 섀도잉 방어를 제외한 모든 인스턴스 필드 접근 시 `this` 키워드 전면 생략.
 * **Constructor & Factory Method**: 생성자 내부는 부수 효과가 없는 순수 데이터 할당만 허용하며, 이벤트 구독 등 로직이 개입될 경우 `private` 생성자와 정적 팩토리 메서드로 객체 생명주기 완벽 분리.
