@@ -24,21 +24,24 @@ public record BoardState(UUID worldId, Vector worldOrigin, Vector forward, Vecto
         return new BoardState(loc.getWorld().getUID(), worldOrigin, forward, right, yaw);
     }
 
-    public void applyWorldPos(final Vector targetWorldPos, final GridPoint gridPos) {
-        double worldX = worldOrigin.getX() + ((right.getX() * gridPos.x() + forward.getX() * gridPos.y()) * TILE_SIZE);
-        double worldY = worldOrigin.getY();
-        double worldZ = worldOrigin.getZ() + ((right.getZ() * gridPos.x() + forward.getZ() * gridPos.y()) * TILE_SIZE);
-
-        targetWorldPos.setX(worldX).setY(worldY).setZ(worldZ);
-    }
-
     public Vector toWorldPos(final GridPoint gridPos) {
-        var targetWorldPos = new Vector();
-        applyWorldPos(targetWorldPos, gridPos);
-        return targetWorldPos;
+        Vector rightOffset = right.clone().multiply(gridPos.x() * TILE_SIZE);
+        Vector forwardOffset = forward.clone().multiply(gridPos.y() * TILE_SIZE);
+        return worldOrigin.clone().add(rightOffset).add(forwardOffset);
     }
 
-    public boolean isInBounds(final int gridX, final int gridY) {
-        return gridX >= 0 && gridX < BOARD_SIZE && gridY >= 0 && gridY < BOARD_SIZE;
+    public GridPoint toGridPos(final Vector worldPos) {
+        Vector offset = worldPos.clone().subtract(worldOrigin);
+        double rightDist = offset.dot(right);
+        double forwardDist = offset.dot(forward);
+        double centerOffset = TILE_SIZE / 2.0;
+        int gridX = (int) Math.floor((rightDist + centerOffset) / TILE_SIZE);
+        int gridY = (int) Math.floor((forwardDist + centerOffset) / TILE_SIZE);
+
+        return new GridPoint(gridX, gridY);
+    }
+
+    public boolean isInBounds(final GridPoint gridPos) {
+        return gridPos.x() >= 0 && gridPos.x() < BOARD_SIZE && gridPos.y() >= 0 && gridPos.y() < BOARD_SIZE;
     }
 }

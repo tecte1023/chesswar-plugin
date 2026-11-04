@@ -8,4 +8,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public final class GridComponent implements Component {
     private GridPoint gridPos;
+
+    public void moveTo(final GridPoint targetGridPos) {
+        gridPos = targetGridPos;
+    }
 }

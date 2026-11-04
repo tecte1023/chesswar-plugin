@@ -6,6 +6,7 @@ import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceLifecycle;
+import dev.tecte.chesswar.piece.PieceListener;
 import dev.tecte.chesswar.piece.PieceView;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -22,6 +23,8 @@ public final class ChessWar extends JavaPlugin {
         var commandManager = new PaperCommandManager(this);
         commandManager.registerCommand(new BoardCommand(board));
         commandManager.registerCommand(new PieceCommand(board, pieceLifecycle));
+
+        getServer().getPluginManager().registerEvents(new PieceListener(board, pieceLifecycle), this);
     }
 
     @Override

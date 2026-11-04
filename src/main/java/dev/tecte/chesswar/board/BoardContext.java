@@ -12,20 +12,20 @@ public final class BoardContext {
         state = BoardState.create(loc);
     }
 
-    public void applyWorldPos(final Vector targetWorldPos, final GridPoint gridPos) {
-        state.applyWorldPos(targetWorldPos, gridPos);
-    }
-
     public Vector toWorldPos(final GridPoint gridPos) {
         return state.toWorldPos(gridPos);
+    }
+
+    public GridPoint toGridPos(final Vector worldPos) {
+        return state.toGridPos(worldPos);
     }
 
     public boolean isSetup() {
         return state != null;
     }
 
-    public boolean isInBounds(final int gridX, final int gridY) {
-        return state.isInBounds(gridX, gridY);
+    public boolean isInBounds(final GridPoint gridPos) {
+        return state.isInBounds(gridPos);
     }
 
     public UUID worldId() {
