@@ -12,6 +12,9 @@ import java.util.UUID;
 
 @RequiredArgsConstructor
 public final class PieceLifecycle {
+    private static final int DEFAULT_PAWN_HP = 60;
+    private static final int DEFAULT_PAWN_ATK = 15;
+
     private final SimulationEventBus eventBus;
     private final Map<GridPoint, Entity> piecesByGridPos = new HashMap<>();
     private int nextId = 1;
@@ -24,6 +27,7 @@ public final class PieceLifecycle {
     private Entity createPiece(final GridPoint gridPos) {
         var piece = new Entity(nextId++);
         piece.attach(GridComponent.class, new GridComponent(gridPos));
+        piece.attach(CombatComponent.class, new CombatComponent(DEFAULT_PAWN_HP, DEFAULT_PAWN_ATK));
         piecesByGridPos.put(gridPos, piece);
 
         return piece;
@@ -48,6 +52,22 @@ public final class PieceLifecycle {
         piecesByGridPos.put(targetGridPos, piece);
 
         eventBus.publish(new PieceMoveEvent(piece));
+    }
+
+    public int attack(final Entity target, final Entity attacker) {
+        var attackerCombat = attacker.component(CombatComponent.class);
+        var targetCombat = target.component(CombatComponent.class);
+        int damage = attackerCombat.atk();
+        targetCombat.applyDamage(damage);
+
+        if (targetCombat.isDead()) {
+            GridPoint targetGridPos = target.component(GridComponent.class).gridPos();
+            piecesByGridPos.remove(targetGridPos);
+            eventBus.publish(new PieceDeathEvent(target));
+            move(attacker, targetGridPos);
+        }
+
+        return damage;
     }
 
     public boolean hasPieceAt(final GridPoint gridPos) {

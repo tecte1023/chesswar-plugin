@@ -16,6 +16,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
@@ -37,6 +40,7 @@ public final class PieceView implements View {
         eventBus.subscribe(PieceSpawnEvent.class, view::onPieceSpawn);
         eventBus.subscribe(PieceBindEvent.class, view::onPieceBind);
         eventBus.subscribe(PieceMoveEvent.class, view::onPieceMove);
+        eventBus.subscribe(PieceDeathEvent.class, view::onPieceDeath);
         eventBus.subscribe(PieceClearEvent.class, view::onPieceClear);
 
         return view;
@@ -72,7 +76,12 @@ public final class PieceView implements View {
             return;
         }
 
-        visualEntities.put(piece.id(), activeMob.getEntity().getBukkitEntity().getUniqueId());
+        org.bukkit.entity.Entity bukkitEntity = activeMob.getEntity().getBukkitEntity();
+        if (bukkitEntity instanceof LivingEntity livingEntity) {
+            applyPieceAttributes(livingEntity, piece);
+        }
+
+        visualEntities.put(piece.id(), bukkitEntity.getUniqueId());
     }
 
     private void onPieceBind(final PieceBindEvent event) {
@@ -93,6 +102,7 @@ public final class PieceView implements View {
         Location loc = toTileLocation(gridComponent, world);
 
         player.teleport(loc);
+        applyPieceAttributes(player, piece);
         UUID oldVisualId = visualEntities.put(piece.id(), playerId);
         despawnVisual(oldVisualId);
     }
@@ -124,8 +134,33 @@ public final class PieceView implements View {
         bukkitEntity.teleport(loc);
     }
 
+    private void onPieceDeath(final PieceDeathEvent event) {
+        Entity piece = event.piece();
+        UUID visualId = visualEntities.remove(piece.id());
+        if (visualId == null) {
+            log.warn("사망한 기물의 뷰 엔티티를 찾을 수 없습니다: pieceId={}", piece.id());
+            return;
+        }
+
+        org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
+        if (bukkitEntity instanceof Player player) {
+            resetPlayerAttributes(player);
+        }
+    }
+
     private void onPieceClear(final PieceClearEvent event) {
         cleanup();
+    }
+
+    private void applyPieceAttributes(final LivingEntity livingEntity, final Entity piece) {
+        int maxHp = piece.component(CombatComponent.class).hp();
+        AttributeInstance maxHealthAttr = livingEntity.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) {
+            return;
+        }
+
+        maxHealthAttr.setBaseValue(maxHp);
+        livingEntity.setHealth(maxHp);
     }
 
     private void despawnVisual(final UUID visualId) {
@@ -136,9 +171,25 @@ public final class PieceView implements View {
         }
 
         org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
-        if (bukkitEntity != null && !(bukkitEntity instanceof Player)) {
+        if (bukkitEntity instanceof Player player) {
+            resetPlayerAttributes(player);
+            return;
+        }
+
+        if (bukkitEntity != null) {
             bukkitEntity.remove();
         }
+    }
+
+    private void resetPlayerAttributes(final Player player) {
+        AttributeInstance maxHealthAttr = player.getAttribute(Attribute.MAX_HEALTH);
+        if (maxHealthAttr == null) {
+            return;
+        }
+
+        double defaultMaxHp = maxHealthAttr.getDefaultValue();
+        maxHealthAttr.setBaseValue(defaultMaxHp);
+        player.setHealth(defaultMaxHp);
     }
 
     private Location toTileLocation(final GridComponent gridComponent, final World world) {
