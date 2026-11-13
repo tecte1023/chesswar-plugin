@@ -1,7 +1,6 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.BoardContext;
-import dev.tecte.chesswar.board.GridComponent;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.Messages;
@@ -54,20 +53,17 @@ public final class PieceListener implements Listener {
             return;
         }
 
-        var gridComponent = piece.component(GridComponent.class);
-        if (gridComponent.gridPos().equals(targetGridPos)) {
-            Messages.reply(player, Component.text("현재 위치와 같은 칸으로 이동할 수 없습니다.", NamedTextColor.RED));
-            return;
-        }
-
-        if (pieceLifecycle.hasPieceAt(targetGridPos)) {
-            Messages.reply(player, Component.text("해당 칸에 이미 다른 기물이 존재합니다.", NamedTextColor.RED));
-            return;
-        }
-
-        pieceLifecycle.move(piece, targetGridPos);
-        String message = "(" + targetGridPos.x() + ", " + targetGridPos.y() + ") 칸으로 이동했습니다.";
-        Messages.reply(player, Component.text(message, NamedTextColor.GREEN));
+        MoveResult result = pieceLifecycle.move(piece, targetGridPos);
+        Component message = switch (result) {
+            case SUCCESS -> Component.text(
+                    "(" + targetGridPos.x() + ", " + targetGridPos.y() + ") 칸으로 이동했습니다.",
+                    NamedTextColor.GREEN
+            );
+            case ALREADY_OCCUPIED -> Component.text("해당 칸에 이미 다른 기물이 있습니다.", NamedTextColor.RED);
+            case INVALID_PATTERN -> Component.text("해당 기물의 이동 범위가 아닙니다.", NamedTextColor.RED);
+            case PATH_BLOCKED -> Component.text("이동 경로가 가로막혀 있습니다.", NamedTextColor.RED);
+        };
+        Messages.reply(player, message);
     }
 
     @EventHandler
@@ -98,13 +94,24 @@ public final class PieceListener implements Listener {
         }
 
         Entity attackerPiece = pieceLifecycle.pieceOf(attackerPlayer.getUniqueId());
-        if (attackerPiece == null || attackerPiece.id() == targetPiece.id()) {
+        if (attackerPiece == null) {
             event.setCancelled(true);
             return;
         }
 
-        int damage = pieceLifecycle.attack(targetPiece, attackerPiece);
+        AttackResult result = pieceLifecycle.attack(targetPiece, attackerPiece);
+        if (result instanceof AttackResult.Failure failure) {
+            event.setCancelled(true);
+            Component message = switch (failure) {
+                case FRIENDLY_FIRE -> Component.text("아군 기물은 공격할 수 없습니다.", NamedTextColor.RED);
+                case INVALID_PATTERN -> Component.text("해당 기물의 공격 범위가 아닙니다.", NamedTextColor.RED);
+                case PATH_BLOCKED -> Component.text("공격 경로가 가로막혀 있습니다.", NamedTextColor.RED);
+            };
+            Messages.reply(attackerPlayer, message);
+            return;
+        }
 
+        int damage = ((AttackResult.Success) result).damage();
         var targetCombat = targetPiece.component(CombatComponent.class);
         if (targetCombat.isDead()) {
             if (victim instanceof Player) {
@@ -140,6 +147,7 @@ public final class PieceListener implements Listener {
             return true;
         }
 
-        return victim instanceof LivingEntity livingVictim && livingVictim.getNoDamageTicks() > livingVictim.getMaximumNoDamageTicks() / 2.0;
+        return victim instanceof LivingEntity livingVictim
+                && livingVictim.getNoDamageTicks() > livingVictim.getMaximumNoDamageTicks() / 2.0;
     }
 }

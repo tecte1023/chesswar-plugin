@@ -5,15 +5,12 @@ import co.aikar.commands.annotation.Subcommand;
 import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.ChessWarCommand;
-import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.Messages;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-
-import java.util.UUID;
 
 @Subcommand("piece")
 @RequiredArgsConstructor
@@ -22,19 +19,39 @@ public final class PieceCommand extends ChessWarCommand {
     private final PieceLifecycle pieceLifecycle;
 
     @Subcommand("spawn")
-    public void onSpawn(final CommandSender sender, @Default("0") final int gridX, @Default("0") final int gridY) {
+    public void onSpawn(
+            final CommandSender sender,
+            @Default("0") final int gridX,
+            @Default("0") final int gridY,
+            @Default("WHITE") final Team team,
+            @Default("PAWN") final PieceType type
+    ) {
         GridPoint gridPos = resolveGridPos(sender, gridX, gridY);
         if (gridPos == null) {
             return;
         }
 
-        if (pieceLifecycle.hasPieceAt(gridPos)) {
-            Messages.reply(sender, Component.text("해당 좌표에 이미 기물이 존재합니다.", NamedTextColor.RED));
+        SpawnResult result = pieceLifecycle.spawn(gridPos, team, type);
+        Component message = switch (result) {
+            case SUCCESS -> Component.text("기물이 (" + gridX + ", " + gridY + ")에 소환되었습니다.", NamedTextColor.GREEN);
+            case ALREADY_OCCUPIED -> Component.text("해당 좌표에 이미 기물이 존재합니다.", NamedTextColor.RED);
+        };
+        Messages.reply(sender, message);
+    }
+
+    @Subcommand("setup")
+    public void onSetup(final CommandSender sender) {
+        if (!board.isSetup()) {
+            Messages.reply(sender, Component.text("체스판 기준점이 설정되지 않았습니다.", NamedTextColor.RED));
             return;
         }
 
-        pieceLifecycle.spawn(gridPos);
-        Messages.reply(sender, Component.text("기물이 (" + gridX + ", " + gridY + ")에 소환되었습니다.", NamedTextColor.GREEN));
+        PieceSetupResult result = pieceLifecycle.setupPieces();
+        Component message = switch (result) {
+            case SUCCESS -> Component.text("32개 기물이 체스판에 배치되었습니다.", NamedTextColor.GREEN);
+            case ALREADY_INITIALIZED -> Component.text("체스판에 이미 기물이 배치되어 있습니다.", NamedTextColor.RED);
+        };
+        Messages.reply(sender, message);
     }
 
     @Subcommand("bind")
@@ -44,25 +61,14 @@ public final class PieceCommand extends ChessWarCommand {
             return;
         }
 
-        UUID playerId = player.getUniqueId();
-        if (pieceLifecycle.hasPlayerPiece(playerId)) {
-            Messages.reply(player, Component.text("이미 배정된 기물이 존재합니다.", NamedTextColor.RED));
-            return;
-        }
-
-        Entity piece = pieceLifecycle.pieceAt(gridPos);
-        if (piece == null) {
-            Messages.reply(player, Component.text("해당 좌표에 배정할 기물이 존재하지 않습니다.", NamedTextColor.RED));
-            return;
-        }
-
-        if (piece.hasComponent(PlayerComponent.class)) {
-            Messages.reply(player, Component.text("해당 기물은 이미 다른 플레이어에게 배정되어 있습니다.", NamedTextColor.RED));
-            return;
-        }
-
-        pieceLifecycle.bindPlayer(piece, playerId);
-        Messages.reply(player, Component.text("기물이 (" + gridX + ", " + gridY + ")에 배정되었습니다.", NamedTextColor.GREEN));
+        BindResult result = pieceLifecycle.bindPlayer(gridPos, player.getUniqueId());
+        Component message = switch (result) {
+            case SUCCESS -> Component.text("기물이 (" + gridX + ", " + gridY + ")에 배정되었습니다.", NamedTextColor.GREEN);
+            case PLAYER_ALREADY_BOUND -> Component.text("이미 배정받은 기물이 있습니다.", NamedTextColor.RED);
+            case PIECE_NOT_FOUND -> Component.text("해당 좌표에 기물이 없습니다.", NamedTextColor.RED);
+            case ALREADY_BOUND -> Component.text("다른 플레이어가 배정받은 기물입니다.", NamedTextColor.RED);
+        };
+        Messages.reply(player, message);
     }
 
     @Subcommand("clear")
@@ -79,7 +85,7 @@ public final class PieceCommand extends ChessWarCommand {
 
         var gridPos = new GridPoint(gridX, gridY);
         if (!board.isInBounds(gridPos)) {
-            Messages.reply(sender, Component.text("유효하지 않은 체스판 좌표입니다.", NamedTextColor.RED));
+            Messages.reply(sender, Component.text("체스판 범위를 벗어났습니다. (0~7)", NamedTextColor.RED));
             return null;
         }
 

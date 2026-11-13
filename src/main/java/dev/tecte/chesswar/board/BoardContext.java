@@ -35,4 +35,8 @@ public final class BoardContext {
     public float yaw() {
         return state.yaw();
     }
+
+    public float oppositeYaw() {
+        return state.oppositeYaw();
+    }
 }

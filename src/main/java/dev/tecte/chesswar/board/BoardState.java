@@ -24,6 +24,10 @@ public record BoardState(UUID worldId, Vector worldOrigin, Vector forward, Vecto
         return new BoardState(loc.getWorld().getUID(), worldOrigin, forward, right, yaw);
     }
 
+    public float oppositeYaw() {
+        return Location.normalizeYaw(yaw + 180.0f);
+    }
+
     public Vector toWorldPos(final GridPoint gridPos) {
         Vector rightOffset = right.clone().multiply(gridPos.x() * TILE_SIZE);
         Vector forwardOffset = forward.clone().multiply(gridPos.y() * TILE_SIZE);

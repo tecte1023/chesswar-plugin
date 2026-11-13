@@ -22,14 +22,13 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @Slf4j(topic = "ChessWar")
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class PieceView implements View {
-    private static final String DEFAULT_MOB_ID = "WhitePawn";
-
     private final BoardContext board;
     private final MobExecutor mobManager = (MobExecutor) MythicProvider.get().getMobManager();
     private final Map<Integer, UUID> visualEntities = new HashMap<>();
@@ -38,6 +37,7 @@ public final class PieceView implements View {
         var view = new PieceView(board);
 
         eventBus.subscribe(PieceSpawnEvent.class, view::onPieceSpawn);
+        eventBus.subscribe(PiecesSpawnEvent.class, view::onPiecesSpawn);
         eventBus.subscribe(PieceBindEvent.class, view::onPieceBind);
         eventBus.subscribe(PieceMoveEvent.class, view::onPieceMove);
         eventBus.subscribe(PieceDeathEvent.class, view::onPieceDeath);
@@ -60,19 +60,36 @@ public final class PieceView implements View {
             return;
         }
 
-        Entity piece = event.piece();
-        var gridComponent = piece.component(GridComponent.class);
-        Location loc = toTileLocation(gridComponent, world);
+        spawnVisual(event.piece(), world);
+    }
 
-        MythicMob mythicMob = mobManager.getMythicMob(DEFAULT_MOB_ID).orElse(null);
-        if (mythicMob == null) {
-            log.error("기물 외형 MythicMob 설정을 찾을 수 없습니다: pieceId={}, mobId={}", piece.id(), DEFAULT_MOB_ID);
+    private void onPiecesSpawn(final PiecesSpawnEvent event) {
+        World world = findWorld();
+        if (world == null) {
             return;
         }
 
+        List<Entity> pieces = event.pieces();
+        for (Entity piece : pieces) {
+            spawnVisual(piece, world);
+        }
+    }
+
+    private void spawnVisual(final Entity piece, final World world) {
+        var pieceComponent = piece.component(PieceComponent.class);
+        var gridComponent = piece.component(GridComponent.class);
+        String mobId = resolveMobId(pieceComponent.team(), pieceComponent.type());
+
+        MythicMob mythicMob = mobManager.getMythicMob(mobId).orElse(null);
+        if (mythicMob == null) {
+            log.error("기물의 MythicMob 설정을 찾을 수 없습니다: mobId={}, gridPos={}", mobId, gridComponent.gridPos());
+            return;
+        }
+
+        Location loc = toTileLocation(gridComponent, pieceComponent.team(), world);
         ActiveMob activeMob = mythicMob.spawn(BukkitAdapter.adapt(loc), 1);
         if (activeMob == null) {
-            log.error("기물 외형 MythicMob 스폰에 실패했습니다: pieceId={}, mobId={}, loc={}", piece.id(), DEFAULT_MOB_ID, loc);
+            log.error("기물의 MythicMob 소환에 실패했습니다: mobId={}, gridPos={}", mobId, gridComponent.gridPos());
             return;
         }
 
@@ -98,8 +115,9 @@ public final class PieceView implements View {
             return;
         }
 
+        var pieceComponent = piece.component(PieceComponent.class);
         var gridComponent = piece.component(GridComponent.class);
-        Location loc = toTileLocation(gridComponent, world);
+        Location loc = toTileLocation(gridComponent, pieceComponent.team(), world);
 
         player.teleport(loc);
         applyPieceAttributes(player, piece);
@@ -117,10 +135,11 @@ public final class PieceView implements View {
         UUID visualId = visualEntities.get(piece.id());
         org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
         if (bukkitEntity == null) {
-            log.warn("기물의 뷰 엔티티를 월드에서 찾을 수 없습니다: pieceId={}, visualId={}", piece.id(), visualId);
+            log.warn("기물 엔티티를 월드에서 찾을 수 없습니다: pieceId={}, visualId={}", piece.id(), visualId);
             return;
         }
 
+        var pieceComponent = piece.component(PieceComponent.class);
         var gridComponent = piece.component(GridComponent.class);
         Location loc = board.toWorldPos(gridComponent.gridPos()).toLocation(world);
 
@@ -128,7 +147,7 @@ public final class PieceView implements View {
             loc.setYaw(bukkitEntity.getYaw());
             loc.setPitch(bukkitEntity.getPitch());
         } else {
-            loc.setYaw(board.yaw());
+            loc.setYaw(resolveTeamYaw(pieceComponent.team()));
         }
 
         bukkitEntity.teleport(loc);
@@ -138,7 +157,7 @@ public final class PieceView implements View {
         Entity piece = event.piece();
         UUID visualId = visualEntities.remove(piece.id());
         if (visualId == null) {
-            log.warn("사망한 기물의 뷰 엔티티를 찾을 수 없습니다: pieceId={}", piece.id());
+            log.warn("사망한 기물의 엔티티 정보를 찾을 수 없습니다: pieceId={}", piece.id());
             return;
         }
 
@@ -153,14 +172,14 @@ public final class PieceView implements View {
     }
 
     private void applyPieceAttributes(final LivingEntity livingEntity, final Entity piece) {
-        int maxHp = piece.component(CombatComponent.class).hp();
+        var combatComponent = piece.component(CombatComponent.class);
         AttributeInstance maxHealthAttr = livingEntity.getAttribute(Attribute.MAX_HEALTH);
         if (maxHealthAttr == null) {
             return;
         }
 
-        maxHealthAttr.setBaseValue(maxHp);
-        livingEntity.setHealth(maxHp);
+        maxHealthAttr.setBaseValue(combatComponent.maxHp());
+        livingEntity.setHealth(combatComponent.hp());
     }
 
     private void despawnVisual(final UUID visualId) {
@@ -192,16 +211,32 @@ public final class PieceView implements View {
         player.setHealth(defaultMaxHp);
     }
 
-    private Location toTileLocation(final GridComponent gridComponent, final World world) {
+    private Location toTileLocation(final GridComponent gridComponent, final Team team, final World world) {
         Location loc = board.toWorldPos(gridComponent.gridPos()).toLocation(world);
-        loc.setYaw(board.yaw());
+        loc.setYaw(resolveTeamYaw(team));
         return loc;
+    }
+
+    private float resolveTeamYaw(final Team team) {
+        return team == Team.WHITE ? board.yaw() : board.oppositeYaw();
+    }
+
+    private String resolveMobId(final Team team, final PieceType type) {
+        String teamPrefix = team == Team.WHITE ? "White" : "Black";
+        return switch (type) {
+            case PAWN -> teamPrefix + "Pawn";
+            case KNIGHT -> teamPrefix + "Knight";
+            case BISHOP -> teamPrefix + "Bishop";
+            case ROOK -> teamPrefix + "Rook";
+            case QUEEN -> teamPrefix + "Queen";
+            case KING -> teamPrefix + "King";
+        };
     }
 
     private World findWorld() {
         World world = Bukkit.getWorld(board.worldId());
         if (world == null) {
-            log.error("체스판 월드를 찾을 수 없습니다: worldId={}", board.worldId());
+            log.error("체스판이 설치된 월드를 찾을 수 없습니다: worldId={}", board.worldId());
         }
 
         return world;
