@@ -4,6 +4,7 @@ import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.Messages;
+import dev.tecte.chesswar.game.GameLifecycle;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -17,10 +18,13 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 
+import java.util.UUID;
+
 @RequiredArgsConstructor
 public final class PieceListener implements Listener {
     private final BoardContext board;
     private final PieceLifecycle pieceLifecycle;
+    private final GameLifecycle gameLifecycle;
 
     @EventHandler
     public void onInteract(final PlayerInteractEvent event) {
@@ -33,7 +37,7 @@ public final class PieceListener implements Listener {
             return;
         }
 
-        if (!board.isSetup()) {
+        if (!board.isSetup() || !gameLifecycle.isBattle()) {
             return;
         }
 
@@ -42,8 +46,13 @@ public final class PieceListener implements Listener {
             return;
         }
 
-        Entity piece = pieceLifecycle.pieceOf(player.getUniqueId());
-        if (piece == null) {
+        UUID playerId = player.getUniqueId();
+        if (!gameLifecycle.isParticipant(playerId)) {
+            return;
+        }
+
+        if (!gameLifecycle.isTurnOwner(playerId)) {
+            Messages.reply(player, Component.text("자신의 턴이 아닙니다.", NamedTextColor.RED));
             return;
         }
 
@@ -53,7 +62,7 @@ public final class PieceListener implements Listener {
             return;
         }
 
-        MoveResult result = pieceLifecycle.move(piece, targetGridPos);
+        MoveResult result = pieceLifecycle.move(gameLifecycle.currentPiece(), targetGridPos);
         Component message = switch (result) {
             case SUCCESS -> Component.text(
                     "(" + targetGridPos.x() + ", " + targetGridPos.y() + ") 칸으로 이동했습니다.",
@@ -64,6 +73,10 @@ public final class PieceListener implements Listener {
             case PATH_BLOCKED -> Component.text("이동 경로가 가로막혀 있습니다.", NamedTextColor.RED);
         };
         Messages.reply(player, message);
+
+        if (result == MoveResult.SUCCESS) {
+            gameLifecycle.advanceTurn();
+        }
     }
 
     @EventHandler
@@ -93,13 +106,25 @@ public final class PieceListener implements Listener {
             return;
         }
 
-        Entity attackerPiece = pieceLifecycle.pieceOf(attackerPlayer.getUniqueId());
-        if (attackerPiece == null) {
+        if (!gameLifecycle.isBattle()) {
+            event.setCancelled(true);
+            Messages.reply(attackerPlayer, Component.text("게임이 진행 중이 아닙니다.", NamedTextColor.RED));
+            return;
+        }
+
+        UUID attackerId = attackerPlayer.getUniqueId();
+        if (!gameLifecycle.isParticipant(attackerId)) {
             event.setCancelled(true);
             return;
         }
 
-        AttackResult result = pieceLifecycle.attack(targetPiece, attackerPiece);
+        if (!gameLifecycle.isTurnOwner(attackerId)) {
+            event.setCancelled(true);
+            Messages.reply(attackerPlayer, Component.text("자신의 턴이 아닙니다.", NamedTextColor.RED));
+            return;
+        }
+
+        AttackResult result = pieceLifecycle.attack(targetPiece, gameLifecycle.currentPiece());
         if (result instanceof AttackResult.Failure failure) {
             event.setCancelled(true);
             Component message = switch (failure) {
@@ -121,12 +146,14 @@ public final class PieceListener implements Listener {
             }
 
             Messages.reply(attackerPlayer, Component.text("적 기물을 처치하고 칸을 점령했습니다.", NamedTextColor.GREEN));
+            gameLifecycle.advanceTurn();
             return;
         }
 
         event.setDamage(damage);
         String message = "적 기물을 타격했습니다. (남은 체력: " + targetCombat.hp() + ")";
         Messages.reply(attackerPlayer, Component.text(message, NamedTextColor.GREEN));
+        gameLifecycle.advanceTurn();
     }
 
     private Entity resolvePiece(final org.bukkit.entity.Entity entity) {

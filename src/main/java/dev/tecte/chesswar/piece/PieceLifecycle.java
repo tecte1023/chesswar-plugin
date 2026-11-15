@@ -157,6 +157,17 @@ public final class PieceLifecycle {
         return null;
     }
 
+    public List<Entity> playerPieces() {
+        List<Entity> playerPieces = new ArrayList<>();
+        for (Entity piece : piecesByGridPos.values()) {
+            if (piece.hasComponent(PlayerComponent.class)) {
+                playerPieces.add(piece);
+            }
+        }
+
+        return playerPieces;
+    }
+
     private Entity createPiece(final GridPoint gridPos, final Team team, final PieceType type) {
         var piece = new Entity(nextId++);
         piece.attach(GridComponent.class, new GridComponent(gridPos));

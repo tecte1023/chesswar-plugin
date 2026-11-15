@@ -4,6 +4,9 @@ import co.aikar.commands.PaperCommandManager;
 import dev.tecte.chesswar.board.BoardCommand;
 import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.core.SimulationEventBus;
+import dev.tecte.chesswar.game.GameCommand;
+import dev.tecte.chesswar.game.GameLifecycle;
+import dev.tecte.chesswar.game.GameView;
 import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceLifecycle;
 import dev.tecte.chesswar.piece.PieceListener;
@@ -18,13 +21,16 @@ public final class ChessWar extends JavaPlugin {
         var board = new BoardContext();
         var eventBus = new SimulationEventBus();
         var pieceLifecycle = new PieceLifecycle(eventBus);
+        var gameLifecycle = new GameLifecycle(eventBus);
         pieceView = PieceView.create(board, eventBus);
+        GameView.create(eventBus);
 
         var commandManager = new PaperCommandManager(this);
         commandManager.registerCommand(new BoardCommand(board));
         commandManager.registerCommand(new PieceCommand(board, pieceLifecycle));
+        commandManager.registerCommand(new GameCommand(board, pieceLifecycle, gameLifecycle));
 
-        getServer().getPluginManager().registerEvents(new PieceListener(board, pieceLifecycle), this);
+        getServer().getPluginManager().registerEvents(new PieceListener(board, pieceLifecycle, gameLifecycle), this);
     }
 
     @Override
