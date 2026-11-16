@@ -134,6 +134,8 @@ public final class PieceLifecycle {
             piecesByGridPos.remove(targetPos);
             eventBus.publish(new PieceDeathEvent(target));
             relocate(attacker, targetPos);
+        } else {
+            eventBus.publish(new PieceMoveEvent(attacker));
         }
 
         return new AttackResult.Success(damage);

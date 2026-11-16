@@ -1,10 +1,16 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.BoardContext;
+import dev.tecte.chesswar.board.BoardState;
 import dev.tecte.chesswar.board.GridComponent;
+import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.View;
+import dev.tecte.chesswar.game.GameStartEvent;
+import dev.tecte.chesswar.game.GameStopEvent;
+import dev.tecte.chesswar.game.TurnStartEvent;
+import dev.tecte.chesswar.game.TurnTimeoutEvent;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.BukkitAdapter;
@@ -16,14 +22,19 @@ import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.util.Vector;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j(topic = "ChessWar")
@@ -32,6 +43,9 @@ public final class PieceView implements View {
     private final BoardContext board;
     private final MobExecutor mobManager = (MobExecutor) MythicProvider.get().getMobManager();
     private final Map<Integer, UUID> visualEntities = new HashMap<>();
+    private final List<Entity> battlePieces = new ArrayList<>();
+    private final Set<UUID> borderedPlayers = new HashSet<>();
+    private Entity currentTurnPiece;
 
     public static PieceView create(final BoardContext board, final SimulationEventBus eventBus) {
         var view = new PieceView(board);
@@ -42,11 +56,17 @@ public final class PieceView implements View {
         eventBus.subscribe(PieceMoveEvent.class, view::onPieceMove);
         eventBus.subscribe(PieceDeathEvent.class, view::onPieceDeath);
         eventBus.subscribe(PieceClearEvent.class, view::onPieceClear);
+        eventBus.subscribe(GameStartEvent.class, view::onGameStart);
+        eventBus.subscribe(TurnStartEvent.class, view::onTurnStart);
+        eventBus.subscribe(TurnTimeoutEvent.class, view::onTurnTimeout);
+        eventBus.subscribe(GameStopEvent.class, view::onGameStop);
 
         return view;
     }
 
     public void cleanup() {
+        clearAllTileBorders();
+
         for (UUID visualId : visualEntities.values()) {
             despawnVisual(visualId);
         }
@@ -131,8 +151,135 @@ public final class PieceView implements View {
             return;
         }
 
+        syncPieceLocation(event.piece(), world);
+    }
+
+    private void onPieceDeath(final PieceDeathEvent event) {
         Entity piece = event.piece();
+        if (piece.hasComponent(PlayerComponent.class)) {
+            clearTileBorder(piece);
+        }
+
+        UUID visualId = visualEntities.remove(piece.id());
+        if (visualId == null) {
+            log.warn("사망한 기물의 엔티티 정보를 찾을 수 없습니다: pieceId={}", piece.id());
+            return;
+        }
+
+        org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
+        if (bukkitEntity instanceof Player player) {
+            resetPlayerAttributes(player);
+        }
+    }
+
+    private void onPieceClear(final PieceClearEvent event) {
+        cleanup();
+    }
+
+    private void onGameStart(final GameStartEvent event) {
+        battlePieces.clear();
+        battlePieces.addAll(event.pieces());
+        currentTurnPiece = null;
+
+        World world = findWorld();
+        if (world == null) {
+            return;
+        }
+
+        for (Entity piece : event.pieces()) {
+            syncPieceLocation(piece, world);
+        }
+    }
+
+    private void onTurnStart(final TurnStartEvent event) {
+        Entity nextPiece = event.piece();
+        if (currentTurnPiece == null) {
+            for (Entity piece : battlePieces) {
+                if (piece.equals(nextPiece)) {
+                    clearTileBorder(piece);
+                } else if (!piece.component(CombatComponent.class).isDead()) {
+                    applyTileBorder(piece);
+                }
+            }
+
+            battlePieces.clear();
+            currentTurnPiece = nextPiece;
+            return;
+        }
+
+        if (!currentTurnPiece.equals(nextPiece)) {
+            if (!currentTurnPiece.component(CombatComponent.class).isDead()) {
+                applyTileBorder(currentTurnPiece);
+            }
+
+            clearTileBorder(nextPiece);
+        }
+
+        currentTurnPiece = nextPiece;
+    }
+
+    private void onTurnTimeout(final TurnTimeoutEvent event) {
+        World world = findWorld();
+        if (world == null) {
+            return;
+        }
+
+        syncPieceLocation(event.piece(), world);
+    }
+
+    private void onGameStop(final GameStopEvent event) {
+        clearAllTileBorders();
+    }
+
+    private void applyTileBorder(final Entity piece) {
+        UUID playerId = piece.component(PlayerComponent.class).playerId();
+        Player player = Bukkit.getPlayer(playerId);
+        if (player == null) {
+            return;
+        }
+
+        GridPoint gridPos = piece.component(GridComponent.class).gridPos();
+        Vector center = board.toWorldPos(gridPos);
+        WorldBorder border = Bukkit.createWorldBorder();
+        border.setCenter(center.getX(), center.getZ());
+        border.setSize(BoardState.TILE_SIZE);
+        border.setWarningDistance(0);
+        border.setWarningTime(0);
+        border.setDamageAmount(0);
+        player.setWorldBorder(border);
+        borderedPlayers.add(playerId);
+    }
+
+    private void clearTileBorder(final Entity piece) {
+        UUID playerId = piece.component(PlayerComponent.class).playerId();
+        clearPlayerBorder(playerId);
+        borderedPlayers.remove(playerId);
+    }
+
+    private void clearAllTileBorders() {
+        for (UUID playerId : borderedPlayers) {
+            clearPlayerBorder(playerId);
+        }
+
+        borderedPlayers.clear();
+        battlePieces.clear();
+        currentTurnPiece = null;
+    }
+
+    private void clearPlayerBorder(final UUID playerId) {
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null) {
+            player.setWorldBorder(null);
+        }
+    }
+
+    private void syncPieceLocation(final Entity piece, final World world) {
         UUID visualId = visualEntities.get(piece.id());
+        if (visualId == null) {
+            log.warn("기물 엔티티 정보를 찾을 수 없습니다: pieceId={}", piece.id());
+            return;
+        }
+
         org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
         if (bukkitEntity == null) {
             log.warn("기물 엔티티를 월드에서 찾을 수 없습니다: pieceId={}, visualId={}", piece.id(), visualId);
@@ -151,24 +298,6 @@ public final class PieceView implements View {
         }
 
         bukkitEntity.teleport(loc);
-    }
-
-    private void onPieceDeath(final PieceDeathEvent event) {
-        Entity piece = event.piece();
-        UUID visualId = visualEntities.remove(piece.id());
-        if (visualId == null) {
-            log.warn("사망한 기물의 엔티티 정보를 찾을 수 없습니다: pieceId={}", piece.id());
-            return;
-        }
-
-        org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
-        if (bukkitEntity instanceof Player player) {
-            resetPlayerAttributes(player);
-        }
-    }
-
-    private void onPieceClear(final PieceClearEvent event) {
-        cleanup();
     }
 
     private void applyPieceAttributes(final LivingEntity livingEntity, final Entity piece) {

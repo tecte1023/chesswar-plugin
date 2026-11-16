@@ -23,7 +23,7 @@ public final class ChessWar extends JavaPlugin {
         var pieceLifecycle = new PieceLifecycle(eventBus);
         var gameLifecycle = new GameLifecycle(eventBus);
         pieceView = PieceView.create(board, eventBus);
-        GameView.create(eventBus);
+        GameView.create(gameLifecycle, eventBus);
 
         var commandManager = new PaperCommandManager(this);
         commandManager.registerCommand(new BoardCommand(board));
@@ -31,6 +31,7 @@ public final class ChessWar extends JavaPlugin {
         commandManager.registerCommand(new GameCommand(board, pieceLifecycle, gameLifecycle));
 
         getServer().getPluginManager().registerEvents(new PieceListener(board, pieceLifecycle, gameLifecycle), this);
+        getServer().getScheduler().runTaskTimer(this, gameLifecycle::tick, 1L, 1L);
     }
 
     @Override
