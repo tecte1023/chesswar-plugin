@@ -64,6 +64,39 @@ public final class PieceView implements View {
         visualEntities.clear();
     }
 
+    public void onPlayerQuit(final Player player) {
+        UUID playerId = player.getUniqueId();
+        if (visualEntities.containsValue(playerId)) {
+            resetPlayerAttributes(player);
+        }
+
+        if (spectatingPlayers.contains(playerId)) {
+            player.setGameMode(GameMode.SURVIVAL);
+        }
+    }
+
+    public void onPlayerJoin(final Player player, final Entity boundPiece) {
+        if (spectatingPlayers.contains(player.getUniqueId())) {
+            player.setGameMode(GameMode.SPECTATOR);
+            return;
+        }
+
+        if (boundPiece == null || boundPiece.component(CombatComponent.class).isDead()) {
+            return;
+        }
+
+        applyPieceAttributes(player, boundPiece);
+
+        if (!board.isSetup()) {
+            return;
+        }
+
+        World world = findWorld();
+        if (world != null) {
+            syncEntityLocation(player, boundPiece, world);
+        }
+    }
+
     private void onPieceSpawn(final PieceSpawnEvent event) {
         World world = findWorld();
         if (world == null) {
@@ -208,6 +241,10 @@ public final class PieceView implements View {
             return;
         }
 
+        syncEntityLocation(bukkitEntity, piece, world);
+    }
+
+    private void syncEntityLocation(final org.bukkit.entity.Entity bukkitEntity, final Entity piece, final World world) {
         var pieceComponent = piece.component(PieceComponent.class);
         var gridComponent = piece.component(GridComponent.class);
         Location loc = board.toWorldPos(gridComponent.gridPos()).toLocation(world);

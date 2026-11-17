@@ -146,7 +146,11 @@ public final class PieceListener implements Listener {
             }
 
             Messages.reply(attackerPlayer, Component.text("적 기물을 처치하고 칸을 점령했습니다.", NamedTextColor.GREEN));
-            gameLifecycle.advanceTurn();
+
+            if (gameLifecycle.isBattle()) {
+                gameLifecycle.advanceTurn();
+            }
+
             return;
         }
 

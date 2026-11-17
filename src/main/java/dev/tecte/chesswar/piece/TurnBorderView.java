@@ -52,6 +52,20 @@ public final class TurnBorderView implements View {
         currentTurnPiece = null;
     }
 
+    public void onPlayerQuit(final Player player) {
+        if (borderedPlayers.remove(player.getUniqueId())) {
+            player.setWorldBorder(null);
+        }
+    }
+
+    public void onPlayerJoin(final Player player, final Entity boundPiece, final boolean isTurnOwner) {
+        if (boundPiece == null || boundPiece.component(CombatComponent.class).isDead() || isTurnOwner) {
+            return;
+        }
+
+        applyTileBorder(player, boundPiece);
+    }
+
     private void onGameStart(final GameStartEvent event) {
         battlePieces.clear();
         battlePieces.addAll(event.pieces());
@@ -107,6 +121,10 @@ public final class TurnBorderView implements View {
             return;
         }
 
+        applyTileBorder(player, piece);
+    }
+
+    private void applyTileBorder(final Player player, final Entity piece) {
         GridPoint gridPos = piece.component(GridComponent.class).gridPos();
         Vector center = board.toWorldPos(gridPos);
         WorldBorder border = Bukkit.createWorldBorder();
@@ -116,7 +134,7 @@ public final class TurnBorderView implements View {
         border.setWarningTime(0);
         border.setDamageAmount(0);
         player.setWorldBorder(border);
-        borderedPlayers.add(playerId);
+        borderedPlayers.add(player.getUniqueId());
     }
 
     private void clearTileBorder(final Entity piece) {

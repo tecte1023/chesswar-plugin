@@ -11,6 +11,7 @@ import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceLifecycle;
 import dev.tecte.chesswar.piece.PieceListener;
 import dev.tecte.chesswar.piece.PieceView;
+import dev.tecte.chesswar.piece.PlayerSessionListener;
 import dev.tecte.chesswar.piece.TurnBorderView;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -34,6 +35,10 @@ public final class ChessWar extends JavaPlugin {
         commandManager.registerCommand(new GameCommand(board, pieceLifecycle, gameLifecycle));
 
         getServer().getPluginManager().registerEvents(new PieceListener(board, pieceLifecycle, gameLifecycle), this);
+        getServer().getPluginManager().registerEvents(
+                new PlayerSessionListener(pieceLifecycle, gameLifecycle, pieceView, turnBorderView),
+                this
+        );
         getServer().getScheduler().runTaskTimer(this, gameLifecycle::tick, 1L, 1L);
     }
 
