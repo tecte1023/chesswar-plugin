@@ -5,8 +5,11 @@ import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.Tickable;
 import dev.tecte.chesswar.piece.CombatComponent;
 import dev.tecte.chesswar.piece.PieceComponent;
+import dev.tecte.chesswar.piece.PieceDeathEvent;
+import dev.tecte.chesswar.piece.PieceType;
 import dev.tecte.chesswar.piece.PlayerComponent;
 import dev.tecte.chesswar.piece.Team;
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -19,10 +22,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class GameLifecycle implements Tickable {
     public static final int INITIAL_TEAM_TICKS = 20 * 60 * 10;
     public static final int OVERTIME_TICKS = 20 * 30;
+    public static final int ENDING_TICKS = 20 * 5;
 
     private final SimulationEventBus eventBus;
     private final Map<Team, List<Entity>> turnQueues = new EnumMap<>(Team.class);
@@ -35,9 +39,25 @@ public final class GameLifecycle implements Tickable {
     private int whiteRemainingTicks;
     private int blackRemainingTicks;
     private int overtimeTicks;
+    private int endingTicks;
+
+    public static GameLifecycle create(final SimulationEventBus eventBus) {
+        var lifecycle = new GameLifecycle(eventBus);
+        eventBus.subscribe(PieceDeathEvent.class, lifecycle::onPieceDeath);
+        return lifecycle;
+    }
 
     @Override
     public void tick() {
+        if (phase == GamePhase.ENDING) {
+            endingTicks--;
+            if (endingTicks <= 0) {
+                stop();
+            }
+
+            return;
+        }
+
         if (phase != GamePhase.BATTLE) {
             return;
         }
@@ -54,7 +74,7 @@ public final class GameLifecycle implements Tickable {
     }
 
     public GameStartResult start(final List<Entity> playerPieces) {
-        if (phase == GamePhase.BATTLE) {
+        if (phase != GamePhase.WAITING) {
             return GameStartResult.ALREADY_STARTED;
         }
 
@@ -91,6 +111,7 @@ public final class GameLifecycle implements Tickable {
         whiteRemainingTicks = INITIAL_TEAM_TICKS;
         blackRemainingTicks = INITIAL_TEAM_TICKS;
         overtimeTicks = OVERTIME_TICKS;
+        endingTicks = 0;
         currentTeam = startingTeam;
         currentPiece = startingPiece;
         phase = GamePhase.BATTLE;
@@ -101,18 +122,15 @@ public final class GameLifecycle implements Tickable {
     }
 
     public void stop() {
-        if (phase != GamePhase.BATTLE) {
+        if (phase == GamePhase.WAITING) {
             return;
         }
 
-        turnQueues.clear();
-        teamCursors.clear();
-        participants.clear();
-        currentTeam = null;
-        currentPiece = null;
+        clearTurnState();
         whiteRemainingTicks = 0;
         blackRemainingTicks = 0;
         overtimeTicks = 0;
+        endingTicks = 0;
         phase = GamePhase.WAITING;
         eventBus.publish(new GameStopEvent());
     }
@@ -144,6 +162,10 @@ public final class GameLifecycle implements Tickable {
         return phase == GamePhase.BATTLE;
     }
 
+    public boolean isRunning() {
+        return phase != GamePhase.WAITING;
+    }
+
     public boolean isParticipant(final UUID playerId) {
         return participants.contains(playerId);
     }
@@ -158,6 +180,35 @@ public final class GameLifecycle implements Tickable {
 
     public int remainingTeamTicks(final Team team) {
         return team == Team.WHITE ? whiteRemainingTicks : blackRemainingTicks;
+    }
+
+    private void onPieceDeath(final PieceDeathEvent event) {
+        if (phase != GamePhase.BATTLE) {
+            return;
+        }
+
+        Entity piece = event.piece();
+        if (piece.hasComponent(PlayerComponent.class)) {
+            participants.remove(piece.component(PlayerComponent.class).playerId());
+        }
+
+        var pieceComponent = piece.component(PieceComponent.class);
+        if (pieceComponent.type() != PieceType.KING) {
+            return;
+        }
+
+        clearTurnState();
+        endingTicks = ENDING_TICKS;
+        phase = GamePhase.ENDING;
+        eventBus.publish(new GameWinEvent(oppositeTeam(pieceComponent.team())));
+    }
+
+    private void clearTurnState() {
+        turnQueues.clear();
+        teamCursors.clear();
+        participants.clear();
+        currentTeam = null;
+        currentPiece = null;
     }
 
     private boolean consumeTeamTick(final Team team) {

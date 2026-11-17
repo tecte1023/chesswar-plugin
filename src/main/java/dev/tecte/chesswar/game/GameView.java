@@ -5,6 +5,7 @@ import dev.tecte.chesswar.core.Messages;
 import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.View;
 import dev.tecte.chesswar.piece.PieceComponent;
+import dev.tecte.chesswar.piece.PieceDeathEvent;
 import dev.tecte.chesswar.piece.PlayerComponent;
 import dev.tecte.chesswar.piece.Team;
 import lombok.AccessLevel;
@@ -23,11 +24,30 @@ public final class GameView implements View {
     public static GameView create(final GameLifecycle gameLifecycle, final SimulationEventBus eventBus) {
         var view = new GameView(gameLifecycle);
 
+        eventBus.subscribe(PieceDeathEvent.class, view::onPieceDeath);
         eventBus.subscribe(TurnStartEvent.class, view::onTurnStart);
         eventBus.subscribe(TurnTimeoutEvent.class, view::onTurnTimeout);
+        eventBus.subscribe(GameWinEvent.class, view::onGameWin);
         eventBus.subscribe(GameStopEvent.class, view::onGameStop);
 
         return view;
+    }
+
+    private void onPieceDeath(final PieceDeathEvent event) {
+        Entity piece = event.piece();
+        if (!piece.hasComponent(PlayerComponent.class)) {
+            return;
+        }
+
+        Team team = piece.component(PieceComponent.class).team();
+        UUID playerId = piece.component(PlayerComponent.class).playerId();
+        String actorName = formatActorName(team, playerId);
+        Component message = Component.text(
+                actorName + "님이 사망하여 관전 모드로 전환됩니다.",
+                NamedTextColor.GRAY
+        );
+
+        Messages.reply(Bukkit.getServer(), message);
     }
 
     private void onTurnStart(final TurnStartEvent event) {
@@ -56,13 +76,27 @@ public final class GameView implements View {
         Messages.reply(Bukkit.getServer(), message);
     }
 
+    private void onGameWin(final GameWinEvent event) {
+        String teamName = formatTeamName(event.winnerTeam());
+        int endingSeconds = Math.ceilDiv(GameLifecycle.ENDING_TICKS, 20);
+        Component message = Component.text(
+                teamName + " 진영이 승리했습니다! " + endingSeconds + "초 후 필드가 초기화됩니다.",
+                NamedTextColor.GOLD
+        );
+
+        Messages.reply(Bukkit.getServer(), message);
+    }
+
     private void onGameStop(final GameStopEvent event) {
-        Messages.reply(Bukkit.getServer(), Component.text("게임이 종료되었습니다.", NamedTextColor.YELLOW));
+        Messages.reply(Bukkit.getServer(), Component.text("게임이 종료되고 필드가 초기화되었습니다.", NamedTextColor.YELLOW));
     }
 
     private String formatActorName(final Team team, final UUID playerId) {
-        String teamName = team == Team.WHITE ? "백" : "흑";
-        return "[" + teamName + "] " + resolvePlayerName(playerId);
+        return "[" + formatTeamName(team) + "] " + resolvePlayerName(playerId);
+    }
+
+    private String formatTeamName(final Team team) {
+        return team == Team.WHITE ? "백" : "흑";
     }
 
     private String formatTimerText(final int remainingTicks) {

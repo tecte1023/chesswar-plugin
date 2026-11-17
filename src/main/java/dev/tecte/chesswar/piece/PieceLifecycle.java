@@ -4,6 +4,8 @@ import dev.tecte.chesswar.board.GridComponent;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.SimulationEventBus;
+import dev.tecte.chesswar.game.GameStopEvent;
+import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 
 import java.util.ArrayList;
@@ -12,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@RequiredArgsConstructor
+@RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public final class PieceLifecycle {
     private static final PieceType[] BACK_RANK_PIECES = {
             PieceType.ROOK,
@@ -28,6 +30,12 @@ public final class PieceLifecycle {
     private final SimulationEventBus eventBus;
     private final Map<GridPoint, Entity> piecesByGridPos = new HashMap<>();
     private int nextId = 1;
+
+    public static PieceLifecycle create(final SimulationEventBus eventBus) {
+        var lifecycle = new PieceLifecycle(eventBus);
+        eventBus.subscribe(GameStopEvent.class, lifecycle::onGameStop);
+        return lifecycle;
+    }
 
     public SpawnResult spawn(final GridPoint gridPos, final Team team, final PieceType type) {
         if (piecesByGridPos.containsKey(gridPos)) {
@@ -132,8 +140,8 @@ public final class PieceLifecycle {
 
         if (targetCombat.isDead()) {
             piecesByGridPos.remove(targetPos);
-            eventBus.publish(new PieceDeathEvent(target));
             relocate(attacker, targetPos);
+            eventBus.publish(new PieceDeathEvent(target));
         } else {
             eventBus.publish(new PieceMoveEvent(attacker));
         }
@@ -168,6 +176,10 @@ public final class PieceLifecycle {
         }
 
         return playerPieces;
+    }
+
+    private void onGameStop(final GameStopEvent event) {
+        clear();
     }
 
     private Entity createPiece(final GridPoint gridPos, final Team team, final PieceType type) {

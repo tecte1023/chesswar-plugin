@@ -35,7 +35,7 @@ public final class GameCommand extends ChessWarCommand {
 
     @Subcommand("stop")
     public void onStop(final CommandSender sender) {
-        if (!gameLifecycle.isBattle()) {
+        if (!gameLifecycle.isRunning()) {
             Messages.reply(sender, Component.text("진행 중인 게임이 없습니다.", NamedTextColor.RED));
             return;
         }

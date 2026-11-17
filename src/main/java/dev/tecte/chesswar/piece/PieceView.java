@@ -8,7 +8,7 @@ import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.View;
 import dev.tecte.chesswar.game.GameStartEvent;
-import dev.tecte.chesswar.game.GameStopEvent;
+import dev.tecte.chesswar.game.GameWinEvent;
 import dev.tecte.chesswar.game.TurnStartEvent;
 import dev.tecte.chesswar.game.TurnTimeoutEvent;
 import io.lumine.mythic.api.MythicProvider;
@@ -20,6 +20,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.WorldBorder;
@@ -45,6 +46,7 @@ public final class PieceView implements View {
     private final Map<Integer, UUID> visualEntities = new HashMap<>();
     private final List<Entity> battlePieces = new ArrayList<>();
     private final Set<UUID> borderedPlayers = new HashSet<>();
+    private final Set<UUID> spectatingPlayers = new HashSet<>();
     private Entity currentTurnPiece;
 
     public static PieceView create(final BoardContext board, final SimulationEventBus eventBus) {
@@ -59,13 +61,14 @@ public final class PieceView implements View {
         eventBus.subscribe(GameStartEvent.class, view::onGameStart);
         eventBus.subscribe(TurnStartEvent.class, view::onTurnStart);
         eventBus.subscribe(TurnTimeoutEvent.class, view::onTurnTimeout);
-        eventBus.subscribe(GameStopEvent.class, view::onGameStop);
+        eventBus.subscribe(GameWinEvent.class, view::onGameWin);
 
         return view;
     }
 
     public void cleanup() {
         clearAllTileBorders();
+        restoreSpectators();
 
         for (UUID visualId : visualEntities.values()) {
             despawnVisual(visualId);
@@ -169,6 +172,8 @@ public final class PieceView implements View {
         org.bukkit.entity.Entity bukkitEntity = Bukkit.getEntity(visualId);
         if (bukkitEntity instanceof Player player) {
             resetPlayerAttributes(player);
+            player.setGameMode(GameMode.SPECTATOR);
+            spectatingPlayers.add(player.getUniqueId());
         }
     }
 
@@ -227,7 +232,7 @@ public final class PieceView implements View {
         syncPieceLocation(event.piece(), world);
     }
 
-    private void onGameStop(final GameStopEvent event) {
+    private void onGameWin(final GameWinEvent event) {
         clearAllTileBorders();
     }
 
@@ -271,6 +276,17 @@ public final class PieceView implements View {
         if (player != null) {
             player.setWorldBorder(null);
         }
+    }
+
+    private void restoreSpectators() {
+        for (UUID playerId : spectatingPlayers) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                player.setGameMode(GameMode.SURVIVAL);
+            }
+        }
+
+        spectatingPlayers.clear();
     }
 
     private void syncPieceLocation(final Entity piece, final World world) {

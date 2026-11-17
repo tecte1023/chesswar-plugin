@@ -20,8 +20,8 @@ public final class ChessWar extends JavaPlugin {
     public void onEnable() {
         var board = new BoardContext();
         var eventBus = new SimulationEventBus();
-        var pieceLifecycle = new PieceLifecycle(eventBus);
-        var gameLifecycle = new GameLifecycle(eventBus);
+        var pieceLifecycle = PieceLifecycle.create(eventBus);
+        var gameLifecycle = GameLifecycle.create(eventBus);
         pieceView = PieceView.create(board, eventBus);
         GameView.create(gameLifecycle, eventBus);
 
