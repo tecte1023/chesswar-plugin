@@ -11,10 +11,12 @@ import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceLifecycle;
 import dev.tecte.chesswar.piece.PieceListener;
 import dev.tecte.chesswar.piece.PieceView;
+import dev.tecte.chesswar.piece.TurnBorderView;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ChessWar extends JavaPlugin {
     private PieceView pieceView;
+    private TurnBorderView turnBorderView;
 
     @Override
     public void onEnable() {
@@ -23,6 +25,7 @@ public final class ChessWar extends JavaPlugin {
         var pieceLifecycle = PieceLifecycle.create(eventBus);
         var gameLifecycle = GameLifecycle.create(eventBus);
         pieceView = PieceView.create(board, eventBus);
+        turnBorderView = TurnBorderView.create(board, eventBus);
         GameView.create(gameLifecycle, eventBus);
 
         var commandManager = new PaperCommandManager(this);
@@ -36,6 +39,10 @@ public final class ChessWar extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (turnBorderView != null) {
+            turnBorderView.cleanup();
+        }
+
         if (pieceView != null) {
             pieceView.cleanup();
         }

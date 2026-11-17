@@ -1,15 +1,11 @@
 package dev.tecte.chesswar.piece;
 
 import dev.tecte.chesswar.board.BoardContext;
-import dev.tecte.chesswar.board.BoardState;
 import dev.tecte.chesswar.board.GridComponent;
-import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.View;
 import dev.tecte.chesswar.game.GameStartEvent;
-import dev.tecte.chesswar.game.GameWinEvent;
-import dev.tecte.chesswar.game.TurnStartEvent;
 import dev.tecte.chesswar.game.TurnTimeoutEvent;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MythicMob;
@@ -23,14 +19,11 @@ import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.World;
-import org.bukkit.WorldBorder;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,10 +37,7 @@ public final class PieceView implements View {
     private final BoardContext board;
     private final MobExecutor mobManager = (MobExecutor) MythicProvider.get().getMobManager();
     private final Map<Integer, UUID> visualEntities = new HashMap<>();
-    private final List<Entity> battlePieces = new ArrayList<>();
-    private final Set<UUID> borderedPlayers = new HashSet<>();
     private final Set<UUID> spectatingPlayers = new HashSet<>();
-    private Entity currentTurnPiece;
 
     public static PieceView create(final BoardContext board, final SimulationEventBus eventBus) {
         var view = new PieceView(board);
@@ -59,15 +49,12 @@ public final class PieceView implements View {
         eventBus.subscribe(PieceDeathEvent.class, view::onPieceDeath);
         eventBus.subscribe(PieceClearEvent.class, view::onPieceClear);
         eventBus.subscribe(GameStartEvent.class, view::onGameStart);
-        eventBus.subscribe(TurnStartEvent.class, view::onTurnStart);
         eventBus.subscribe(TurnTimeoutEvent.class, view::onTurnTimeout);
-        eventBus.subscribe(GameWinEvent.class, view::onGameWin);
 
         return view;
     }
 
     public void cleanup() {
-        clearAllTileBorders();
         restoreSpectators();
 
         for (UUID visualId : visualEntities.values()) {
@@ -159,10 +146,6 @@ public final class PieceView implements View {
 
     private void onPieceDeath(final PieceDeathEvent event) {
         Entity piece = event.piece();
-        if (piece.hasComponent(PlayerComponent.class)) {
-            clearTileBorder(piece);
-        }
-
         UUID visualId = visualEntities.remove(piece.id());
         if (visualId == null) {
             log.warn("사망한 기물의 엔티티 정보를 찾을 수 없습니다: pieceId={}", piece.id());
@@ -182,10 +165,6 @@ public final class PieceView implements View {
     }
 
     private void onGameStart(final GameStartEvent event) {
-        battlePieces.clear();
-        battlePieces.addAll(event.pieces());
-        currentTurnPiece = null;
-
         World world = findWorld();
         if (world == null) {
             return;
@@ -196,33 +175,6 @@ public final class PieceView implements View {
         }
     }
 
-    private void onTurnStart(final TurnStartEvent event) {
-        Entity nextPiece = event.piece();
-        if (currentTurnPiece == null) {
-            for (Entity piece : battlePieces) {
-                if (piece.equals(nextPiece)) {
-                    clearTileBorder(piece);
-                } else if (!piece.component(CombatComponent.class).isDead()) {
-                    applyTileBorder(piece);
-                }
-            }
-
-            battlePieces.clear();
-            currentTurnPiece = nextPiece;
-            return;
-        }
-
-        if (!currentTurnPiece.equals(nextPiece)) {
-            if (!currentTurnPiece.component(CombatComponent.class).isDead()) {
-                applyTileBorder(currentTurnPiece);
-            }
-
-            clearTileBorder(nextPiece);
-        }
-
-        currentTurnPiece = nextPiece;
-    }
-
     private void onTurnTimeout(final TurnTimeoutEvent event) {
         World world = findWorld();
         if (world == null) {
@@ -230,52 +182,6 @@ public final class PieceView implements View {
         }
 
         syncPieceLocation(event.piece(), world);
-    }
-
-    private void onGameWin(final GameWinEvent event) {
-        clearAllTileBorders();
-    }
-
-    private void applyTileBorder(final Entity piece) {
-        UUID playerId = piece.component(PlayerComponent.class).playerId();
-        Player player = Bukkit.getPlayer(playerId);
-        if (player == null) {
-            return;
-        }
-
-        GridPoint gridPos = piece.component(GridComponent.class).gridPos();
-        Vector center = board.toWorldPos(gridPos);
-        WorldBorder border = Bukkit.createWorldBorder();
-        border.setCenter(center.getX(), center.getZ());
-        border.setSize(BoardState.TILE_SIZE);
-        border.setWarningDistance(0);
-        border.setWarningTime(0);
-        border.setDamageAmount(0);
-        player.setWorldBorder(border);
-        borderedPlayers.add(playerId);
-    }
-
-    private void clearTileBorder(final Entity piece) {
-        UUID playerId = piece.component(PlayerComponent.class).playerId();
-        clearPlayerBorder(playerId);
-        borderedPlayers.remove(playerId);
-    }
-
-    private void clearAllTileBorders() {
-        for (UUID playerId : borderedPlayers) {
-            clearPlayerBorder(playerId);
-        }
-
-        borderedPlayers.clear();
-        battlePieces.clear();
-        currentTurnPiece = null;
-    }
-
-    private void clearPlayerBorder(final UUID playerId) {
-        Player player = Bukkit.getPlayer(playerId);
-        if (player != null) {
-            player.setWorldBorder(null);
-        }
     }
 
     private void restoreSpectators() {
