@@ -1,7 +1,8 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.piece.bukkit;
 
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.game.GameLifecycle;
+import dev.tecte.chesswar.piece.PieceLifecycle;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;

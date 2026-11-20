@@ -7,12 +7,12 @@ import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.game.GameCommand;
 import dev.tecte.chesswar.game.GameLifecycle;
 import dev.tecte.chesswar.game.GameView;
-import dev.tecte.chesswar.piece.PieceCommand;
 import dev.tecte.chesswar.piece.PieceLifecycle;
-import dev.tecte.chesswar.piece.PieceListener;
-import dev.tecte.chesswar.piece.PieceView;
-import dev.tecte.chesswar.piece.PlayerSessionListener;
-import dev.tecte.chesswar.piece.TurnBorderView;
+import dev.tecte.chesswar.piece.bukkit.PieceCommand;
+import dev.tecte.chesswar.piece.bukkit.PieceListener;
+import dev.tecte.chesswar.piece.bukkit.PieceView;
+import dev.tecte.chesswar.piece.bukkit.PlayerSessionListener;
+import dev.tecte.chesswar.piece.bukkit.TurnBorderView;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ChessWar extends JavaPlugin {

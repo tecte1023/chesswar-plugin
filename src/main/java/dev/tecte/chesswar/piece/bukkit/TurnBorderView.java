@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.piece.bukkit;
 
 import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.BoardState;
@@ -10,6 +10,10 @@ import dev.tecte.chesswar.core.View;
 import dev.tecte.chesswar.game.GameStartEvent;
 import dev.tecte.chesswar.game.GameWinEvent;
 import dev.tecte.chesswar.game.TurnStartEvent;
+import dev.tecte.chesswar.piece.CombatComponent;
+import dev.tecte.chesswar.piece.PieceClearEvent;
+import dev.tecte.chesswar.piece.PieceDeathEvent;
+import dev.tecte.chesswar.piece.PlayerComponent;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import org.bukkit.Bukkit;
@@ -52,13 +56,13 @@ public final class TurnBorderView implements View {
         currentTurnPiece = null;
     }
 
-    public void onPlayerQuit(final Player player) {
+    void onPlayerQuit(final Player player) {
         if (borderedPlayers.remove(player.getUniqueId())) {
             player.setWorldBorder(null);
         }
     }
 
-    public void onPlayerJoin(final Player player, final Entity boundPiece, final boolean isTurnOwner) {
+    void onPlayerJoin(final Player player, final Entity boundPiece, final boolean isTurnOwner) {
         if (boundPiece == null || boundPiece.component(CombatComponent.class).isDead() || isTurnOwner) {
             return;
         }

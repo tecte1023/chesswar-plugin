@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.piece.bukkit;
 
 import co.aikar.commands.annotation.Default;
 import co.aikar.commands.annotation.Subcommand;
@@ -6,6 +6,12 @@ import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.ChessWarCommand;
 import dev.tecte.chesswar.core.Messages;
+import dev.tecte.chesswar.piece.BindResult;
+import dev.tecte.chesswar.piece.PieceLifecycle;
+import dev.tecte.chesswar.piece.PieceSetupResult;
+import dev.tecte.chesswar.piece.PieceType;
+import dev.tecte.chesswar.piece.SpawnResult;
+import dev.tecte.chesswar.piece.Team;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

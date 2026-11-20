@@ -1,10 +1,14 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.piece.bukkit;
 
 import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.GridPoint;
 import dev.tecte.chesswar.core.Entity;
 import dev.tecte.chesswar.core.Messages;
 import dev.tecte.chesswar.game.GameLifecycle;
+import dev.tecte.chesswar.piece.AttackResult;
+import dev.tecte.chesswar.piece.CombatComponent;
+import dev.tecte.chesswar.piece.MoveResult;
+import dev.tecte.chesswar.piece.PieceLifecycle;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;

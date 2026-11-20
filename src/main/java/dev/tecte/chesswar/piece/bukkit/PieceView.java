@@ -1,4 +1,4 @@
-package dev.tecte.chesswar.piece;
+package dev.tecte.chesswar.piece.bukkit;
 
 import dev.tecte.chesswar.board.BoardContext;
 import dev.tecte.chesswar.board.GridComponent;
@@ -7,6 +7,17 @@ import dev.tecte.chesswar.core.SimulationEventBus;
 import dev.tecte.chesswar.core.View;
 import dev.tecte.chesswar.game.GameStartEvent;
 import dev.tecte.chesswar.game.TurnTimeoutEvent;
+import dev.tecte.chesswar.piece.CombatComponent;
+import dev.tecte.chesswar.piece.PieceBindEvent;
+import dev.tecte.chesswar.piece.PieceClearEvent;
+import dev.tecte.chesswar.piece.PieceComponent;
+import dev.tecte.chesswar.piece.PieceDeathEvent;
+import dev.tecte.chesswar.piece.PieceMoveEvent;
+import dev.tecte.chesswar.piece.PieceSpawnEvent;
+import dev.tecte.chesswar.piece.PieceType;
+import dev.tecte.chesswar.piece.PiecesSpawnEvent;
+import dev.tecte.chesswar.piece.PlayerComponent;
+import dev.tecte.chesswar.piece.Team;
 import io.lumine.mythic.api.MythicProvider;
 import io.lumine.mythic.api.mobs.MythicMob;
 import io.lumine.mythic.bukkit.BukkitAdapter;
@@ -64,7 +75,7 @@ public final class PieceView implements View {
         visualEntities.clear();
     }
 
-    public void onPlayerQuit(final Player player) {
+    void onPlayerQuit(final Player player) {
         UUID playerId = player.getUniqueId();
         if (visualEntities.containsValue(playerId)) {
             resetPlayerAttributes(player);
@@ -75,7 +86,7 @@ public final class PieceView implements View {
         }
     }
 
-    public void onPlayerJoin(final Player player, final Entity boundPiece) {
+    void onPlayerJoin(final Player player, final Entity boundPiece) {
         if (spectatingPlayers.contains(player.getUniqueId())) {
             player.setGameMode(GameMode.SPECTATOR);
             return;
