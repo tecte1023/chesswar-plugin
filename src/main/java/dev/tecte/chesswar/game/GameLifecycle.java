@@ -158,6 +158,10 @@ public final class GameLifecycle implements Tickable {
         eventBus.publish(new TurnStartEvent(nextPiece));
     }
 
+    public boolean isWaiting() {
+        return phase == GamePhase.WAITING;
+    }
+
     public boolean isBattle() {
         return phase == GamePhase.BATTLE;
     }
